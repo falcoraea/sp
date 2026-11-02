@@ -2,48 +2,57 @@ import { supa, errMsg, configured } from './supa.js';
 import { esc, icon, modal, toast } from './ui.js';
 import { APP_NAME } from './config.js';
 
-const bars = () => Array.from({ length: 34 }, (_, i) => `<i style="height:${[34, 22, 34, 28, 34, 18][i % 6]}px;width:${[3, 2, 4, 2, 3, 5][i % 6]}px"></i>`).join('');
+const dayStr = () => new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+const fmtD = (v) => new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short' }).format(new Date(v));
+const initials = (n) => (n || 'SG').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 
-const FEATS = [
-  ['scan', 'Setiap barang di-scan', 'Masuk, ambil, packing, retur. Tidak ada yang lewat tanpa jejak.'],
-  ['shield', 'Deteksi kecurangan', 'Barang hilang, kirim tanpa scan, retur tak kembali langsung ketahuan.'],
-  ['chart', 'Laba bersih harian', 'Omzet, omzet lunas, profit kotor sampai laba setelah gaji.'],
-  ['upload', 'Upload file Shopee', 'Ratusan resi masuk sekali upload, langsung jadi tugas pegawai.']
-];
+function annCards(items) {
+  if (!items.length) return '<div class="ann-empty">Belum ada pengumuman.</div>';
+  return items.map((a) => `<article class="ann ${a.pinned ? 'pin' : ''}">
+    <div class="ann-meta">${a.pinned ? `<span class="ann-pin">${icon('alert', 14)} Penting</span>` : ''}<span>${esc(fmtD(a.created_at))}</span></div>
+    <h3>${esc(a.title)}</h3>${a.body ? `<p>${esc(a.body)}</p>` : ''}</article>`).join('');
+}
 
 export function renderLogin(root, { recovery = false } = {}) {
   root.innerHTML = `<div class="login">
-    <section class="login-brand" aria-hidden="true">
-      <div class="grid-bg"></div>
-      <div class="brand-mark"><span class="logo">SG</span>${esc(APP_NAME)}</div>
-      <div class="stack" style="gap:18px">
-        <div class="login-scan">${bars()}</div>
-        <h1>Tahu persis barang <em>masuk, keluar, dan hilang</em> ke mana.</h1>
-        <p>Satu aplikasi untuk owner, admin, sopir, kepala gudang, picker, dan packing — dari pesanan Shopee sampai laba bersih.</p>
+    <section class="login-brand">
+      <div class="brand-mark"><span class="logo" id="lg-ini">SG</span><span id="lg-name">${esc(APP_NAME)}</span></div>
+      <div class="ann-wrap">
+        <div class="ann-head"><span>${icon('bell', 18)} Pengumuman</span><span class="ann-date">${esc(dayStr())}</span></div>
+        <div class="ann-list" id="ann-desk"><div class="ann-empty">Memuat…</div></div>
       </div>
-      <div class="login-feats">${FEATS.map(([i, b, s]) => `<div class="login-feat">${icon(i, 22)}<div><b>${b}</b><span>${s}</span></div></div>`).join('')}</div>
+      <div class="login-legal">Akses hanya untuk pegawai. Akun dibuat oleh owner.</div>
     </section>
     <section class="login-side">
       <div class="login-card">
         <div class="login-top">
-          <div class="brand-mark"><span class="logo">SG</span>${esc(APP_NAME)}</div>
-          <h1>Stok, packing &amp; laba dalam satu aplikasi</h1>
-          <p>Masuk dengan akun yang dibuat owner.</p>
+          <div class="brand-mark"><span class="logo" id="lg-ini-m">SG</span><div><b id="lg-name-m">${esc(APP_NAME)}</b><div class="lt-date">${esc(dayStr())}</div></div></div>
         </div>
         <div id="login-body"></div>
+        <section class="ann-mobile hidden" id="ann-mob-wrap"><div class="ann-head"><span>${icon('bell', 18)} Pengumuman</span></div><div class="ann-list" id="ann-mob"></div></section>
         <div class="login-foot">Belum punya akun? Minta owner membuatkan akun untukmu.<br><button class="btn btn-ghost btn-sm hidden" id="install-btn" style="margin-top:10px">${icon('install', 18)} Pasang aplikasi di HP / laptop</button></div>
       </div>
     </section>
   </div>`;
   const body = root.querySelector('#login-body');
   if (!configured) {
-    body.innerHTML = `<h2>Atur Supabase dulu</h2><div class="alert yellow" style="margin-top:12px">Buka file <b>js/config.js</b>, isi <b>SUPABASE_URL</b> dan <b>SUPABASE_ANON_KEY</b> dari Supabase › Project Settings › API, lalu upload ulang ke GitHub. Langkah lengkapnya ada di README.md.</div>`;
+    body.innerHTML = `<h2>Atur Supabase dulu</h2><div class="alert yellow" style="margin-top:12px">Buka file <b>js/config.js</b>, isi <b>SUPABASE_URL</b> dan <b>SUPABASE_ANON_KEY</b>, lalu upload ulang ke GitHub.</div>`;
     return;
   }
   recovery ? newPasswordForm(body) : loginForm(body);
   const ib = root.querySelector('#install-btn');
   if (window.__installPrompt) ib.classList.remove('hidden');
   ib.onclick = () => window.__installPrompt && window.__installPrompt.prompt();
+  // pengumuman dari owner (boleh dibaca sebelum login)
+  supa.rpc('login_board').then(({ data, error }) => {
+    if (error || !data) { root.querySelector('#ann-desk').innerHTML = annCards([]); return; }
+    const name = data.nama_toko || APP_NAME;
+    ['#lg-name', '#lg-name-m'].forEach((s) => { const e = root.querySelector(s); if (e) e.textContent = name; });
+    ['#lg-ini', '#lg-ini-m'].forEach((s) => { const e = root.querySelector(s); if (e) e.textContent = initials(name); });
+    const items = data.items || [];
+    root.querySelector('#ann-desk').innerHTML = annCards(items);
+    if (items.length) { root.querySelector('#ann-mob').innerHTML = annCards(items); root.querySelector('#ann-mob-wrap').classList.remove('hidden'); }
+  });
 }
 
 function pwField(id, label, auto) {
