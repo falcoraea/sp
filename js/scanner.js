@@ -24,12 +24,15 @@ export function bindScan(root, id, onScan, { autofocus = true } = {}) {
   let busy = false, times = [], idleTimer = null;
   const fire = async (code) => {
     code = String(code || '').replace(/[\r\n\t]/g, '').trim();
-    if (!code || busy) return;
+    if (!code || busy) return null;
     busy = true;
     try {
-      const ok = await onScan(code);
+      const res = await onScan(code);
+      const r = res && typeof res === 'object' ? res : { ok: res !== false };
       form.classList.remove('scan-flash', 'bad'); void form.offsetWidth;
-      form.classList.add('scan-flash'); if (ok === false) form.classList.add('bad');
+      form.classList.add('scan-flash'); if (!r.ok) form.classList.add('bad');
+      showScanResult({ code, ...r });
+      return r;
     } finally { busy = false; }
   };
   const submit = () => { clearTimeout(idleTimer); const v = inp.value; inp.value = ''; times = []; fire(v); };
@@ -84,6 +87,27 @@ document.addEventListener('keydown', (e) => {
   }, 150);
 });
 
+// Pop-up hasil scan: hijau = berhasil, merah = gagal. Hilang sendiri, atau ketuk untuk menutup.
+let popEl = null, popTimer = null;
+export function showScanResult({ ok, code, title, info }) {
+  if (!popEl) {
+    popEl = document.createElement('div');
+    popEl.className = 'scan-pop';
+    popEl.setAttribute('role', 'status');
+    popEl.addEventListener('click', () => popEl.classList.remove('show'));
+    document.body.appendChild(popEl);
+  }
+  popEl.className = 'scan-pop ' + (ok ? 'ok' : 'bad');
+  popEl.innerHTML = `<div class="sp-ic">${icon(ok ? 'check' : 'x', 30, 3)}</div>
+    <div class="sp-body"><div class="sp-st">${ok ? 'Scan berhasil' : 'Scan gagal'}</div>
+    <div class="sp-title">${esc(title || (ok ? 'Kode diterima' : 'Kode tidak dikenali'))}</div>
+    <div class="sp-code">${esc(code || '')}</div>${info ? `<div class="sp-info">${esc(info)}</div>` : ''}</div>`;
+  document.body.appendChild(popEl);          // pastikan di atas kamera
+  requestAnimationFrame(() => popEl.classList.add('show'));
+  clearTimeout(popTimer);
+  popTimer = setTimeout(() => popEl.classList.remove('show'), ok ? 1800 : 2800);
+}
+
 const FORMATS = ['code_128', 'ean_13', 'ean_8', 'code_39', 'code_93', 'upc_a', 'upc_e', 'itf', 'codabar', 'qr_code', 'data_matrix'];
 
 // Kamera HP. Dibuat lebih tahan untuk barcode panjang (Code128 13+ karakter):
@@ -97,6 +121,7 @@ export async function openCamera(onCode, { continuous = true, title = 'Arahkan k
     <div class="cam-top"><span>${esc(title)}</span><button class="btn btn-sm" data-close>Tutup</button></div>
     <div class="cam-bar"><div class="cam-tip">Isi kotak kuning dengan barcode (jarak ±10–20 cm). Dari layar laptop, miringkan HP sedikit supaya tidak ada garis-garis.</div>
       <div class="cam-last" aria-live="polite"></div>
+      <label class="cam-keep"><input type="checkbox" data-keep> Scan terus (kamera tidak menutup setelah berhasil)</label>
       <div class="row"><button class="btn grow" data-torch style="display:none">Senter</button><button class="btn grow" data-zoom style="display:none">Zoom 2×</button><button class="btn btn-primary grow" data-close>Selesai</button></div></div>`;
   document.body.appendChild(wrap);
   const video = wrap.querySelector('video');
@@ -110,13 +135,20 @@ export async function openCamera(onCode, { continuous = true, title = 'Arahkan k
   };
   wrap.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', stop));
 
+  const keep = wrap.querySelector('[data-keep]');
+  try { keep.checked = localStorage.getItem('cam-keep') === '1'; } catch (_) {}
+  keep.addEventListener('change', () => { try { localStorage.setItem('cam-keep', keep.checked ? '1' : '0'); } catch (_) {} });
+  let handling = false;
   const handle = async (code) => {
     const now = Date.now();
-    if (!code || (code === lastCode && now - lastAt < 1800)) return;
-    lastCode = code; lastAt = now;
+    if (!code || handling || (code === lastCode && now - lastAt < 2500)) return;
+    handling = true; lastCode = code; lastAt = now;
     last.textContent = code;
-    await onCode(code);
-    if (!continuous) stop();
+    try {
+      const r = await onCode(code);
+      const ok = r ? r.ok !== false : true;
+      if (ok && !keep.checked) setTimeout(stop, 350);   // berhasil -> kamera menutup, hasil tetap tampil
+    } finally { handling = false; }
   };
 
   try {
