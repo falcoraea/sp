@@ -10,4 +10,4 @@ export const SUPABASE_URL = 'https://ejifzuenpdeojqauazlg.supabase.co';
 export const SUPABASE_ANON_KEY = 'sb_publishable_FnSdKP7-0YdzX5onpm49xg_NaljtdI7';
 
 export const APP_NAME = 'Stok Gudang';
-export const APP_VERSION = '1.3.0';
+export const APP_VERSION = '1.4.0';
