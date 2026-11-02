@@ -34,8 +34,8 @@ export default {
     if (canProcess) bindScan(el, 'sb', async (code) => {
       const c = code.replace(/[^\w-]/g, '');
       const { data } = await supa.from('returns').select('id').eq('status', 'menunggu').or(`resi.ilike.${c},order_no.ilike.${c},return_no.ilike.${c}`).limit(1);
-      if (!data?.length) { beep(false); toast('Tidak ada retur / cancel menunggu untuk ' + code, 'err'); return false; }
-      beep(true); processReturn(data[0].id, load); return true;
+      if (!data?.length) { beep(false); return { ok: false, title: 'Tidak ada retur / cancel menunggu', info: 'Cek no. resi / pesanan' }; }
+      beep(true); processReturn(data[0].id, load); return { ok: true, title: 'Retur / cancel ditemukan', info: 'Pilih kondisi barang' };
     });
     load();
   }
