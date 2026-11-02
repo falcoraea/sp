@@ -120,8 +120,8 @@ async function tabOpname(box) {
       <button class="btn btn-primary btn-lg" id="save">Simpan stok opname rak ${esc(rack)}</button></div>`;
     bindScan(op, 'osb', (code) => {
       const inp = [...op.querySelectorAll('[data-sku]')].find((i) => skuMatch(code, i.dataset.sku));
-      if (!inp) { beep(false); toast('Barang ini tidak terdaftar di rak ' + rack, 'err'); return false; }
-      inp.value = (parseInt(inp.value, 10) || 0) + 1; beep(true); return true;
+      if (!inp) { beep(false); return { ok: false, title: 'Bukan barang rak ' + rack, info: 'Barang ini tidak terdaftar di rak ini' }; }
+      inp.value = (parseInt(inp.value, 10) || 0) + 1; beep(true); return { ok: true, title: inp.closest('.list-item')?.querySelector('b')?.textContent || 'Barang', info: 'Hitungan sekarang: ' + inp.value };
     });
     op.querySelector('#save').onclick = async (ev) => {
       const items = [...op.querySelectorAll('[data-count]')].filter((i) => i.value !== '').map((i) => ({ product_id: +i.dataset.count, counted: parseInt(i.value, 10) || 0 }));
