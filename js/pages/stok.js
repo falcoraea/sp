@@ -1,6 +1,6 @@
 import { supa, rpc } from '../supa.js';
 import { store, nameOf } from '../store.js';
-import { esc, rp, num, fmtDateTime, chips, on, modal, toast, toastErr, pageHead, emptyState, skeleton, debounce, icon, loadScript, beep } from '../ui.js';
+import { esc, rp, num, fmtDateTime, chips, on, modal, toast, toastErr, pageHead, emptyState, skeleton, debounce, icon, loadScript, beep, skuMatch } from '../ui.js';
 import { scanBox, bindScan } from '../scanner.js';
 
 const MOV = { initial: 'Stok awal', in_win: 'Masuk dari WIN', pick: 'Diambil picker', to_packing: 'Langsung ke packing', pack_no_pick: 'Dipacking tanpa pick', return_good: 'Retur baik kembali', return_damaged: 'Retur rusak → karantina', opname: 'Stok opname', adjust: 'Penyesuaian manual', move_rack: 'Pindah rak' };
@@ -50,8 +50,8 @@ async function tabBarang(box) {
   box.querySelector('#q').addEventListener('input', debounce((e) => { search = e.target.value.trim().replace(/[,%()]/g, ''); load(); }, 300));
   box.querySelector('#q').addEventListener('keydown', async (e) => {
     if (e.key !== 'Enter') return;
-    const { data } = await supa.from('products').select('id').eq('sku', e.target.value.trim()).maybeSingle();
-    if (data) { e.target.value = ''; openProduct(data.id, load); }
+    const id = await rpc('find_product', { p_code: e.target.value.trim() }).catch(() => null);
+    if (id) { e.target.value = ''; openProduct(id, load); }
   });
   on(box, 'click', '[data-chips="f"] .chip', (e, b) => { filter = b.dataset.v; b.parentElement.querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', c === b)); load(); });
   on(box, 'click', '[data-p]', (e, b) => openProduct(+b.dataset.p, () => { load(); kpi(); }));
@@ -119,7 +119,7 @@ async function tabOpname(box) {
         <input class="input num" style="width:90px" inputmode="numeric" data-count="${p.id}" data-sku="${esc(p.sku)}" placeholder="0" aria-label="Jumlah fisik ${esc(p.name)}"></div>`).join('')}</div>
       <button class="btn btn-primary btn-lg" id="save">Simpan stok opname rak ${esc(rack)}</button></div>`;
     bindScan(op, 'osb', (code) => {
-      const inp = op.querySelector(`[data-sku="${CSS.escape(code)}"]`);
+      const inp = [...op.querySelectorAll('[data-sku]')].find((i) => skuMatch(code, i.dataset.sku));
       if (!inp) { beep(false); toast('Barang ini tidak terdaftar di rak ' + rack, 'err'); return false; }
       inp.value = (parseInt(inp.value, 10) || 0) + 1; beep(true); return true;
     });

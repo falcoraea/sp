@@ -59,15 +59,17 @@ export const SUPABASE_ANON_KEY = 'eyJhbGciOi...';
    - **Site URL**: alamat GitHub Pages tadi
    - **Redirect URLs**: tambahkan alamat yang sama (dipakai untuk fitur “Lupa password”)
 
-## Langkah 4 — Mulai pakai
+## Langkah 4 — Mulai pakai (atau coba dulu dengan folder `simulasi/`)
+
+Folder `simulasi/` berisi data contoh: 20 barang asli dari pricelist WIN, 10 rak, stok fisik, 12 pesanan Shopee, dan PDF barcode. Upload berurutan di menu **Upload file**: 1 → 2 → 3 (login sebagai owner / kepala gudang), lalu 4.
+
 
 1. Buka alamat aplikasi, lalu login sebagai owner. Panduan pengenalan muncul otomatis (bisa dilewati).
 2. **Pegawai & jabatan › Tambah pegawai**: buat akun untuk admin, sopir, kepala gudang, picker, dan packing.
    Isi gaji pokok dan uang makan per hari, lalu kirim email & password ke masing-masing pegawai.
-3. **Stok & rak › Rak & label**: buat kode rak (mis. A-01, A-02, B-01) dan cetak labelnya.
-4. **Upload file Shopee › Pricelist WIN**: upload daftar harga dari WIN (kolom Kode, Nama, Macallan).
-   Harga 5% dan harga beli dihitung otomatis.
-5. Kepala gudang mengisi **stok awal** per barang (Stok & rak › pilih barang › Isi stok awal) dan memasang rak.
+3. **Upload file › Pricelist WIN**: upload file pricelist WIN apa adanya (sheet “ALL PRICELIST” dipilih otomatis; kolom PART NUMBER, NAMA BARANG, HARGA). Harga 5% dan harga beli dihitung otomatis.
+4. **Upload file › Kode rak**: daftar kode rak (atau buat manual di Stok & rak › Rak & label), lalu cetak labelnya.
+5. **Upload file › Stok fisik per rak** (owner / kepala gudang): file berisi Kode Rak, Part Number, Jumlah Fisik. Rak tiap barang dan stok awalnya terisi sekaligus.
 6. Setiap pagi admin meng-upload file **Pesanan** dari Shopee Seller Center. Setelah itu sistem berjalan sendiri:
    - Barang yang ada di gudang → daftar **Picker**
    - Barang yang kurang → daftar **Beli WIN** → tugas **Sopir** → di-scan **Kepala Gudang** → langsung ke meja **Packing**
@@ -79,6 +81,10 @@ export const SUPABASE_ANON_KEY = 'eyJhbGciOi...';
 
 - **Android (Chrome)**: buka alamat aplikasi, lalu ketuk menu ⋮ › **Tambahkan ke layar utama / Instal aplikasi**.
 - **iPhone (Safari)**: ketuk tombol Bagikan › **Tambah ke Layar Utama**.
+
+## Kode barang & barcode
+
+Kode dicocokkan tanpa tanda baca dan huruf besar/kecil, jadi `01-B38-305-47AA` (pricelist), `01B3830547AA` dan barcode `01B3830547AA1` (seperti di rekap / label barang, ada angka tambahan di akhir) dianggap barang yang sama.
 
 ## Scan barcode
 

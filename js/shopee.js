@@ -42,6 +42,16 @@ export const TYPES = {
     },
     required: ['order_no', 'amount'], labels: { order_no: 'No. Pesanan', amount: 'Dana cair', paid_at: 'Tanggal cair' }
   },
+  rak: {
+    label: 'Kode rak', desc: 'Daftar kode rak gudang (mis. A-01, A-02). Bisa juga dibuat manual di Stok & rak.',
+    fields: { code: ['Kode Rak', 'Rak', 'Kode'], note: ['Keterangan', 'Catatan', 'Isi Rak'] },
+    required: ['code'], labels: { code: 'Kode rak', note: 'Keterangan' }
+  },
+  stok_awal: {
+    label: 'Stok fisik per rak', desc: 'Hasil hitung fisik awal: rak, kode barang, jumlah. Mengisi stok & lokasi rak sekaligus.',
+    fields: { rack: ['Kode Rak', 'Rak', 'Lokasi'], sku: ['Part Number', 'Kode Barang', 'Kode', 'Barcode', 'SKU'], name: ['Nama Barang', 'Nama'], qty: ['Jumlah Fisik', 'Jumlah', 'Qty', 'Stok', 'Stock'] },
+    required: ['rack', 'sku', 'qty'], labels: { rack: 'Kode rak', sku: 'Kode barang', name: 'Nama (tidak wajib)', qty: 'Jumlah fisik' }
+  },
   pricelist: {
     label: 'Pricelist WIN', desc: 'Harga terbaru dari pabrik (Macallan). Harga 5% & harga beli dihitung otomatis.',
     fields: {
@@ -58,15 +68,25 @@ export async function readSheet(file) {
   const X = await xlsx();
   const buf = await file.arrayBuffer();
   const wb = X.read(buf, { type: 'array', cellDates: false });
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  return X.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+  // file bisa punya banyak sheet (mis. pricelist WIN: SAMPUL, Daftar Isi, ALL PRICELIST) -> pilih sheet yang paling mirip tabel data
+  let best = null;
+  for (const name of wb.SheetNames) {
+    const rows = X.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: false, defval: '' });
+    const d = detect(rows);
+    const score = d.score * 100000 + rows.length;
+    if (!best || score > best.score) best = { rows, score, name };
+  }
+  return best ? best.rows : [];
 }
 
 function scoreRow(row, type) {
   const cells = row.map(norm);
-  let n = 0;
-  for (const aliases of Object.values(TYPES[type].fields)) if (aliases.some((a) => cells.includes(norm(a)))) n++;
-  return n;
+  let n = 0, missingReq = 0;
+  for (const [f, aliases] of Object.entries(TYPES[type].fields)) {
+    const hit = aliases.some((a) => cells.includes(norm(a)));
+    if (hit) n++; else if (TYPES[type].required.includes(f)) missingReq++;
+  }
+  return n - missingReq * 2;
 }
 
 export function detect(rows) {
@@ -89,14 +109,19 @@ export function findHeaderRow(rows, type) {
   return best;
 }
 
-export function autoMap(headers, type) {
+export function autoMap(headers, type, rows = [], headerRow = 0) {
   const saved = JSON.parse(localStorage.getItem('map-' + type) || '{}');
   const H = headers.map(norm);
   const map = {};
+  const sample = rows.slice(headerRow + 1, headerRow + 80);
+  const fill = (i) => sample.reduce((a, r) => a + String(r[i] ?? '').trim().length, 0);
   for (const [f, aliases] of Object.entries(TYPES[type].fields)) {
     if (saved[f] && headers.includes(saved[f])) { map[f] = headers.indexOf(saved[f]); continue; }
     let idx = -1;
-    for (const a of aliases) { idx = H.indexOf(norm(a)); if (idx > -1) break; }
+    for (const a of aliases) {
+      const all = H.map((h, i) => (h === norm(a) ? i : -1)).filter((i) => i > -1);
+      if (all.length) { idx = all.length > 1 && sample.length ? all.sort((x, y) => fill(y) - fill(x))[0] : all[0]; break; }
+    }
     if (idx === -1) for (const a of aliases) { idx = H.findIndex((h) => h && h.includes(norm(a))); if (idx > -1) break; }
     map[f] = idx;
   }
@@ -146,6 +171,17 @@ export function build(rows, headerRow, type, map) {
       const no = get(r, 'order_no'); if (!no) continue;
       const prev = m.get(no);
       m.set(no, { order_no: no, amount: (prev?.amount || 0) + parseNum(get(r, 'amount')), paid_at: toTs(get(r, 'paid_at')) });
+    }
+    return { rows: [...m.values()] };
+  }
+  if (type === 'rak') return { rows: uniq(data.map((r) => ({ code: get(r, 'code').toUpperCase(), note: get(r, 'note') })).filter((x) => x.code), 'code') };
+  if (type === 'stok_awal') {
+    const m = new Map();
+    for (const r of data) {
+      const sku = get(r, 'sku'); if (!sku) continue;
+      const rack = get(r, 'rack').toUpperCase(); const k = rack + '|' + sku;
+      const prev = m.get(k);
+      m.set(k, { rack, sku, name: get(r, 'name'), qty: (prev?.qty || 0) + Math.max(0, Math.round(parseNum(get(r, 'qty')))) });
     }
     return { rows: [...m.values()] };
   }

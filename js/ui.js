@@ -43,6 +43,14 @@ export function parseNum(v) {
   return neg ? -n : n;
 }
 
+// kode barang: '01-B38-305-47AA' = '01B3830547AA' = barcode '01B3830547AA1'
+export const normSku = (s) => String(s ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+export function skuMatch(scan, sku) {
+  const a = normSku(scan), b = normSku(sku);
+  if (!a || !b) return false;
+  return a === b || (a.length > 6 && /[0-9]$/.test(a) && a.slice(0, -1) === b);
+}
+
 // ---------- dom ----------
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];

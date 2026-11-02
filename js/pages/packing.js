@@ -1,6 +1,6 @@
 import { supa, rpc } from '../supa.js';
 import { store } from '../store.js';
-import { esc, on, toast, toastErr, emptyState, skeleton, beep, icon, photoField, bindPhoto, promptBox, statusTag, fmtDateTime } from '../ui.js';
+import { esc, on, toast, toastErr, emptyState, skeleton, beep, icon, photoField, bindPhoto, promptBox, statusTag, fmtDateTime, skuMatch, normSku } from '../ui.js';
 import { scanBox, bindScan } from '../scanner.js';
 
 export default {
@@ -77,7 +77,7 @@ export default {
 
     bindScan(el, 'sb', async (code) => {
       if (!order) return openOrder(code);
-      if (code === order.resi || code === order.order_no) { msg('Itu resi pesanan ini. Sekarang scan barangnya.', 'yellow'); return false; }
+      if (normSku(code) === normSku(order.resi) || normSku(code) === normSku(order.order_no)) { msg('Itu resi pesanan ini. Sekarang scan barangnya.', 'yellow'); return false; }
       try {
         const r = await rpc('pack_scan', { p_order: order.id, p_sku: code });
         if (!r.ok) {
@@ -90,7 +90,7 @@ export default {
           msg(`<b>${esc(r.msg)}</b>${r.wrong ? '<br>Tukar dulu barangnya sebelum lanjut.' : ''}`); return false;
         }
         beep(true); msg('');
-        const it = order.order_items.find((i) => i.packed_qty < i.qty && (i.products?.sku === code || i.sku === code));
+        const it = order.order_items.find((i) => i.packed_qty < i.qty && (skuMatch(code, i.products?.sku) || normSku(code) === normSku(i.sku)));
         if (it) it.packed_qty++;
         paint(); return true;
       } catch (e) { toastErr(e); return false; }

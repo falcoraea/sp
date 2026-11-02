@@ -3,7 +3,7 @@ export const PAGES = {
   dashboard:  { label: 'Dashboard', icon: 'home', roles: ['owner'], group: '' },
   masalah:    { label: 'Kecurangan & masalah', short: 'Masalah', icon: 'shield', roles: ['owner'], group: '' },
   pesanan:    { label: 'Pesanan', icon: 'bag', roles: ['owner', 'admin'], group: 'Penjualan' },
-  upload:     { label: 'Upload file Shopee', short: 'Upload', icon: 'upload', roles: ['owner', 'admin'], group: 'Penjualan' },
+  upload:     { label: 'Upload file', short: 'Upload', icon: 'upload', roles: ['owner', 'admin', 'kepala_gudang'], group: 'Penjualan' },
   retur:      { label: 'Retur & cancel', short: 'Retur', icon: 'ret', roles: ['owner', 'admin', 'kepala_gudang'], group: 'Penjualan' },
   rekap:      { label: 'Rekap harian', short: 'Rekap', icon: 'calendar', roles: ['owner', 'admin'], group: 'Penjualan' },
   beli:       { label: 'Beli WIN', icon: 'truck', roles: ['owner', 'admin'], group: 'Gudang' },

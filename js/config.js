@@ -6,8 +6,8 @@
 // Kunci "anon" memang aman ditaruh di sini (dibatasi oleh Row Level Security).
 // JANGAN pernah menaruh "service_role" key di file ini.
 // =====================================================================
-export const SUPABASE_URL = 'https://ejifzuenpdeojqauazlg.supabase.co';
-export const SUPABASE_ANON_KEY = 'sb_publishable_FnSdKP7-0YdzX5onpm49xg_NaljtdI7';
+export const SUPABASE_URL = 'https://ISI-PROJECT-KAMU.supabase.co';
+export const SUPABASE_ANON_KEY = 'ISI-ANON-KEY-KAMU';
 
 export const APP_NAME = 'Stok Gudang';
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.1.0';

@@ -3,7 +3,7 @@ import { store } from '../store.js';
 import { esc, num, rp, fmtDateTime, on, toast, toastErr, pageHead, icon, emptyState } from '../ui.js';
 import { TYPES, readSheet, detect, findHeaderRow, autoMap, saveMap, build } from '../shopee.js';
 
-const RPC = { pesanan: 'import_orders', pembatalan: 'import_cancels', pengembalian: 'import_returns', penghasilan: 'import_income', pricelist: 'import_pricelist' };
+const RPC = { pesanan: 'import_orders', pembatalan: 'import_cancels', pengembalian: 'import_returns', penghasilan: 'import_income', pricelist: 'import_pricelist', rak: 'import_racks', stok_awal: 'import_stock_awal' };
 const CHUNK = 150;
 
 export default {
@@ -13,11 +13,12 @@ export default {
     { sel: '#hist', title: 'Riwayat upload', body: 'Siapa upload apa dan kapan. Owner juga mendapat notifikasi setiap upload.' }
   ],
   async render(el) {
-    let type = 'pesanan', parsed = null;
+    const ALLOWED = { owner: Object.keys(TYPES), admin: ['pesanan', 'pembatalan', 'pengembalian', 'penghasilan', 'pricelist', 'rak'], kepala_gudang: ['rak', 'stok_awal'] }[store.role] || [];
+    let type = ALLOWED[0], parsed = null;
     const card = (t) => `<button class="type-card ${t === type ? 'on' : ''}" data-type="${t}"><b>${esc(TYPES[t].label)}</b><span class="xs muted">${esc(TYPES[t].desc)}</span><span class="tag" data-last="${t}">…</span></button>`;
     el.innerHTML = `${pageHead('Upload file Shopee', 'Ekspor dari Shopee Seller Center, lalu upload di sini. Data dicek dulu sebelum disimpan.')}
       <div class="stack" style="gap:16px">
-        <section><h2 class="sec-title" style="margin-bottom:8px">1. Pilih jenis file</h2><div class="grid gauto" id="types">${Object.keys(TYPES).map(card).join('')}</div></section>
+        <section><h2 class="sec-title" style="margin-bottom:8px">1. Pilih jenis file</h2><div class="grid gauto" id="types">${ALLOWED.map(card).join('')}</div></section>
         <section class="card"><h2 class="sec-title" style="margin-bottom:10px">2. Upload file</h2>
           <label class="dropzone" id="drop">${icon('upload', 34, 1.8)}<b>Tarik file .xlsx / .csv ke sini</b><span class="small muted">atau ketuk untuk memilih file</span>
           <input type="file" id="file" accept=".xlsx,.xls,.csv" class="sr"></label></section>
@@ -62,7 +63,7 @@ export default {
         const rows = await readSheet(file);
         if (!rows.length) throw new Error('File kosong');
         const d = detect(rows);
-        if (d.type && d.type !== type && d.score >= 2) {
+        if (d.type && d.type !== type && d.score >= 2 && ALLOWED.includes(d.type)) {
           type = d.type;
           el.querySelectorAll('[data-type]').forEach((c) => c.classList.toggle('on', c.dataset.type === type));
           toast('Terdeteksi sebagai file ' + TYPES[type].label);
@@ -77,7 +78,7 @@ export default {
       const hr = findHeaderRow(rows, type);
       const headers = rows[hr].map((h) => String(h).trim());
       const T = TYPES[type];
-      const map = autoMap(headers, type);
+      const map = autoMap(headers, type, rows, hr);
       const render = async () => {
         const missing = T.required.filter((f) => map[f] < 0);
         const data = build(rows, hr, type, map);
@@ -108,6 +109,13 @@ export default {
         } else {
           count = data.rows.length;
           stats = `<div class="stat green"><b>${num(count)}</b><span>baris terbaca</span></div>`;
+          if (type === 'stok_awal') {
+            const skus = [...new Set(data.rows.map((r) => r.sku))];
+            const found = await Promise.all(skus.slice(0, 400).map((c) => rpc('find_product', { p_code: c }).catch(() => null)));
+            const unknown = skus.slice(0, 400).filter((c, i) => !found[i]);
+            stats += `<div class="stat gray"><b>${num(data.rows.reduce((a, r) => a + r.qty, 0))}</b><span>total pcs</span></div><div class="stat gray"><b>${num(new Set(data.rows.map((r) => r.rack)).size)}</b><span>rak</span></div><div class="stat ${unknown.length ? 'yellow' : 'gray'}"><b>${num(unknown.length)}</b><span>kode belum ada di master (dilewati)</span></div>`;
+            extra = `<div class="small" style="line-height:1.7"><b>Yang terjadi setelah disimpan</b><br>• Rak dibuat otomatis kalau belum ada, dan setiap barang dipindah ke raknya<br>• Stok sistem disamakan dengan jumlah fisik di file (tercatat sebagai “Stok awal”)<br>${unknown.length ? `• Upload Pricelist WIN dulu untuk kode: <span class="mono xs">${unknown.slice(0, 10).map(esc).join(', ')}</span>` : ''}</div>`;
+          }
           if (type === 'penghasilan') stats += `<div class="stat gray"><b>${rp(data.rows.reduce((a, r) => a + r.amount, 0))}</b><span>total dana cair</span></div>`;
         }
         const sample = type === 'pesanan' ? data.orders.slice(0, 5).map((o) => [o.order_no, o.resi, o.shopee_status, o.items.map((i) => `${i.name} ×${i.qty}`).join('; ')]) : data.rows.slice(0, 5).map((r) => Object.values(r).map((v) => v ?? ''));
@@ -150,10 +158,10 @@ export default {
           }
           results.push([fn, agg]);
         }
-        const L = { total: 'Total', baru: 'Baru', dilewati: 'Dilewati', barang_gudang: 'Barang dari gudang', barang_win: 'Barang beli WIN', tidak_dikenal: 'Kode tidak dikenal', dikirim_tanpa_packing: 'Dikirim tanpa scan packing', perlu_dikembalikan: 'Perlu dikembalikan ke rak', dana_cair: 'Dana cair', diperbarui: 'Harga diperbarui', beda_harga_dikunci: 'Harga dikunci berbeda' };
+        const L = { total: 'Total', baru: 'Baru', dilewati: 'Dilewati', barang_gudang: 'Barang dari gudang', barang_win: 'Barang beli WIN', tidak_dikenal: 'Kode tidak dikenal', dikirim_tanpa_packing: 'Dikirim tanpa scan packing', perlu_dikembalikan: 'Perlu dikembalikan ke rak', dana_cair: 'Dana cair', diperbarui: 'Harga diperbarui', beda_harga_dikunci: 'Harga dikunci berbeda', tercatat: 'Barang tercatat di rak', pcs: 'Total pcs' };
         el.querySelector('#check').innerHTML = `<div class="card stack" style="border:2px solid var(--green)"><div class="row">${icon('check', 24)}<h2 class="sec-title">Upload berhasil disimpan</h2></div>
           ${results.map(([fn, a]) => `<div class="grid gauto">${Object.entries(a).map(([k, v]) => `<div class="stat ${k === 'dikirim_tanpa_packing' && v ? 'red' : 'gray'}"><b>${k === 'dana_cair' ? rp(v) : num(v)}</b><span>${esc(L[k] || k)}</span></div>`).join('')}</div>`).join('')}
-          <div class="row wrap">${type === 'pesanan' ? '<a class="btn btn-primary" href="#/beli">Buka daftar beli WIN</a><a class="btn" href="#/pesanan">Lihat pesanan</a>' : ''}${type === 'pricelist' ? '<a class="btn btn-primary" href="#/barang">Lihat master barang</a>' : ''}</div></div>`;
+          <div class="row wrap">${type === 'pesanan' ? '<a class="btn btn-primary" href="#/beli">Buka daftar beli WIN</a><a class="btn" href="#/pesanan">Lihat pesanan</a>' : ''}${type === 'pricelist' ? '<a class="btn btn-primary" href="#/barang">Lihat master barang</a>' : ''}${type === 'stok_awal' || type === 'rak' ? '<a class="btn btn-primary" href="#/stok">Lihat stok & rak</a>' : ''}</div></div>`;
         parsed = null;
         toast('Upload tersimpan', 'ok');
         lastInfo();
