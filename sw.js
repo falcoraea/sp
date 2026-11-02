@@ -1,10 +1,10 @@
 // Service worker: aplikasi tetap terbuka cepat & bisa dipasang (PWA).
 // Naikkan VERSION setiap kali kamu upload perubahan file ke GitHub.
-const VERSION = 'v1.1.1';
+const VERSION = 'v1.2.1';
 const CACHE = 'stok-gudang-' + VERSION;
 const SHELL = [
   './', 'index.html', 'manifest.json', 'css/app.css',
-  'js/app.js', 'js/config.js', 'js/supa.js', 'js/ui.js', 'js/nav.js', 'js/store.js', 'js/auth.js', 'js/tour.js', 'js/scanner.js', 'js/shopee.js',
+  'js/app.js', 'js/config.js', 'js/supa.js', 'js/ui.js', 'js/nav.js', 'js/store.js', 'js/auth.js', 'js/tour.js', 'js/scanner.js', 'js/shopee.js', 'js/labels.js',
   'assets/icon-192.png', 'assets/icon-512.png'
 ];
 
