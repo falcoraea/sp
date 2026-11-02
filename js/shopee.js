@@ -93,7 +93,7 @@ export function detect(rows) {
   let best = { type: null, headerRow: 0, score: 0 };
   for (let r = 0; r < Math.min(rows.length, 25); r++) {
     for (const t of Object.keys(TYPES)) {
-      const s = scoreRow(rows[r], t) - (t === 'pesanan' ? 0 : 0.5);
+      const s = scoreRow(rows[r], t) - (t === 'pembatalan' ? 0.5 : 0); // file pesanan juga punya kolom pembatalan
       if (s > best.score) best = { type: t, headerRow: r, score: s };
     }
   }

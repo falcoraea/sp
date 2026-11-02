@@ -63,7 +63,10 @@ export default {
         const rows = await readSheet(file);
         if (!rows.length) throw new Error('File kosong');
         const d = detect(rows);
-        if (d.type && d.type !== type && d.score >= 2 && ALLOWED.includes(d.type)) {
+        if (d.type && d.type !== type && d.score >= 1 && !ALLOWED.includes(d.type)) {
+          toast('File ini terdeteksi sebagai ' + TYPES[d.type].label + ', tapi jabatanmu tidak bisa meng-upload jenis ini.', 'err');
+        }
+        if (d.type && d.type !== type && d.score >= 1 && ALLOWED.includes(d.type)) {
           type = d.type;
           el.querySelectorAll('[data-type]').forEach((c) => c.classList.toggle('on', c.dataset.type === type));
           toast('Terdeteksi sebagai file ' + TYPES[type].label);
