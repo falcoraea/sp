@@ -1,0 +1,170 @@
+import { supa, rpc } from '../supa.js';
+import { store, nameOf } from '../store.js';
+import { esc, rp, num, fmtDateTime, chips, on, modal, toast, toastErr, pageHead, emptyState, skeleton, debounce, icon, loadScript, beep } from '../ui.js';
+import { scanBox, bindScan } from '../scanner.js';
+
+const MOV = { initial: 'Stok awal', in_win: 'Masuk dari WIN', pick: 'Diambil picker', to_packing: 'Langsung ke packing', pack_no_pick: 'Dipacking tanpa pick', return_good: 'Retur baik kembali', return_damaged: 'Retur rusak → karantina', opname: 'Stok opname', adjust: 'Penyesuaian manual', move_rack: 'Pindah rak' };
+
+export default {
+  tour: [
+    { sel: '[data-chips="tab"]', title: 'Barang, stok opname, rak', body: 'Cari barang & lokasinya, hitung stok fisik per rak (stok opname), dan kelola label rak.' },
+    { sel: '#q', title: 'Cari atau scan', body: 'Ketik nama / kode, atau scan barcode barang untuk langsung melihat lokasi rak dan riwayatnya.' }
+  ],
+  async render(el, { params }) {
+    let tab = params.tab || 'barang';
+    el.innerHTML = `${pageHead('Stok & rak', 'Stok berubah hanya lewat scan: masuk WIN, ambil, retur, stok opname.')}
+      <div class="stack">${chips('tab', [['barang', 'Barang & lokasi'], ['opname', 'Stok opname'], ['rak', 'Rak & label'], ['karantina', 'Karantina']], tab)}<div id="body"></div></div>`;
+    const show = () => ({ barang: tabBarang, opname: tabOpname, rak: tabRak, karantina: tabKarantina }[tab])(el.querySelector('#body'), params);
+    on(el, 'click', '[data-chips="tab"] .chip', (e, b) => { tab = b.dataset.v; b.parentElement.querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', c === b)); show(); });
+    show();
+  }
+};
+
+async function tabBarang(box) {
+  const seeValue = ['owner', 'admin'].includes(store.role);
+  let filter = 'all', search = '';
+  box.innerHTML = `<div class="stack"><div class="grid gauto" id="kpi"></div>
+    <div class="row wrap"><input class="input grow" id="q" placeholder="Cari nama / kode / rak, atau scan barcode" aria-label="Cari barang" style="min-width:220px">${chips('f', [['all', 'Semua'], ['low', 'Stok menipis'], ['zero', 'Habis'], ['norack', 'Tanpa rak']], filter)}</div>
+    <div class="card flush" id="list">${skeleton()}</div></div>`;
+  const kpi = async () => {
+    const { data } = await supa.from('products').select('stock, harga_beli, min_stock').eq('active', true);
+    const low = (data || []).filter((p) => p.min_stock > 0 && p.stock <= p.min_stock).length;
+    const val = (data || []).reduce((a, p) => a + Math.max(0, p.stock) * p.harga_beli, 0);
+    box.querySelector('#kpi').innerHTML = `<div class="card kpi"><div class="label">Jenis barang</div><div class="value">${num(data?.length || 0)}</div></div>
+      ${seeValue ? `<div class="card kpi"><div class="label">Nilai stok (modal)</div><div class="value">${rp(val)}</div></div>` : ''}
+      <div class="card kpi" style="${low ? 'border:1.5px solid var(--accent)' : ''}"><div class="label">Stok menipis</div><div class="value">${low}</div></div>`;
+  };
+  const load = async () => {
+    let qy = supa.from('products').select('id, sku, name, rack_code, stock, stock_karantina, min_stock, harga_beli').eq('active', true).order('rack_code', { nullsFirst: false }).order('name').limit(300);
+    if (search) qy = qy.or(`name.ilike.%${search}%,sku.ilike.%${search}%,rack_code.ilike.%${search}%`);
+    if (filter === 'zero') qy = qy.lte('stock', 0);
+    if (filter === 'norack') qy = qy.is('rack_code', null);
+    const { data, error } = await qy;
+    if (error) return toastErr(error);
+    const list = filter === 'low' ? data.filter((p) => p.min_stock > 0 && p.stock <= p.min_stock) : data;
+    box.querySelector('#list').innerHTML = list.length ? `<div class="list">${list.map((p) => `<button class="list-item" data-p="${p.id}">
+      <span class="mono" style="width:64px;flex:none;font-weight:600">${esc(p.rack_code || '—')}</span>
+      <div class="grow"><b>${esc(p.name)}</b><div class="xs muted mono">${esc(p.sku)}</div></div>
+      <div class="right"><b style="font-size:18px" class="${p.stock <= 0 ? 'neg' : ''}">${p.stock}</b>${p.min_stock > 0 && p.stock <= p.min_stock ? '<div><span class="tag yellow">menipis</span></div>' : ''}</div></button>`).join('')}</div>` : emptyState('Tidak ada barang.', 'box');
+  };
+  box.querySelector('#q').addEventListener('input', debounce((e) => { search = e.target.value.trim().replace(/[,%()]/g, ''); load(); }, 300));
+  box.querySelector('#q').addEventListener('keydown', async (e) => {
+    if (e.key !== 'Enter') return;
+    const { data } = await supa.from('products').select('id').eq('sku', e.target.value.trim()).maybeSingle();
+    if (data) { e.target.value = ''; openProduct(data.id, load); }
+  });
+  on(box, 'click', '[data-chips="f"] .chip', (e, b) => { filter = b.dataset.v; b.parentElement.querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', c === b)); load(); });
+  on(box, 'click', '[data-p]', (e, b) => openProduct(+b.dataset.p, () => { load(); kpi(); }));
+  kpi(); load();
+}
+
+export async function openProduct(id, after) {
+  const [{ data: p }, { data: mv }] = await Promise.all([
+    supa.from('products').select('*').eq('id', id).single(),
+    supa.from('stock_movements').select('*').eq('product_id', id).order('created_at', { ascending: false }).limit(30)
+  ]);
+  const canAdj = ['owner', 'kepala_gudang'].includes(store.role);
+  const r = await modal({
+    title: p.name, wide: true,
+    body: `<div class="stack">
+      <div class="grid gauto"><div class="stat gray"><b>${p.stock}</b><span>stok di rak</span></div><div class="stat gray"><b class="mono">${esc(p.rack_code || '—')}</b><span>lokasi rak</span></div>
+        ${p.stock_karantina ? `<div class="stat red"><b>${p.stock_karantina}</b><span>karantina (rusak)</span></div>` : ''}${['owner', 'admin'].includes(store.role) ? `<div class="stat gray"><b>${rp(p.harga_beli)}</b><span>harga beli</span></div>` : ''}</div>
+      <div class="mono small muted">${esc(p.sku)}</div>
+      <h3 style="font-size:15px">Riwayat keluar-masuk</h3>
+      ${mv.length ? `<div class="table-wrap"><table class="tbl small"><tbody>${mv.map((m) => `<tr><td class="nowrap">${fmtDateTime(m.created_at)}</td><td>${esc(MOV[m.type] || m.type)}${m.note ? `<div class="xs muted">${esc(m.note)}</div>` : ''}</td><td>${esc(nameOf(m.user_id))}</td>
+        <td class="num ${m.qty < 0 ? 'neg' : m.qty > 0 ? 'pos' : ''}"><b>${m.qty > 0 ? '+' : ''}${m.qty || (m.qty_karantina ? 'K+' + m.qty_karantina : '0')}</b></td></tr>`).join('')}</tbody></table></div>` : '<div class="muted small">Belum ada pergerakan.</div>'}
+    </div>`,
+    actions: [
+      { label: 'Cetak label', value: 'label' },
+      { label: 'Pindah rak', value: 'rack' },
+      ...(canAdj ? [{ label: p.stock === 0 && !mv.length ? 'Isi stok awal' : 'Sesuaikan stok', value: 'adj' }] : []),
+      { label: 'Tutup', cls: 'btn-primary', value: null }
+    ]
+  });
+  if (r === 'label') printLabels([p]);
+  if (r === 'rack') {
+    const rack = await modal({ title: 'Pindah rak', body: `<p class="muted" style="margin-top:0">${esc(p.name)} — sekarang di rak <b>${esc(p.rack_code || '-')}</b></p><label class="field">Rak baru (ketik atau scan label rak)<input class="input mono" id="rk" placeholder="mis. A-05" autocapitalize="characters"></label>`,
+      actions: [{ label: 'Batal', value: null }, { label: 'Simpan', cls: 'btn-primary', onClick: (ov) => ov.querySelector('#rk').value.trim() || false }] });
+    if (rack) { try { await rpc('move_rack', { p_product: id, p_rack: rack }); toast('Dipindah ke rak ' + rack.toUpperCase(), 'ok'); } catch (e) { toastErr(e); } }
+  }
+  if (r === 'adj') {
+    const initial = p.stock === 0 && !mv.length;
+    const res = await modal({ title: initial ? 'Isi stok awal' : 'Sesuaikan stok', body: `<div class="stack"><label class="field">${initial ? 'Jumlah stok sekarang' : 'Tambah / kurangi (pakai minus untuk mengurangi)'}<input class="input num" id="aq" inputmode="numeric" placeholder="${initial ? 'mis. 12' : 'mis. -2'}"></label>
+      <label class="field">Alasan (wajib)<input class="input" id="ar" value="${initial ? 'Stok awal' : ''}" placeholder="mis. salah hitung"></label>
+      ${initial ? '' : '<div class="alert yellow small">Untuk menghitung ulang seluruh rak, lebih baik pakai Stok opname. Perubahan manual di luar jam kerja dilaporkan ke owner.</div>'}</div>`,
+      actions: [{ label: 'Batal', value: null }, { label: 'Simpan', cls: 'btn-primary', onClick: async (ov) => {
+        const qv = parseInt(ov.querySelector('#aq').value, 10), reason = ov.querySelector('#ar').value.trim();
+        if (!qv || !reason) { toast('Isi jumlah dan alasan', 'err'); return false; }
+        await rpc('adjust_stock', { p_product: id, p_qty: qv, p_reason: reason, p_initial: initial }); return true;
+      } }] });
+    if (res) toast('Stok disesuaikan', 'ok');
+  }
+  after && after();
+}
+
+async function tabOpname(box) {
+  if (!['owner', 'kepala_gudang'].includes(store.role)) { box.innerHTML = `<div class="card">${emptyState('Stok opname dilakukan oleh kepala gudang.', 'clip')}</div>`; return; }
+  const { data: racks } = await supa.from('racks').select('code').order('code');
+  box.innerHTML = `<div class="stack"><div class="card stack">
+      <div class="alert blue small">Hitung barang fisik di satu rak, isi jumlahnya, lalu simpan. Stok sistem sengaja tidak ditampilkan supaya hitungan jujur. Selisih kurang langsung dilaporkan ke owner beserta siapa yang terakhir memegang barang itu.</div>
+      <label class="field">Pilih rak<select class="input" id="rk"><option value="">— pilih rak —</option>${(racks || []).map((r) => `<option>${esc(r.code)}</option>`).join('')}</select></label></div>
+    <div id="op"></div></div>`;
+  box.querySelector('#rk').addEventListener('change', async (e) => {
+    const rack = e.target.value; const op = box.querySelector('#op');
+    if (!rack) { op.innerHTML = ''; return; }
+    const { data } = await supa.from('products').select('id, sku, name').eq('rack_code', rack).eq('active', true).order('name');
+    if (!data.length) { op.innerHTML = `<div class="card">${emptyState('Belum ada barang di rak ini.', 'box')}</div>`; return; }
+    op.innerHTML = `<div class="card stack">${scanBox('osb', 'Scan barang untuk menambah hitungan +1')}
+      <div class="list">${data.map((p) => `<div class="list-item" style="padding:10px 0"><div class="grow"><b>${esc(p.name)}</b><div class="xs muted mono">${esc(p.sku)}</div></div>
+        <input class="input num" style="width:90px" inputmode="numeric" data-count="${p.id}" data-sku="${esc(p.sku)}" placeholder="0" aria-label="Jumlah fisik ${esc(p.name)}"></div>`).join('')}</div>
+      <button class="btn btn-primary btn-lg" id="save">Simpan stok opname rak ${esc(rack)}</button></div>`;
+    bindScan(op, 'osb', (code) => {
+      const inp = op.querySelector(`[data-sku="${CSS.escape(code)}"]`);
+      if (!inp) { beep(false); toast('Barang ini tidak terdaftar di rak ' + rack, 'err'); return false; }
+      inp.value = (parseInt(inp.value, 10) || 0) + 1; beep(true); return true;
+    });
+    op.querySelector('#save').onclick = async (ev) => {
+      const items = [...op.querySelectorAll('[data-count]')].filter((i) => i.value !== '').map((i) => ({ product_id: +i.dataset.count, counted: parseInt(i.value, 10) || 0 }));
+      if (!items.length) return toast('Isi minimal satu jumlah', 'err');
+      ev.target.disabled = true;
+      try {
+        const r = await rpc('opname_submit', { p: { rack_code: rack, items } });
+        toast(`Tersimpan. ${r.kurang} barang kurang${r.kurang ? ' (' + rp(r.nilai_hilang) + ')' : ''}, ${r.lebih} lebih.`, r.kurang ? 'err' : 'ok');
+        box.querySelector('#rk').value = ''; op.innerHTML = '';
+      } catch (e) { toastErr(e); ev.target.disabled = false; }
+    };
+  });
+}
+
+async function tabRak(box) {
+  const [{ data: racks }, { data: prods }] = await Promise.all([supa.from('racks').select('*').order('code'), supa.from('products').select('rack_code, stock').eq('active', true)]);
+  const cnt = {}; (prods || []).forEach((p) => { if (p.rack_code) { cnt[p.rack_code] ||= [0, 0]; cnt[p.rack_code][0]++; cnt[p.rack_code][1] += p.stock; } });
+  const canEdit = ['owner', 'admin', 'kepala_gudang'].includes(store.role);
+  box.innerHTML = `<div class="stack">
+    ${canEdit ? `<div class="card row wrap"><input class="input grow mono" id="nr" placeholder="Kode rak baru, mis. A-01" autocapitalize="characters" style="min-width:160px"><button class="btn btn-primary" id="add">${icon('plus', 18)} Tambah rak</button><button class="btn" id="prt">${icon('print', 18)} Cetak label semua rak</button></div>` : ''}
+    <div class="card flush">${racks?.length ? `<div class="list">${racks.map((r) => `<div class="list-item"><b class="mono" style="width:80px">${esc(r.code)}</b><span class="grow small muted">${cnt[r.code]?.[0] || 0} jenis barang · ${cnt[r.code]?.[1] || 0} pcs</span><a class="btn btn-sm" href="#/stok?tab=barang" data-rq="${esc(r.code)}">Lihat</a></div>`).join('')}</div>` : emptyState('Belum ada rak. Tambahkan kode rak dulu.', 'box')}</div></div>`;
+  box.querySelector('#add')?.addEventListener('click', async () => {
+    const code = box.querySelector('#nr').value.trim().toUpperCase();
+    if (!code) return;
+    const { error } = await supa.from('racks').insert({ code });
+    if (error) return toastErr(error);
+    toast('Rak ' + code + ' ditambahkan', 'ok'); tabRak(box);
+  });
+  box.querySelector('#prt')?.addEventListener('click', () => printLabels((racks || []).map((r) => ({ sku: r.code, name: 'RAK ' + r.code }))));
+}
+
+async function tabKarantina(box) {
+  const { data } = await supa.from('products').select('id, sku, name, stock_karantina, harga_beli').gt('stock_karantina', 0).order('name');
+  box.innerHTML = `<div class="card flush">${data?.length ? `<div class="card-h"><h2>Barang rusak (karantina)</h2><span class="small muted">tidak dihitung sebagai stok jual</span></div><div class="list">${data.map((p) => `<div class="list-item"><div class="grow"><b>${esc(p.name)}</b><div class="xs muted mono">${esc(p.sku)}</div></div><b>${p.stock_karantina}</b>${['owner', 'admin'].includes(store.role) ? `<span class="small muted">${rp(p.stock_karantina * p.harga_beli)}</span>` : ''}</div>`).join('')}</div>` : emptyState('Tidak ada barang di karantina.', 'box')}</div>`;
+}
+
+export async function printLabels(items) {
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js');
+  const w = window.open('', '_blank');
+  if (!w) return toast('Izinkan pop-up untuk mencetak label', 'err');
+  w.document.write(`<!doctype html><html><head><title>Label barcode</title><style>body{font-family:sans-serif;margin:12px}.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}.l{border:1px dashed #999;padding:6px;text-align:center;font-size:12px;break-inside:avoid}svg{width:100%;height:64px}</style></head><body><div class="g">
+    ${items.map((it, i) => `<div class="l"><svg id="b${i}"></svg><div>${esc(it.name).slice(0, 60)}</div></div>`).join('')}</div></body></html>`);
+  w.document.close();
+  items.forEach((it, i) => { try { window.JsBarcode(w.document.getElementById('b' + i), it.sku, { format: 'CODE128', displayValue: true, fontSize: 14, height: 50, margin: 4 }); } catch (_) {} });
+  setTimeout(() => w.print(), 400);
+}
