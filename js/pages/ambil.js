@@ -41,10 +41,10 @@ export default {
       try {
         const r = await rpc('pick_scan', { p_sku: code });
         const last = el.querySelector('#last');
-        if (!r.ok) { beep(false); last.innerHTML = `<div class="alert red">${esc(r.msg)}</div>`; return false; }
+        if (!r.ok) { beep(false); last.innerHTML = `<div class="alert red">${esc(r.msg)}</div>`; return { ok: false, title: r.msg }; }
         beep(true);
         last.innerHTML = `<div class="alert green"><b>${esc(r.name)}</b> diambil dari rak ${esc(r.rack || '-')}. ${r.remaining ? `Masih perlu ${r.remaining} lagi.` : 'Barang ini sudah lengkap.'}</div>`;
-        load(); return true;
+        load(); return { ok: true, title: r.name, info: `Rak ${r.rack || '-'} · ${r.remaining ? 'masih perlu ' + r.remaining + ' lagi' : 'barang ini sudah lengkap'}` };
       } catch (e) { toastErr(e); return false; }
     });
     on(el, 'click', '[data-missing]', async (e, b) => {
