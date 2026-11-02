@@ -28,12 +28,13 @@ export default {
       const c = code.replace(/[^\w-]/g, '');
       const { data, error } = await supa.from('orders').select('*, order_items(*, products(sku, name))').or(`resi.ilike.${c},order_no.ilike.${c}`).limit(1);
       if (error) { toastErr(error); return false; }
-      if (!data.length) { beep(false); msg(`Resi / pesanan <b class="mono">${esc(code)}</b> tidak ditemukan. Sudah diupload dari Shopee?`); return false; }
+      if (!data.length) { beep(false); msg(`Resi / pesanan <b class="mono">${esc(code)}</b> tidak ditemukan. Sudah diupload dari Shopee?`); return { ok: false, title: 'Resi tidak ditemukan', info: 'Sudah diupload dari file pesanan Shopee?' }; }
       order = data[0];
-      if (['cancel', 'retur'].includes(order.status)) { beep(false); msg(`<b>PESANAN DIBATALKAN — JANGAN DIKIRIM.</b><br>Serahkan barangnya ke kepala gudang.`); order = null; return false; }
-      if (['dikirim', 'selesai'].includes(order.status)) { beep(false); msg(`Pesanan ini sudah dipacking ${fmtDateTime(order.packed_at)}.`, 'yellow'); order = null; return false; }
+      if (['cancel', 'retur'].includes(order.status)) { beep(false); msg(`<b>PESANAN DIBATALKAN — JANGAN DIKIRIM.</b><br>Serahkan barangnya ke kepala gudang.`); order = null; return { ok: false, title: 'Pesanan dibatalkan — jangan dikirim', info: 'Serahkan barangnya ke kepala gudang' }; }
+      if (['dikirim', 'selesai'].includes(order.status)) { beep(false); msg(`Pesanan ini sudah dipacking ${fmtDateTime(order.packed_at)}.`, 'yellow'); order = null; return { ok: false, title: 'Pesanan sudah dipacking', info: fmtDateTime(data[0].packed_at) }; }
       beep(true); msg('');
-      getPhoto = () => null; paint(); return true;
+      getPhoto = () => null; paint();
+      return { ok: true, title: 'Resi ' + (order.resi || order.order_no), info: order.order_items.map((i) => i.name + ' ×' + i.qty).join(', ') };
     };
 
     let photoPath = null;
@@ -77,7 +78,7 @@ export default {
 
     bindScan(el, 'sb', async (code) => {
       if (!order) return openOrder(code);
-      if (normSku(code) === normSku(order.resi) || normSku(code) === normSku(order.order_no)) { msg('Itu resi pesanan ini. Sekarang scan barangnya.', 'yellow'); return false; }
+      if (normSku(code) === normSku(order.resi) || normSku(code) === normSku(order.order_no)) { msg('Itu resi pesanan ini. Sekarang scan barangnya.', 'yellow'); return { ok: false, title: 'Itu resi pesanan ini', info: 'Sekarang scan barangnya' }; }
       try {
         const r = await rpc('pack_scan', { p_order: order.id, p_sku: code });
         if (!r.ok) {
@@ -85,14 +86,14 @@ export default {
           if (r.wrong) {
             // mungkin resi lain
             const { data: other } = await supa.from('orders').select('id').or(`resi.ilike.${code.replace(/[^\w-]/g, '')},order_no.ilike.${code.replace(/[^\w-]/g, '')}`).limit(1);
-            if (other?.length) { msg('Itu resi lain. Selesaikan pesanan ini dulu atau tekan “Ganti resi”.', 'yellow'); return false; }
+            if (other?.length) { msg('Itu resi lain. Selesaikan pesanan ini dulu atau tekan “Ganti resi”.', 'yellow'); return { ok: false, title: 'Itu resi pesanan lain', info: 'Selesaikan pesanan ini dulu atau tekan Ganti resi' }; }
           }
-          msg(`<b>${esc(r.msg)}</b>${r.wrong ? '<br>Tukar dulu barangnya sebelum lanjut.' : ''}`); return false;
+          msg(`<b>${esc(r.msg)}</b>${r.wrong ? '<br>Tukar dulu barangnya sebelum lanjut.' : ''}`); return { ok: false, title: r.msg, info: r.wrong ? 'Tukar dulu barangnya sebelum lanjut' : '' };
         }
         beep(true); msg('');
         const it = order.order_items.find((i) => i.packed_qty < i.qty && (skuMatch(code, i.products?.sku) || normSku(code) === normSku(i.sku)));
         if (it) it.packed_qty++;
-        paint(); return true;
+        paint(); return { ok: true, title: r.name, info: `${r.packed}/${r.qty} dipacking` };
       } catch (e) { toastErr(e); return false; }
     });
     el.querySelector('#reset').onclick = () => { order = null; getPhoto = () => null; paint(); msg(''); };
