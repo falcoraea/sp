@@ -1,4 +1,4 @@
-import { esc, icon, toast } from './ui.js';
+import { esc, icon, toast, beep } from './ui.js';
 
 // Kolom scan untuk 3 cara:
 // 1) Scanner Bluetooth / USB (langsung atau lewat OTG converter): alat bekerja seperti keyboard,
@@ -61,19 +61,35 @@ export function bindScan(root, id, onScan, { autofocus = true } = {}) {
   return { focus: () => inp.focus(), fire };
 }
 
-// tangkap scan dari alat walau kolom scan tidak sedang dipilih
+// tangkap scan dari alat walau kolom scan tidak sedang dipilih.
+// Halaman tanpa kolom scan memakai "fallback" (cek kode + pop-up) yang dipasang app.js.
+let fallback = null, fbBusy = false;
+export function setFallbackScan(fn) { fallback = fn; }
+function target() {
+  if (active && document.body.contains(active.inp)) return active.fire;
+  active = null;
+  if (!fallback) return null;
+  return async (code) => {
+    code = String(code || '').trim();
+    if (!code || fbBusy) return;
+    fbBusy = true;
+    try { const r = await fallback(code); beepSafe(r?.ok); showScanResult({ code, ...(r || { ok: true }) }); } finally { fbBusy = false; }
+  };
+}
+function beepSafe(ok) { try { beep(ok !== false); } catch (_) {} }
 let buf = '', bufTimes = [], bufTimer = null;
 document.addEventListener('keydown', (e) => {
-  if (!active || !document.body.contains(active.inp)) { active = null; return; }
+  const fire = target();
+  if (!fire) return;
   const t = e.target;
-  if (t === active.inp) return;
+  if (active && t === active.inp) return;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
   if (document.querySelector('.overlay, .camera, .tour-block')) return;
   if (e.ctrlKey || e.altKey || e.metaKey) return;
   const now = performance.now();
   if ((e.key === 'Enter' || e.key === 'Tab') && buf.length >= 3) {
     const fast = bufTimes.length > 1 && (bufTimes[bufTimes.length - 1] - bufTimes[0]) / (bufTimes.length - 1) < 35;
-    if (fast) { e.preventDefault(); const code = buf; buf = ''; bufTimes = []; active.fire(code); }
+    if (fast) { e.preventDefault(); clearTimeout(bufTimer); const code = buf; buf = ''; bufTimes = []; fire(code); }
     return;
   }
   if (e.key.length !== 1) return;
@@ -82,7 +98,7 @@ document.addEventListener('keydown', (e) => {
   clearTimeout(bufTimer);
   bufTimer = setTimeout(() => {   // tanpa akhiran
     const n = bufTimes.length;
-    if (buf.length >= 4 && n > 1 && (bufTimes[n - 1] - bufTimes[0]) / (n - 1) < 35) active?.fire(buf);
+    if (buf.length >= 4 && n > 1 && (bufTimes[n - 1] - bufTimes[0]) / (n - 1) < 35) { const f = target(); f && f(buf); }
     buf = ''; bufTimes = [];
   }, 150);
 });
