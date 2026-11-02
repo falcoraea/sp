@@ -11,6 +11,7 @@ export const PAGES = {
   terima:     { label: 'Terima barang WIN', short: 'Terima', icon: 'scan', roles: ['owner', 'kepala_gudang'], group: 'Gudang' },
   ambil:      { label: 'Ambil dari rak', short: 'Ambil', icon: 'list', roles: ['owner', 'picker', 'kepala_gudang'], group: 'Gudang' },
   packing:    { label: 'Packing', icon: 'bag', roles: ['owner', 'packing'], group: 'Gudang' },
+  cek:        { label: 'Cek barcode', short: 'Cek', icon: 'scan', roles: ['*'], group: 'Gudang' },
   stok:       { label: 'Stok & rak', short: 'Stok', icon: 'box', roles: ['owner', 'admin', 'kepala_gudang'], group: 'Gudang' },
   barang:     { label: 'Master barang', short: 'Barang', icon: 'list', roles: ['owner', 'admin', 'kepala_gudang'], group: 'Gudang' },
   harga:      { label: 'Atur harga', short: 'Harga', icon: 'tag', roles: ['owner'], group: 'Keuangan' },
