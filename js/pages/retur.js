@@ -33,7 +33,7 @@ export default {
     on(el, 'click', '[data-photo]', async (e, b) => { const u = await photoUrl(b.dataset.photo); modal({ title: 'Foto barang retur', body: `<img src="${u}" alt="Foto retur" style="border-radius:8px">` }); });
     if (canProcess) bindScan(el, 'sb', async (code) => {
       const c = code.replace(/[^\w-]/g, '');
-      const { data } = await supa.from('returns').select('id').eq('status', 'menunggu').or(`resi.eq.${c},order_no.eq.${c},return_no.eq.${c}`).limit(1);
+      const { data } = await supa.from('returns').select('id').eq('status', 'menunggu').or(`resi.ilike.${c},order_no.ilike.${c},return_no.ilike.${c}`).limit(1);
       if (!data?.length) { beep(false); toast('Tidak ada retur / cancel menunggu untuk ' + code, 'err'); return false; }
       beep(true); processReturn(data[0].id, load); return true;
     });
