@@ -1,4 +1,4 @@
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.104.1/+esm';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 
 export const configured = !SUPABASE_URL.includes('ISI-PROJECT') && !SUPABASE_ANON_KEY.includes('ISI-ANON');
@@ -21,7 +21,8 @@ const MESSAGES = [
   [/Password should be at least/i, 'Password minimal 6 karakter.'],
   [/rate limit/i, 'Terlalu banyak percobaan. Tunggu sebentar lalu coba lagi.'],
   [/Failed to fetch|NetworkError|Load failed/i, 'Tidak ada koneksi internet / server tidak terjangkau.'],
-  [/JWT expired/i, 'Sesi habis, silakan login ulang.']
+  [/JWT expired/i, 'Sesi habis, silakan login ulang.'],
+  [/schema cache|Could not find the function/i, 'Database belum diperbarui ke versi aplikasi ini. Buka Supabase › SQL Editor, jalankan ulang seluruh isi supabase/schema.sql (aman, data tidak hilang), lalu coba lagi.']
 ];
 export function errMsg(e) {
   const m = (e && (e.message || e.error_description || e.msg)) || String(e || 'Terjadi kesalahan');
