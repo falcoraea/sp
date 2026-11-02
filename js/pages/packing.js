@@ -26,7 +26,7 @@ export default {
 
     const openOrder = async (code) => {
       const c = code.replace(/[^\w-]/g, '');
-      const { data, error } = await supa.from('orders').select('*, order_items(*, products(sku, name))').or(`resi.eq.${c},order_no.eq.${c}`).limit(1);
+      const { data, error } = await supa.from('orders').select('*, order_items(*, products(sku, name))').or(`resi.ilike.${c},order_no.ilike.${c}`).limit(1);
       if (error) { toastErr(error); return false; }
       if (!data.length) { beep(false); msg(`Resi / pesanan <b class="mono">${esc(code)}</b> tidak ditemukan. Sudah diupload dari Shopee?`); return false; }
       order = data[0];
@@ -84,7 +84,7 @@ export default {
           beep(false);
           if (r.wrong) {
             // mungkin resi lain
-            const { data: other } = await supa.from('orders').select('id').or(`resi.eq.${code.replace(/[^\w-]/g, '')},order_no.eq.${code.replace(/[^\w-]/g, '')}`).limit(1);
+            const { data: other } = await supa.from('orders').select('id').or(`resi.ilike.${code.replace(/[^\w-]/g, '')},order_no.ilike.${code.replace(/[^\w-]/g, '')}`).limit(1);
             if (other?.length) { msg('Itu resi lain. Selesaikan pesanan ini dulu atau tekan “Ganti resi”.', 'yellow'); return false; }
           }
           msg(`<b>${esc(r.msg)}</b>${r.wrong ? '<br>Tukar dulu barangnya sebelum lanjut.' : ''}`); return false;
