@@ -142,7 +142,7 @@ async function tabRak(box) {
   const canEdit = ['owner', 'admin', 'kepala_gudang'].includes(store.role);
   box.innerHTML = `<div class="stack">
     ${canEdit ? `<div class="card row wrap"><input class="input grow mono" id="nr" placeholder="Kode rak baru, mis. A-01" autocapitalize="characters" style="min-width:160px"><button class="btn btn-primary" id="add">${icon('plus', 18)} Tambah rak</button><button class="btn" id="prt">${icon('print', 18)} Cetak label semua rak</button></div>` : ''}
-    <div class="card flush">${racks?.length ? `<div class="list">${racks.map((r) => `<div class="list-item"><b class="mono" style="width:80px">${esc(r.code)}</b><span class="grow small muted">${cnt[r.code]?.[0] || 0} jenis barang · ${cnt[r.code]?.[1] || 0} pcs</span><a class="btn btn-sm" href="#/stok?tab=barang" data-rq="${esc(r.code)}">Lihat</a></div>`).join('')}</div>` : emptyState('Belum ada rak. Tambahkan kode rak dulu.', 'box')}</div></div>`;
+    <div class="card flush">${racks?.length ? `<div class="list">${racks.map((r) => `<div class="list-item"><b class="mono" style="width:80px">${esc(r.code)}</b><span class="grow small muted">${cnt[r.code]?.[0] || 0} jenis barang · ${cnt[r.code]?.[1] || 0} pcs</span><button class="btn btn-sm" data-rq="${esc(r.code)}">Cetak label barang di rak ini</button></div>`).join('')}</div>` : emptyState('Belum ada rak. Tambahkan kode rak dulu.', 'box')}</div></div>`;
   box.querySelector('#add')?.addEventListener('click', async () => {
     const code = box.querySelector('#nr').value.trim().toUpperCase();
     if (!code) return;
@@ -150,7 +150,12 @@ async function tabRak(box) {
     if (error) return toastErr(error);
     toast('Rak ' + code + ' ditambahkan', 'ok'); tabRak(box);
   });
-  box.querySelector('#prt')?.addEventListener('click', () => printLabels((racks || []).map((r) => ({ sku: r.code, name: 'RAK ' + r.code }))));
+  box.querySelector('#prt')?.addEventListener('click', () => printLabels((racks || []).map((r) => ({ sku: r.code, name: 'RAK ' + r.code, note: r.note })), 'rak'));
+  on(box, 'click', '[data-rq]', async (e, b) => {
+    e.preventDefault();
+    const { data } = await supa.from('products').select('sku, name, rack_code, stock').eq('rack_code', b.dataset.rq).eq('active', true).order('name');
+    printLabels(data || []);
+  });
 }
 
 async function tabKarantina(box) {
@@ -158,13 +163,7 @@ async function tabKarantina(box) {
   box.innerHTML = `<div class="card flush">${data?.length ? `<div class="card-h"><h2>Barang rusak (karantina)</h2><span class="small muted">tidak dihitung sebagai stok jual</span></div><div class="list">${data.map((p) => `<div class="list-item"><div class="grow"><b>${esc(p.name)}</b><div class="xs muted mono">${esc(p.sku)}</div></div><b>${p.stock_karantina}</b>${['owner', 'admin'].includes(store.role) ? `<span class="small muted">${rp(p.stock_karantina * p.harga_beli)}</span>` : ''}</div>`).join('')}</div>` : emptyState('Tidak ada barang di karantina.', 'box')}</div>`;
 }
 
-export async function printLabels(items) {
-  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js');
-  const w = window.open('', '_blank');
-  if (!w) return toast('Izinkan pop-up untuk mencetak label', 'err');
-  w.document.write(`<!doctype html><html><head><title>Label barcode</title><style>body{font-family:sans-serif;margin:12px}.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}.l{border:1px dashed #999;padding:6px;text-align:center;font-size:12px;break-inside:avoid}svg{width:100%;height:64px}</style></head><body><div class="g">
-    ${items.map((it, i) => `<div class="l"><svg id="b${i}"></svg><div>${esc(it.name).slice(0, 60)}</div></div>`).join('')}</div></body></html>`);
-  w.document.close();
-  items.forEach((it, i) => { try { window.JsBarcode(w.document.getElementById('b' + i), it.sku, { format: 'CODE128', displayValue: true, fontSize: 14, height: 50, margin: 4 }); } catch (_) {} });
-  setTimeout(() => w.print(), 400);
+export async function printLabels(items, kind = 'barang') {
+  const { openLabelDialog } = await import('../labels.js');
+  return openLabelDialog(items, kind);
 }
