@@ -1,10 +1,11 @@
-import { supa, configured } from './supa.js';
+import { supa, configured, rpc } from './supa.js';
 import { store, loadNotifs, unreadCount, markRead, loadProfiles, onEvt, emit } from './store.js';
 import { PAGES, TABS, HOME, canOpen, menuFor } from './nav.js';
 import { esc, icon, toast, toastErr, ago, ROLE_LABEL, ROLE_COLOR, modal } from './ui.js';
 import { renderLogin, renderPending } from './auth.js';
 import { runTour, mainSteps } from './tour.js';
 import { APP_NAME } from './config.js';
+import { setFallbackScan, showScanResult } from './scanner.js';
 
 const root = document.getElementById('app');
 let current = { page: null, mod: null };
@@ -34,6 +35,7 @@ else {
 
 function teardown() {
   if (channel) { supa.removeChannel(channel); channel = null; }
+  setFallbackScan(null);
   Object.assign(store, { session: null, profile: null, role: null, notifs: [], reads: new Set() });
 }
 
@@ -60,6 +62,7 @@ async function boot(session) {
 }
 
 // ---------- shell ----------
+const ini = (n) => (n || 'SG').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 function renderShell() {
   const role = store.role, p = store.profile;
   const menu = menuFor(role);
@@ -82,9 +85,12 @@ function renderShell() {
     </nav>
     <div class="main">
       <header class="topbar">
-        <div class="grow"><div class="t-sub" id="t-sub">${esc(ROLE_LABEL[role])} · ${esc(p.full_name)}</div><h1 id="t-title">${esc(APP_NAME)}</h1></div>
+        <span class="tb-logo">${esc(ini(store.settings.nama_toko || APP_NAME))}</span>
+        <div class="grow tb-text"><div class="t-sub" id="t-sub"><span class="crumb" id="t-crumb"></span><span class="who">${esc(ROLE_LABEL[role])} · ${esc(p.full_name)}</span></div><h1 id="t-title">${esc(APP_NAME)}</h1></div>
+        <span class="tb-date">${icon('calendar', 16)}${esc(new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).format(new Date()))}</span>
         <button class="icon-btn" data-help data-tour="help" aria-label="Bantuan halaman ini">${icon('help')}</button>
         <button class="icon-btn bell" data-bell data-tour="bell" aria-label="Notifikasi">${icon('bell')}<span class="badge-dot hidden" data-badge></span></button>
+        <a class="tb-user" href="#/akun" title="Akun saya"><span class="av">${esc(ini(p.full_name))}</span><span><b>${esc(p.full_name)}</b><small>${esc(ROLE_LABEL[role])}</small></span></a>
       </header>
       <main class="view" id="view" tabindex="-1"></main>
     </div>
@@ -99,6 +105,18 @@ function renderShell() {
     else startMainTour(false);
   };
   onEvt('notifs', paintBadge);
+  setFallbackScan(globalScan);
+}
+
+// scan alat (USB/Bluetooth) saat tidak ada kolom scan di halaman: tetap tampilkan pop-up keterangan kode
+async function globalScan(code) {
+  try {
+    const r = await rpc('lookup_code', { p_code: code });
+    if (r.type === 'barang') return { ok: true, title: r.name, info: `Barang · Rak ${r.rack || '-'} · stok ${r.stock}` };
+    if (r.type === 'resi') return { ok: true, title: 'Resi ' + (r.resi || r.order_no), info: (r.items || []).map((i) => i.name + ' ×' + i.qty).join(', ') };
+    if (r.type === 'rak') return { ok: true, title: 'Rak ' + r.code, info: (r.items || []).length + ' jenis barang' };
+    return { ok: false, title: 'Kode tidak dikenal', info: 'Belum ada di master barang, pesanan, atau rak' };
+  } catch (e) { return { ok: false, title: 'Gagal mengecek kode', info: e.message || String(e) }; }
 }
 
 function paintBadge() {
@@ -167,14 +185,16 @@ function toggleBell() {
   document.querySelector('.topbar').appendChild(panel);
   renderBellBody(panel);
   panel.addEventListener('click', (e) => {
+    e.stopPropagation();
     const f = e.target.closest('[data-bf]');
     if (f) { bellFilter = f.dataset.bf; renderBellBody(panel); return; }
     if (e.target.closest('[data-readall]')) { markRead(store.notifs.map((n) => n.id)); return; }
     const a = e.target.closest('[data-nid]');
     if (a) markRead([+a.dataset.nid]);
-    if (e.target.closest('a')) panel.remove();
+    if (e.target.closest('a')) { panel.remove(); location.hash = e.target.closest('a').getAttribute('href'); }
   });
   setTimeout(() => document.addEventListener('click', function off(e) {
+    if (!e.target.isConnected) return;
     if (!panel.contains(e.target) && !e.target.closest('[data-bell]')) { panel.remove(); document.removeEventListener('click', off); }
   }), 0);
 }
@@ -207,6 +227,7 @@ async function route() {
   document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('on', a.dataset.nav === page));
   const pg = PAGES[page];
   document.getElementById('t-title').textContent = pg.label;
+  const cr = document.getElementById('t-crumb'); if (cr) cr.textContent = (pg.group || 'Beranda') + '  ›  ' + pg.label;
   document.title = pg.label + ' · ' + APP_NAME;
   const view = document.getElementById('view');
   view.innerHTML = '<div class="stack"><div class="skeleton" style="height:90px"></div><div class="skeleton" style="height:240px"></div></div>';
