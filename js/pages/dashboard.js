@@ -2,9 +2,11 @@ import { supa, rpc } from '../supa.js';
 import { store } from '../store.js';
 import { esc, rp, pct, todayStr, addDays, monthStart, longToday, icon, chips, on, toastErr, ago, fmtDate } from '../ui.js';
 
-const PERIODS = [['today', 'Hari ini'], ['yesterday', 'Kemarin'], ['7', '7 hari'], ['month', 'Bulan ini'], ['30', '30 hari']];
+const PERIODS = [['today', 'Hari ini'], ['yesterday', 'Kemarin'], ['7', '7 hari'], ['month', 'Bulan ini'], ['30', '30 hari'], ['custom', 'Pilih tanggal…']];
+let custom = (() => { try { return JSON.parse(sessionStorage.getItem('dash-range') || 'null'); } catch (_) { return null; } })();
 function range(p) {
   const t = todayStr();
+  if (p === 'custom' && custom) return [custom[0], custom[1]];
   if (p === 'yesterday') return [addDays(t, -1), addDays(t, -1)];
   if (p === '7') return [addDays(t, -6), t];
   if (p === '30') return [addDays(t, -29), t];
@@ -23,7 +25,10 @@ export default {
   async render(el) {
     let period = sessionStorage.getItem('dash-period') || 'today';
     el.innerHTML = `<div class="stack" style="gap:16px">
-      <div class="row between wrap"><div class="muted small">${esc(longToday())}</div>${chips('period', PERIODS, period)}</div>
+      <div class="row between wrap"><div class="muted small" id="rlabel">${esc(longToday())}</div>${chips('period', PERIODS, period)}</div>
+      <form class="card row wrap ${period === 'custom' ? '' : 'hidden'}" id="custom"><label class="field" style="flex:1 1 140px">Dari tanggal<input type="date" class="input" id="cf" value="${custom ? custom[0] : addDays(todayStr(), -6)}" max="${todayStr()}"></label>
+        <label class="field" style="flex:1 1 140px">Sampai tanggal<input type="date" class="input" id="ct" value="${custom ? custom[1] : todayStr()}" max="${todayStr()}"></label>
+        <button class="btn btn-primary" style="align-self:flex-end">Terapkan</button></form>
       <div id="kpi"></div>
       <section class="card flush danger" id="fraud"></section>
       <div class="grid gauto-lg">
@@ -38,12 +43,23 @@ export default {
     on(el, 'click', '[data-chips="period"] .chip', (e, b) => {
       period = b.dataset.v; sessionStorage.setItem('dash-period', period);
       el.querySelectorAll('[data-chips="period"] .chip').forEach((c) => c.classList.toggle('on', c === b));
-      load();
+      el.querySelector('#custom').classList.toggle('hidden', period !== 'custom');
+      if (period === 'custom' && !custom) return;
+      load(); loadChart();
+    });
+    el.querySelector('#custom').addEventListener('submit', (e) => {
+      e.preventDefault();
+      let a = el.querySelector('#cf').value, b = el.querySelector('#ct').value;
+      if (!a || !b) return;
+      if (a > b) [a, b] = [b, a];
+      custom = [a, b]; try { sessionStorage.setItem('dash-range', JSON.stringify(custom)); } catch (_) {}
+      load(); loadChart();
     });
     rpc('run_checks').catch(() => {});
 
     const load = async () => {
       const [from, to] = range(period);
+      el.querySelector('#rlabel').textContent = from === to ? fmtDate(from, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : `${fmtDate(from)} – ${fmtDate(to)}`;
       el.querySelector('#kpi').innerHTML = '<div class="skeleton" style="height:110px"></div>';
       try {
         const s = await rpc('get_summary', { p_from: from, p_to: to });
@@ -94,9 +110,12 @@ export default {
     const loadChart = async () => {
       const box = el.querySelector('#chart');
       try {
-        const rows = await rpc('daily_series', { p_days: 14 });
+        let [from, to] = range(period);
+        if (from === to) from = addDays(to, -13);
+        if ((new Date(to) - new Date(from)) / 864e5 > 61) from = addDays(to, -61);
+        const rows = await rpc('range_series', { p_from: from, p_to: to });
         const max = Math.max(1, ...rows.map((r) => Math.abs(Number(r.laba_bersih))));
-        box.innerHTML = `<h2 class="sec-title">Laba bersih 14 hari</h2><div class="muted xs" style="margin-bottom:10px">Merah = rugi di hari itu</div>
+        box.innerHTML = `<h2 class="sec-title">Laba bersih per hari · ${fmtDate(from, { day: 'numeric', month: 'short' })} – ${fmtDate(to, { day: 'numeric', month: 'short' })}</h2><div class="muted xs" style="margin-bottom:10px">Merah = rugi di hari itu</div>
           <div class="bars">${rows.map((r, i) => `<div class="b" title="${fmtDate(r.d)}: ${rp(r.laba_bersih)}"><i class="${i === rows.length - 1 ? 'today' : ''} ${Number(r.laba_bersih) < 0 ? 'neg' : ''}" style="height:${Math.max(2, Math.abs(Number(r.laba_bersih)) / max * 100)}%"></i><span>${String(r.d).slice(8)}</span></div>`).join('')}</div>`;
       } catch (e) { console.error(e); box.innerHTML = '<div class="muted">Grafik gagal dimuat.</div>'; }
     };
