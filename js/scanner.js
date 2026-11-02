@@ -1,10 +1,19 @@
 import { esc, icon, toast } from './ui.js';
 
-// Kolom scan: bisa dipakai scanner gun (USB/Bluetooth, mengetik + Enter),
-// ketik manual, atau tombol kamera.
+// Kolom scan untuk 3 cara:
+// 1) Scanner Bluetooth / USB (langsung atau lewat OTG converter): alat bekerja seperti keyboard,
+//    mengetik kode sangat cepat lalu Enter / Tab / tanpa akhiran. Semua didukung.
+// 2) Ketik manual + Enter.
+// 3) Kamera HP.
+// Scan tetap tertangkap walau kolom tidak sedang dipilih (selama tidak sedang mengetik di kolom lain).
+let active = null;          // handler scan halaman yang sedang tampil
+const KB_KEY = 'scan-hide-keyboard';
+
 export function scanBox(id, placeholder = 'Scan / ketik barcode lalu Enter') {
+  let hide = false; try { hide = localStorage.getItem(KB_KEY) === '1'; } catch (_) {}
   return `<form class="scanbox" id="${id}" autocomplete="off">
-    <input class="input grow" name="code" placeholder="${esc(placeholder)}" inputmode="text" enterkeyhint="go" aria-label="${esc(placeholder)}" autocapitalize="characters">
+    <input class="input grow" name="code" placeholder="${esc(placeholder)}" inputmode="${hide ? 'none' : 'text'}" enterkeyhint="go" aria-label="${esc(placeholder)}" autocapitalize="characters" autocorrect="off" spellcheck="false">
+    <button type="button" class="btn" data-kb title="Sembunyikan / tampilkan keyboard HP saat memakai scanner Bluetooth" aria-label="Keyboard HP">${icon(hide ? 'scan' : 'list', 18)}<span class="hide-mobile">${hide ? 'Mode scanner' : 'Mode ketik'}</span></button>
     <button type="button" class="btn btn-dark" data-cam aria-label="Scan pakai kamera">${icon('camera')}<span class="hide-mobile">Kamera</span></button>
   </form>`;
 }
@@ -12,9 +21,9 @@ export function scanBox(id, placeholder = 'Scan / ketik barcode lalu Enter') {
 export function bindScan(root, id, onScan, { autofocus = true } = {}) {
   const form = root.querySelector('#' + id);
   const inp = form.querySelector('input');
-  let busy = false;
+  let busy = false, times = [], idleTimer = null;
   const fire = async (code) => {
-    code = String(code || '').trim();
+    code = String(code || '').replace(/[\r\n\t]/g, '').trim();
     if (!code || busy) return;
     busy = true;
     try {
@@ -23,11 +32,57 @@ export function bindScan(root, id, onScan, { autofocus = true } = {}) {
       form.classList.add('scan-flash'); if (ok === false) form.classList.add('bad');
     } finally { busy = false; }
   };
-  form.addEventListener('submit', (e) => { e.preventDefault(); const v = inp.value; inp.value = ''; fire(v); });
+  const submit = () => { clearTimeout(idleTimer); const v = inp.value; inp.value = ''; times = []; fire(v); };
+  form.addEventListener('submit', (e) => { e.preventDefault(); submit(); });
+  inp.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab' && inp.value.trim()) { e.preventDefault(); submit(); return; }   // scanner dengan akhiran Tab
+    if (e.key.length === 1) times.push(performance.now());
+  });
+  // scanner tanpa akhiran: huruf masuk sangat cepat lalu berhenti -> kirim otomatis
+  inp.addEventListener('input', () => {
+    clearTimeout(idleTimer);
+    const n = times.length;
+    if (n >= 4 && (times[n - 1] - times[0]) / (n - 1) < 35) idleTimer = setTimeout(submit, 120);
+  });
   form.querySelector('[data-cam]').addEventListener('click', () => openCamera(fire));
-  if (autofocus && window.matchMedia('(min-width: 900px)').matches) setTimeout(() => inp.focus(), 60);
+  form.querySelector('[data-kb]').addEventListener('click', (e) => {
+    const hide = inp.getAttribute('inputmode') !== 'none';
+    try { localStorage.setItem(KB_KEY, hide ? '1' : '0'); } catch (_) {}
+    inp.setAttribute('inputmode', hide ? 'none' : 'text');
+    e.currentTarget.innerHTML = `${icon(hide ? 'scan' : 'list', 18)}<span class="hide-mobile">${hide ? 'Mode scanner' : 'Mode ketik'}</span>`;
+    toast(hide ? 'Mode scanner: keyboard HP disembunyikan' : 'Mode ketik: keyboard HP muncul');
+    inp.blur(); setTimeout(() => inp.focus(), 50);
+  });
+  active = { fire, inp };
+  if (autofocus && (window.matchMedia('(min-width: 900px)').matches || inp.getAttribute('inputmode') === 'none')) setTimeout(() => inp.focus(), 60);
   return { focus: () => inp.focus(), fire };
 }
+
+// tangkap scan dari alat walau kolom scan tidak sedang dipilih
+let buf = '', bufTimes = [], bufTimer = null;
+document.addEventListener('keydown', (e) => {
+  if (!active || !document.body.contains(active.inp)) { active = null; return; }
+  const t = e.target;
+  if (t === active.inp) return;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+  if (document.querySelector('.overlay, .camera, .tour-block')) return;
+  if (e.ctrlKey || e.altKey || e.metaKey) return;
+  const now = performance.now();
+  if ((e.key === 'Enter' || e.key === 'Tab') && buf.length >= 3) {
+    const fast = bufTimes.length > 1 && (bufTimes[bufTimes.length - 1] - bufTimes[0]) / (bufTimes.length - 1) < 35;
+    if (fast) { e.preventDefault(); const code = buf; buf = ''; bufTimes = []; active.fire(code); }
+    return;
+  }
+  if (e.key.length !== 1) return;
+  if (bufTimes.length && now - bufTimes[bufTimes.length - 1] > 80) { buf = ''; bufTimes = []; }
+  buf += e.key; bufTimes.push(now);
+  clearTimeout(bufTimer);
+  bufTimer = setTimeout(() => {   // tanpa akhiran
+    const n = bufTimes.length;
+    if (buf.length >= 4 && n > 1 && (bufTimes[n - 1] - bufTimes[0]) / (n - 1) < 35) active?.fire(buf);
+    buf = ''; bufTimes = [];
+  }, 150);
+});
 
 const FORMATS = ['code_128', 'ean_13', 'ean_8', 'code_39', 'code_93', 'upc_a', 'upc_e', 'itf', 'codabar', 'qr_code', 'data_matrix'];
 
