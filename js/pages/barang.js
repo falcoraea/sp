@@ -13,7 +13,7 @@ export default {
     const seePrice = ['owner', 'admin'].includes(store.role);
     let search = params.q || '', sel = new Set(), unkList = [];
     el.innerHTML = `${pageHead('Master barang', 'Kode barcode, nama, rak, dan stok minimum. Harga diatur owner di menu Atur harga.',
-      `${canEdit ? `<button class="btn btn-primary" id="add">${icon('plus', 18)} Tambah barang</button>` : ''}<button class="btn" id="lbl">${icon('print', 18)} Cetak label</button><a class="btn" href="#/upload">${icon('upload', 18)} Upload pricelist WIN</a>`)}
+      `${canEdit ? `<button class="btn btn-primary" id="add">${icon('plus', 18)} Tambah barang</button>` : ''}<button class="btn" id="lbl">${icon('print', 18)} Cetak label (yang dicentang / semua)</button><a class="btn" href="#/upload">${icon('upload', 18)} Upload pricelist WIN</a>`)}
       <div class="stack"><div id="unk"></div>
       <input class="input" id="q" placeholder="Cari nama / kode" value="${esc(search)}" aria-label="Cari barang">
       <div class="card flush" id="list">${skeleton()}</div></div>`;
@@ -94,8 +94,7 @@ export default {
     on(el, 'change', '[data-sel]', (e, c) => { c.checked ? sel.add(+c.dataset.sel) : sel.delete(+c.dataset.sel); });
     el.querySelector('#lbl').onclick = () => {
       const items = (el._data || []).filter((p) => sel.has(p.id));
-      if (!items.length) return toast('Centang barang yang mau dicetak labelnya', 'err');
-      printLabels(items);
+      printLabels(items.length ? items : (el._data || []));
     };
     on(el, 'click', '[data-addu]', (e, b) => edit(null, unkList[+b.dataset.addu]));
     unknown(); load();
