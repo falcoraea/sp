@@ -48,11 +48,11 @@ async function scanPO(el, id) {
     try {
       const r = await rpc('receive_scan', { p_po: id, p_sku: code });
       const last = el.querySelector('#last');
-      if (!r.ok) { beep(false); last.innerHTML = `<div class="alert red">${esc(r.msg)}</div>`; return false; }
+      if (!r.ok) { beep(false); last.innerHTML = `<div class="alert red">${esc(r.msg)}</div>`; return { ok: false, title: r.msg }; }
       beep(true);
       last.innerHTML = `<div class="alert ${r.dest === 'packing' ? 'blue' : 'green'}"><b>${esc(r.name)}</b> ${r.received}/${r.qty} → <b>${r.dest === 'packing' ? 'Meja packing' : esc(r.dest)}</b></div>`;
       ({ data: p } = await load()); paint();
-      return true;
+      return { ok: true, title: r.name, info: `${r.received}/${r.qty} → ${r.dest === 'packing' ? 'Meja packing' : r.dest}` };
     } catch (e) { toastErr(e); return false; }
   });
   const finish = async (short) => {
