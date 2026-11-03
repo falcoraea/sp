@@ -27,7 +27,7 @@ export default {
       if (!msg && !store.superadmin) { box.classList.add('hidden'); return; }
       box.classList.remove('hidden');
       box.innerHTML = `${msg ? `<div class="alert yellow small" style="margin:0">${msg}</div>` : `<div class="row between wrap"><span class="small"><b>Notifikasi HP aktif</b> di perangkat ini.</span><span class="tag green">Aktif</span></div>`}
-        ${store.superadmin && perm === 'granted' ? '<div class="row wrap"><button class="btn" id="ptest">Kirim notifikasi tes (super admin)</button></div>' : ''}`;
+        ${store.superadmin ? '<div class="small muted">Tes notifikasi ada di menu <a href="#/superadmin">Super admin</a>.</div>' : ''}`;
       box.querySelector('#ptest')?.addEventListener('click', async (e) => { e.target.disabled = true; try { await subscribePush(); await sendTestPush(); toast('Tes dikirim. Tutup / kecilkan aplikasi, notifikasi muncul dalam beberapa detik.', 'ok'); } catch (err) { toastErr(err); } setTimeout(() => { e.target.disabled = false; }, 4000); });
     };
     const paint = () => {
