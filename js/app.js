@@ -1,4 +1,4 @@
-import { supa, configured, rpc } from './supa.js';
+import { supa, configured, rpc, logEvent, logPage } from './supa.js';
 import { store, loadNotifs, unreadCount, markRead, loadProfiles, onEvt, emit } from './store.js';
 import { PAGES, TABS, HOME, canOpen, menuFor } from './nav.js';
 import { esc, icon, toast, toastErr, ago, ROLE_LABEL, ROLE_COLOR, modal } from './ui.js';
@@ -13,6 +13,8 @@ let current = { page: null, mod: null };
 let channel = null;
 let booted = false;
 let routeSeq = 0;
+let hashBound = false;
+const SA_ROLES = [['owner', 'Semua menu, laporan, harga'], ['admin', 'Pesanan, upload, beli WIN'], ['kepala_gudang', 'Terima, stok, retur, opname'], ['picker', 'Ambil barang dari rak'], ['packing', 'Packing & scan resi'], ['sopir', 'Tugas ambil barang WIN']];
 
 // ---------- PWA ----------
 if ('serviceWorker' in navigator) {
@@ -38,7 +40,7 @@ else {
 function teardown() {
   if (channel) { supa.removeChannel(channel); channel = null; }
   setFallbackScan(null);
-  Object.assign(store, { session: null, profile: null, role: null, notifs: [], reads: new Set() });
+  Object.assign(store, { session: null, profile: null, role: null, superadmin: false, notifs: [], reads: new Set() });
 }
 
 async function boot(session) {
@@ -47,12 +49,22 @@ async function boot(session) {
     const { data: profile, error } = await supa.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
     if (error) throw error;
     if (!profile || profile.role === 'pending' || !profile.active) return renderPending(root, profile);
-    store.profile = profile; store.role = profile.role;
+    store.profile = profile;
+    if (profile.role === 'superadmin') {
+      // super admin: pilih mau masuk sebagai jabatan apa (berlaku sampai tab ditutup / ganti jabatan)
+      let picked = null; try { picked = sessionStorage.getItem('sa-role'); } catch (_) {}
+      if (!picked || picked !== profile.act_as) picked = await pickActAs();
+      profile.act_as = picked; store.role = picked; store.superadmin = true;
+    } else {
+      store.role = profile.role; store.superadmin = false;
+      let logged = null; try { logged = sessionStorage.getItem('logged-' + profile.id); } catch (_) {}
+      if (!logged) { logEvent('login', 'Masuk aplikasi'); try { sessionStorage.setItem('logged-' + profile.id, '1'); } catch (_) {} }
+    }
     const { data: settings } = await supa.from('settings').select('*').eq('id', 1).single();
     store.settings = settings || {};
     await loadProfiles().catch(() => {});
     renderShell();
-    window.addEventListener('hashchange', route);
+    if (!hashBound) { window.addEventListener('hashchange', route); hashBound = true; }
     await route();
     subscribe();
     loadNotifs().catch(() => {});
@@ -61,6 +73,32 @@ async function boot(session) {
     toastErr(e);
     root.innerHTML = `<div class="boot"><div class="boot-logo">SG</div><div class="boot-text">Gagal memuat data. Periksa koneksi, lalu muat ulang.</div><button class="btn" onclick="location.reload()">Muat ulang</button></div>`;
   }
+}
+
+// ---------- super admin ----------
+function pickActAs(current) {
+  return new Promise((resolve) => {
+    root.innerHTML = `<div class="sa-pick"><div class="card stack">
+      <div><span class="tag" style="background:#A63A2A;color:#fff">Super admin</span><h2 style="font-size:22px;margin-top:10px">Masuk sebagai jabatan apa?</h2>
+      <div class="small muted" style="margin-top:4px">Aplikasi akan tampil &amp; bekerja persis seperti jabatan itu. Semua tindakanmu tetap tercatat di Log aktivitas sebagai Super admin.</div></div>
+      <div class="sa-grid">${SA_ROLES.map(([r, d]) => `<button class="sa-role" data-r="${r}" ${r === current ? 'style="border-color:var(--ink)"' : ''}><b>${esc(ROLE_LABEL[r])}</b><span>${esc(d)}</span></button>`).join('')}</div>
+      <button class="btn btn-ghost" data-out>${icon('logout', 18)} Keluar</button></div></div>`;
+    root.querySelector('[data-out]').onclick = () => supa.auth.signOut();
+    root.querySelectorAll('[data-r]').forEach((b) => b.addEventListener('click', async () => {
+      root.querySelectorAll('[data-r]').forEach((x) => { x.disabled = true; });
+      try {
+        await rpc('sa_act_as', { p_role: b.dataset.r });
+        try { sessionStorage.setItem('sa-role', b.dataset.r); } catch (_) {}
+        resolve(b.dataset.r);
+      } catch (e) { toastErr(e); root.querySelectorAll('[data-r]').forEach((x) => { x.disabled = false; }); }
+    }));
+  });
+}
+async function switchActAs() {
+  const r = await modal({ title: 'Ganti jabatan (super admin)', body: `<div class="sa-grid">${SA_ROLES.map(([k, d]) => `<button class="sa-role" data-r="${k}" ${k === store.role ? 'style="border-color:var(--ink)"' : ''}><b>${esc(ROLE_LABEL[k])}</b><span>${esc(d)}</span></button>`).join('')}</div>`,
+    actions: [], onOpen: (ov, close) => ov.querySelectorAll('[data-r]').forEach((b) => b.addEventListener('click', () => close(b.dataset.r))) });
+  if (!r || r === store.role) return;
+  try { await rpc('sa_act_as', { p_role: r }); try { sessionStorage.setItem('sa-role', r); } catch (_) {} location.hash = ''; location.reload(); } catch (e) { toastErr(e); }
 }
 
 // ---------- shell ----------
@@ -94,6 +132,7 @@ function renderShell() {
         <button class="icon-btn bell" data-bell data-tour="bell" aria-label="Notifikasi">${icon('bell')}<span class="badge-dot hidden" data-badge></span></button>
         <button class="tb-user" data-me aria-haspopup="menu" aria-label="Profil saya"><span class="av">${esc(ini(p.full_name))}</span><span class="tb-u-txt"><b>${esc(p.full_name)}</b><small>${esc(ROLE_LABEL[role])}</small></span>${icon('chev', 16)}</button>
       </header>
+      ${store.superadmin ? `<div class="sa-bar">${icon('shield', 16)}<span><b>Mode super admin</b> · sedang sebagai <b>${esc(ROLE_LABEL[role])}</b></span><button class="btn" data-sa>Ganti jabatan</button></div>` : ''}
       <main class="view" id="view" tabindex="-1"></main>
     </div>
     <nav class="tabbar" aria-label="Menu bawah">${tabs}</nav>
@@ -102,6 +141,7 @@ function renderShell() {
   root.querySelector('[data-logout]').onclick = logout;
   root.querySelector('[data-more]').onclick = openMore;
   root.querySelector('[data-bell]').onclick = toggleBell;
+  root.querySelector('[data-sa]')?.addEventListener('click', switchActAs);
   root.querySelectorAll('[data-me]').forEach((b) => { b.onclick = (e) => toggleMe(e.currentTarget); b.onkeydown = (e) => { if (e.key === 'Enter') toggleMe(b); }; });
   startPaging(root.querySelector('.main'));
   root.querySelector('[data-help]').onclick = () => {
@@ -116,6 +156,7 @@ function renderShell() {
 async function globalScan(code) {
   try {
     const r = await rpc('lookup_code', { p_code: code });
+    logEvent('cek', 'Scan cek kode ' + code + ' → ' + (r.type === 'barang' ? r.name : r.type === 'resi' ? 'resi' : r.type === 'rak' ? 'rak ' + r.code : 'tidak dikenal'), code);
     if (r.type === 'barang') return { ok: true, title: r.name, info: `Barang · Rak ${r.rack || '-'} · stok ${r.stock}` };
     if (r.type === 'resi') return { ok: true, title: 'Resi ' + (r.resi || r.order_no), info: (r.items || []).map((i) => i.name + ' ×' + i.qty).join(', ') };
     if (r.type === 'rak') return { ok: true, title: 'Rak ' + r.code, info: (r.items || []).length + ' jenis barang' };
@@ -136,6 +177,8 @@ function paintBadge() {
 
 async function logout() {
   if (await modal({ title: 'Keluar dari aplikasi?', body: '<p style="margin:0">Kamu perlu login lagi dengan email &amp; password.</p>', actions: [{ label: 'Batal', value: false }, { label: 'Keluar', cls: 'btn-dark', value: true }] })) {
+    if (!store.superadmin) await Promise.race([supa.rpc('log_event', { p_kind: 'login', p_summary: 'Keluar aplikasi' }), new Promise((r) => setTimeout(r, 1500))]).catch(() => {});
+    try { sessionStorage.removeItem('logged-' + store.profile.id); sessionStorage.removeItem('sa-role'); } catch (_) {}
     await supa.auth.signOut();
     location.hash = '';
   }
@@ -160,9 +203,9 @@ function openMore() {
 function meMenuHtml() {
   const p = store.profile, role = store.role;
   const items = [['akun', 'user', 'Profil & ganti password'], ['panduan', 'compass', 'Panduan aplikasi'], ['notifikasi', 'bell', 'Semua notifikasi']];
-  if (role === 'owner') items.push(['pengaturan', 'gear', 'Pengaturan toko'], ['pegawai', 'users', 'Pegawai & jabatan']);
+  if (role === 'owner') items.push(['log', 'clock', 'Log aktivitas'], ['pengaturan', 'gear', 'Pengaturan toko'], ['pegawai', 'users', 'Pegawai & jabatan']);
   return `<div class="me-head"><span class="av">${esc(ini(p.full_name))}</span><div style="min-width:0"><b>${esc(p.full_name)}</b><div class="xs muted" style="overflow-wrap:anywhere">${esc(p.email || store.session?.user?.email || '')}</div><span class="tag dark" style="margin-top:6px">${esc(ROLE_LABEL[role])}</span></div></div>
-    <div class="me-list">${items.map(([k, ic, l]) => `<a class="me-item" href="#/${k}" data-close>${icon(ic, 18)}<span>${l}</span></a>`).join('')}
+    <div class="me-list">${store.superadmin ? `<button class="me-item" data-sa-switch style="color:#A63A2A">${icon('shield', 18)}<span>Ganti jabatan (super admin)</span></button>` : ''}${items.map(([k, ic, l]) => `<a class="me-item" href="#/${k}" data-close>${icon(ic, 18)}<span>${l}</span></a>`).join('')}
     <button class="me-item danger" data-lo>${icon('logout', 18)}<span>Keluar</span></button></div>`;
 }
 function toggleMe(btn) {
@@ -171,6 +214,7 @@ function toggleMe(btn) {
     modal({ title: 'Profil saya', body: `<div class="me-sheet">${meMenuHtml()}</div>`, actions: [], onOpen: (ov, close) => {
       ov.querySelectorAll('[data-close]').forEach((a) => a.addEventListener('click', () => close(null)));
       ov.querySelector('[data-lo]').onclick = () => { close(null); logout(); };
+      ov.querySelector('[data-sa-switch]')?.addEventListener('click', () => { close(null); switchActAs(); });
     } });
     return;
   }
@@ -184,6 +228,7 @@ function toggleMe(btn) {
   panel.addEventListener('click', (e) => {
     e.stopPropagation();
     if (e.target.closest('[data-lo]')) { panel.remove(); logout(); return; }
+    if (e.target.closest('[data-sa-switch]')) { panel.remove(); switchActAs(); return; }
     if (e.target.closest('a')) panel.remove();
   });
   setTimeout(() => document.addEventListener('click', function off(e) {
@@ -285,6 +330,7 @@ async function route() {
     if (seq !== routeSeq) return;
     current = { page, mod };
     await mod.render(view, { params, go: (h) => (location.hash = h), store });
+    logPage(page, pg.label);
   } catch (e) {
     toastErr(e);
     view.innerHTML = `<div class="card"><b>Halaman gagal dimuat.</b><div class="muted small" style="margin-top:6px">${esc(e.message || e)}</div><button class="btn" style="margin-top:12px" onclick="location.reload()">Muat ulang</button></div>`;
