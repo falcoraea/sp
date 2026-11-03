@@ -1,5 +1,6 @@
 import { store, loadNotifs, markRead } from '../store.js';
-import { esc, chips, on, emptyState, ROLE_LABEL, icon } from '../ui.js';
+import { esc, chips, on, emptyState, ROLE_LABEL, icon, toast, toastErr } from '../ui.js';
+import { pushSupported, pushPermission, enablePush, sendTestPush, subscribePush } from '../push.js';
 import { notifItem } from '../app.js';
 
 let refresh = null;
@@ -12,8 +13,20 @@ export default {
     el.innerHTML = `<div class="stack">
       <div class="row between wrap"><div class="small muted">${isOwner ? 'Owner menerima notifikasi dari <b>semua jabatan</b>.' : 'Tugas & info untuk jabatan ' + esc(ROLE_LABEL[store.role]) + '.'}</div>
         <div class="row"><button class="btn btn-sm" id="rf">${icon('refresh', 16)}</button><button class="btn btn-sm" id="ra">Tandai semua dibaca</button></div></div>
-      <div id="ch"></div><div class="card flush" id="list"></div>
-      ${'Notification' in window && Notification.permission === 'default' ? '<button class="btn" id="perm">Izinkan notifikasi muncul di HP / laptop</button>' : ''}</div>`;
+      <section class="card stack" id="push"></section>
+      <div id="ch"></div><div class="card flush" id="list"></div></div>`;
+    const paintPush = () => {
+      const box = el.querySelector('#push');
+      const perm = pushPermission();
+      const st = !pushSupported() ? ['gray', 'Tidak didukung di perangkat / browser ini'] : perm === 'granted' ? ['green', 'Aktif di perangkat ini'] : perm === 'denied' ? ['red', 'Diblokir'] : ['yellow', 'Belum diaktifkan'];
+      box.innerHTML = `<div class="row between wrap"><div><h2 class="sec-title">${icon('bell', 18)} Notifikasi HP</h2><div class="small muted">Muncul di layar HP walau aplikasi ditutup, seperti pesan WhatsApp.</div></div><span class="tag ${st[0]}">${st[1]}</span></div>
+        ${perm === 'denied' ? '<div class="alert yellow small">Notifikasi diblokir. Buka <b>Setelan HP › Aplikasi › Stok Gudang (atau Chrome) › Notifikasi</b>, izinkan, lalu kembali ke sini.</div>' : ''}
+        <div class="row wrap">${pushSupported() && perm !== 'granted' ? `<button class="btn btn-primary" id="pon">${icon('bell', 18)} Aktifkan notifikasi HP</button>` : ''}
+        ${perm === 'granted' ? `<button class="btn" id="ptest">Kirim notifikasi tes</button><button class="btn btn-ghost btn-sm" id="pre">Daftarkan ulang perangkat ini</button>` : ''}</div>`;
+      box.querySelector('#pon')?.addEventListener('click', async (e) => { e.target.disabled = true; try { await enablePush(); toast('Notifikasi HP aktif', 'ok'); } catch (err) { toastErr(err); } paintPush(); });
+      box.querySelector('#ptest')?.addEventListener('click', async (e) => { e.target.disabled = true; try { await subscribePush(); await sendTestPush(); toast('Tes dikirim. Tutup / kecilkan aplikasi, notifikasi muncul dalam beberapa detik.', 'ok'); } catch (err) { toastErr(err); } setTimeout(() => { e.target.disabled = false; }, 4000); });
+      box.querySelector('#pre')?.addEventListener('click', async () => { try { await subscribePush(); toast('Perangkat terdaftar', 'ok'); } catch (err) { toastErr(err); } });
+    };
     const paint = () => {
       el.querySelector('#ch').innerHTML = chips('f', opts, f);
       let list = store.notifs;
@@ -27,7 +40,7 @@ export default {
     on(el, 'click', '[data-nid]', (e, a) => markRead([+a.dataset.nid]));
     el.querySelector('#ra').onclick = () => markRead(store.notifs.map((n) => n.id));
     el.querySelector('#rf').onclick = async () => { await loadNotifs(); paint(); };
-    el.querySelector('#perm')?.addEventListener('click', async (e) => { await Notification.requestPermission(); e.target.remove(); });
+    paintPush();
     paint();
     if (!store.notifs.length) { await loadNotifs().catch(() => {}); paint(); }
   },
