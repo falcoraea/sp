@@ -40,7 +40,6 @@ function paintStatus() {
 }
 
 // dipanggil setiap ada scan dari alat (ketikan sangat cepat)
-let askedThisSession = false;
 function noteHardware(meta) {
   const modeBefore = getScanMode();
   if (!ls(MODE_KEY)) ls(MODE_KEY, modeBefore);      // kunci pilihan saat ini supaya tidak berganti diam-diam
@@ -50,14 +49,9 @@ function noteHardware(meta) {
   paintStatus();
   window.dispatchEvent(new CustomEvent('scanner-detected', { detail: meta }));
   if (!first) return;
-  if (modeBefore === 'alat' || askedThisSession) { toast('Scanner terhubung ✓', 'ok'); return; }
-  askedThisSession = true;
-  setTimeout(() => modal({
-    title: 'Scanner terhubung ✓',
-    body: `<p style="margin-top:0">Scanner USB / Bluetooth terdeteksi di perangkat ini. Mau scan pakai yang mana?</p>
-      <div class="small muted">Bisa diganti kapan saja lewat tombol di atas kolom scan atau menu <b>Pengaturan scanner</b> (menu profil).</div>`,
-    actions: [{ label: 'Kamera HP', value: 'kamera' }, { label: 'Pakai scanner alat', cls: 'btn-primary', value: 'alat' }]
-  }).then((v) => { if (v) { setScanMode(v); toast(v === 'alat' ? 'Mode scanner alat: keyboard HP disembunyikan' : 'Mode kamera HP', 'ok'); } }), 900);
+  // scanner langsung aktif: otomatis pindah ke mode Scanner alat (keyboard HP disembunyikan)
+  if (modeBefore !== 'alat') setScanMode('alat');
+  toast('Scanner terhubung ✓ — siap dipakai', 'ok');
 }
 
 export function scanBox(id, placeholder = 'Scan / ketik barcode lalu Enter') {
