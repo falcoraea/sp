@@ -159,16 +159,11 @@ function renderShell() {
   setFallbackScan(globalScan);
 }
 
-// scan alat (USB/Bluetooth) saat tidak ada kolom scan di halaman: tetap tampilkan pop-up keterangan kode
-async function globalScan(code) {
-  try {
-    const r = await rpc('lookup_code', { p_code: code });
-    logEvent('cek', 'Scan cek kode ' + code + ' → ' + (r.type === 'barang' ? r.name : r.type === 'resi' ? 'resi' : r.type === 'rak' ? 'rak ' + r.code : 'tidak dikenal'), code);
-    if (r.type === 'barang') return { ok: true, title: r.name, info: `Barang · Rak ${r.rack || '-'} · stok ${r.stock}` };
-    if (r.type === 'resi') return { ok: true, title: 'Resi ' + (r.resi || r.order_no), info: (r.items || []).map((i) => i.name + ' ×' + i.qty).join(', ') };
-    if (r.type === 'rak') return { ok: true, title: 'Rak ' + r.code, info: (r.items || []).length + ' jenis barang' };
-    return { ok: false, title: 'Kode tidak dikenal', info: 'Belum ada di master barang, pesanan, atau rak' };
-  } catch (e) { return { ok: false, title: 'Gagal mengecek kode', info: e.message || String(e) }; }
+// scan alat (USB/Bluetooth) di halaman yang BUKAN menu scan: ditolak, dengan petunjuk menu yang benar
+const SCAN_PAGES = ['ambil', 'packing', 'terima', 'retur', 'cek'];
+function globalScan() {
+  const menus = SCAN_PAGES.filter((k) => canOpen(k, store.role)).map((k) => PAGES[k].label);
+  return { ok: false, title: 'Halaman ini bukan menu scan', info: 'Scan diabaikan. Buka menu: ' + menus.join(', ') + '.' };
 }
 
 function paintBadge() {
@@ -246,7 +241,7 @@ async function showVersion() {
 // ---------- menu profil (pojok kanan atas / logo) ----------
 function meMenuHtml() {
   const p = store.profile, role = store.role;
-  const items = [['akun', 'user', 'Profil & ganti password'], ['panduan', 'compass', 'Panduan aplikasi'], ['notifikasi', 'bell', 'Semua notifikasi']];
+  const items = [['akun', 'user', 'Profil & ganti password'], ['pengaturan-scanner', 'scan', 'Pengaturan scanner'], ['panduan', 'compass', 'Panduan aplikasi'], ['notifikasi', 'bell', 'Semua notifikasi']];
   if (role === 'owner') items.push(['log', 'clock', 'Log aktivitas'], ['pengaturan', 'gear', 'Pengaturan toko'], ['pegawai', 'users', 'Pegawai & jabatan']);
   return `<div class="me-head"><span class="av">${esc(ini(p.full_name))}</span><div style="min-width:0"><b>${esc(p.full_name)}</b><div class="xs muted" style="overflow-wrap:anywhere">${esc(p.email || store.session?.user?.email || '')}</div><span class="tag dark" style="margin-top:6px">${esc(ROLE_LABEL[role])}</span></div></div>
     <div class="me-list">${store.superadmin ? `<button class="me-item" data-sa-switch style="color:#A63A2A">${icon('shield', 18)}<span>Ganti jabatan (super admin)</span></button>` : ''}${items.map(([k, ic, l]) => `<a class="me-item" href="#/${k}" data-close>${icon(ic, 18)}<span>${l}</span></a>`).join('')}
