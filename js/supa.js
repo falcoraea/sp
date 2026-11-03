@@ -41,6 +41,7 @@ const MESSAGES = [
   [/Failed to fetch|NetworkError|Load failed/i, 'Tidak ada koneksi internet / server tidak terjangkau.'],
   [/AbortError|aborted/i, 'Server terlalu lama menjawab (koneksi lambat). Coba tekan lagi.'],
   [/duplicate key|already exists/i, 'Data dengan kode itu sudah ada.'],
+  [/Registration failed|push service error/i, 'HP menolak pendaftaran notifikasi. Pastikan notifikasi diizinkan untuk aplikasi ini (Setelan HP › Aplikasi › Stok Gudang › Notifikasi), lalu coba lagi.'],
   [/JWT expired/i, 'Sesi habis, silakan login ulang.'],
   [/schema cache|Could not find the function/i, 'Database belum diperbarui ke versi aplikasi ini. Buka Supabase › SQL Editor, jalankan ulang seluruh isi supabase/schema.sql (aman, data tidak hilang), lalu coba lagi.']
 ];
