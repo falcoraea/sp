@@ -67,14 +67,25 @@ export async function unsubscribePush() {
   } catch (_) {}
 }
 
-// dipanggil saat aplikasi dibuka: kalau sudah diizinkan, pastikan terdaftar; kalau belum, tawarkan
-export async function initPush({ onAsk } = {}) {
+// dipanggil saat aplikasi dibuka: notifikasi langsung aktif tanpa tombol.
+// Izin diminta otomatis; kalau HP mengharuskan ketukan dulu (iPhone), izin diminta pada ketukan pertama di layar.
+let asking = false;
+async function askNow() {
+  if (asking || Notification.permission !== 'default') return;
+  asking = true;
+  try {
+    const p = await Notification.requestPermission();
+    if (p === 'granted') await subscribePush();
+  } catch (_) {} finally { asking = false; }
+}
+export async function initPush() {
   if (!pushSupported()) return;
   if (Notification.permission === 'granted') { subscribePush().catch(() => {}); return; }
-  if (Notification.permission === 'default' && onAsk) {
-    let last = 0; try { last = +localStorage.getItem('push-ask') || 0; } catch (_) {}
-    if (Date.now() - last > 3 * 864e5) onAsk();
+  if (Notification.permission !== 'default') return;
+  await askNow();
+  if (Notification.permission === 'default') {
+    const once = () => { document.removeEventListener('pointerdown', once, true); askNow(); };
+    document.addEventListener('pointerdown', once, true);
   }
 }
-export const snoozeAsk = () => { try { localStorage.setItem('push-ask', String(Date.now())); } catch (_) {} };
 export const sendTestPush = () => rpc('push_test');
