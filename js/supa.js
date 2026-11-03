@@ -75,3 +75,15 @@ export function logPage(key, label) {
   seen[key] = now;
   logEvent('halaman', 'Buka halaman ' + label, key);
 }
+
+// Supabase membatasi 1000 baris per permintaan -> ambil bertahap sampai habis
+export async function fetchAll(build, size = 1000, max = 50000) {
+  const out = [];
+  for (let from = 0; from < max; from += size) {
+    const { data, error } = await build().range(from, from + size - 1);
+    if (error) throw error;
+    out.push(...(data || []));
+    if (!data || data.length < size) break;
+  }
+  return out;
+}
