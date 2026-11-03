@@ -61,3 +61,16 @@ export async function q(promise) {
   if (error) throw error;
   return count !== undefined && count !== null && data === null ? count : data;
 }
+
+// catat aktivitas dari aplikasi (tidak pernah mengganggu kerja: gagal = diam)
+export function logEvent(kind, summary, ref = null) {
+  try { supa.rpc('log_event', { p_kind: kind, p_summary: summary, p_ref: ref }).then(() => {}, () => {}); } catch (_) {}
+}
+// buka halaman: dicatat paling sering 1× per 10 menit per halaman
+const seen = {};
+export function logPage(key, label) {
+  const now = Date.now();
+  if (seen[key] && now - seen[key] < 600000) return;
+  seen[key] = now;
+  logEvent('halaman', 'Buka halaman ' + label, key);
+}
