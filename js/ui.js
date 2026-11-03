@@ -260,8 +260,8 @@ export const pageHead = (title, desc = '', actions = '') =>
 export function chips(name, options, current) {
   return `<div class="chips scroll" data-chips="${name}">${options.map(([v, l]) => `<button class="chip ${v === current ? 'on' : ''}" data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div>`;
 }
-export const ROLE_LABEL = { owner: 'Owner', admin: 'Admin', sopir: 'Sopir', kepala_gudang: 'Kepala Gudang', picker: 'Picker', packing: 'Packing', pending: 'Menunggu', sistem: 'Sistem' };
-export const ROLE_COLOR = { owner: '#1A1D1B', admin: '#5B3E9A', sopir: '#1B4280', kepala_gudang: '#17563A', picker: '#6B4A00', packing: '#8A2E20', sistem: '#1A1D1B' };
+export const ROLE_LABEL = { owner: 'Owner', admin: 'Admin', sopir: 'Sopir', kepala_gudang: 'Kepala Gudang', picker: 'Picker', packing: 'Packing', pending: 'Menunggu', sistem: 'Sistem', superadmin: 'Super admin' };
+export const ROLE_COLOR = { owner: '#1A1D1B', admin: '#5B3E9A', sopir: '#1B4280', kepala_gudang: '#17563A', picker: '#6B4A00', packing: '#8A2E20', sistem: '#6B6F6A', superadmin: '#A63A2A' };
 export const STATUS_LABEL = {
   baru: ['Baru', ''], menunggu_win: ['Menunggu WIN', 'yellow'], siap_pick: ['Siap diambil', 'blue'], siap_packing: ['Siap packing', 'blue'],
   dikirim: ['Dikirim', 'green'], selesai: ['Selesai', 'green'], cancel: ['Cancel', 'red'], retur: ['Retur', 'red']
