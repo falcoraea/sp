@@ -11,8 +11,14 @@ const TEMPLATES = {
 };
 
 // items: [{sku, name, rack_code?, stock?}], kind: 'barang' | 'rak'
+let dialogOpen = false;
 export async function openLabelDialog(items, kind = 'barang') {
   if (!items.length) return toast('Tidak ada label untuk dicetak', 'err');
+  if (dialogOpen || document.querySelector('.overlay [data-label-dlg]')) return;   // cegah jendela cetak muncul berkali-kali
+  dialogOpen = true;
+  try { return await labelDialog(items, kind); } finally { dialogOpen = false; }
+}
+async function labelDialog(items, kind) {
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem('label-opt') || '{}'); } catch (_) {}
   const def = { tpl: kind === 'rak' ? 'a4_2x5' : (saved.tpl || 'a4_3x7'), copies: saved.copies || 'one', n: saved.n || 1, start: 1, name: saved.name !== false, rack: saved.rack !== false };
