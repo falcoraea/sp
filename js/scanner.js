@@ -1,4 +1,4 @@
-import { esc, icon, toast, beep } from './ui.js';
+import { esc, icon, toast, beep, modal } from './ui.js';
 
 // Kolom scan untuk 3 cara:
 // 1) Scanner Bluetooth / USB (langsung atau lewat OTG converter): alat bekerja seperti keyboard,
@@ -7,27 +7,83 @@ import { esc, icon, toast, beep } from './ui.js';
 // 3) Kamera HP.
 // Scan tetap tertangkap walau kolom tidak sedang dipilih (selama tidak sedang mengetik di kolom lain).
 let active = null;          // handler scan halaman yang sedang tampil
-const KB_KEY = 'scan-hide-keyboard';
+
+// ---------- mode scan: Scanner alat / Kamera HP / Ketik ----------
+const MODE_KEY = 'scan-mode', LAST_KEY = 'scanner-last', META_KEY = 'scanner-meta';
+const MODES = [['alat', 'scan', 'Scanner alat'], ['kamera', 'camera', 'Kamera HP'], ['ketik', 'list', 'Ketik']];
+const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (_) {} return null; };
+const isMobile = () => window.matchMedia('(max-width: 899px)').matches;
+export const scannerLastSeen = () => +ls(LAST_KEY) || 0;
+export const scannerMeta = () => { try { return JSON.parse(ls(META_KEY) || 'null'); } catch (_) { return null; } };
+export function getScanMode() {
+  const m = ls(MODE_KEY);
+  if (MODES.some(([k]) => k === m)) return m;
+  if (ls('scan-hide-keyboard') === '1' || scannerLastSeen()) return 'alat';
+  return isMobile() ? 'kamera' : 'ketik';
+}
+export function setScanMode(m) {
+  ls(MODE_KEY, m);
+  document.querySelectorAll('.scanwrap').forEach((w) => w.__applyMode && w.__applyMode(m));
+  window.dispatchEvent(new CustomEvent('scan-mode', { detail: m }));
+}
+const ago = (t) => { const s = Math.round((Date.now() - t) / 1000); return s < 60 ? 'baru saja' : s < 3600 ? Math.round(s / 60) + ' menit lalu' : s < 86400 ? Math.round(s / 3600) + ' jam lalu' : Math.round(s / 86400) + ' hari lalu'; };
+export function scannerStatusText() {
+  const t = scannerLastSeen();
+  let live = false; try { live = sessionStorage.getItem('scanner-ok') === '1'; } catch (_) {}
+  if (live && Date.now() - t < 30 * 60000) return { on: true, text: 'Scanner terhubung · scan terakhir ' + ago(t) };
+  if (t) return { on: false, text: 'Scanner pernah dipakai di perangkat ini (' + ago(t) + '). Scan sekali untuk memastikan masih terhubung.' };
+  return { on: false, text: 'Scanner belum terdeteksi. Sambungkan scanner lalu scan satu barcode.' };
+}
+function paintStatus() {
+  const st = scannerStatusText();
+  document.querySelectorAll('[data-sc-status]').forEach((el) => { el.classList.toggle('on', st.on); el.querySelector('span').textContent = st.text; });
+}
+
+// dipanggil setiap ada scan dari alat (ketikan sangat cepat)
+let askedThisSession = false;
+function noteHardware(meta) {
+  const modeBefore = getScanMode();
+  if (!ls(MODE_KEY)) ls(MODE_KEY, modeBefore);      // kunci pilihan saat ini supaya tidak berganti diam-diam
+  let first = true; try { first = sessionStorage.getItem('scanner-ok') !== '1'; sessionStorage.setItem('scanner-ok', '1'); } catch (_) {}
+  ls(LAST_KEY, String(Date.now()));
+  ls(META_KEY, JSON.stringify({ ms: meta.ms ?? null, suffix: meta.suffix || '-', at: Date.now() }));
+  paintStatus();
+  window.dispatchEvent(new CustomEvent('scanner-detected', { detail: meta }));
+  if (!first) return;
+  if (modeBefore === 'alat' || askedThisSession) { toast('Scanner terhubung ✓', 'ok'); return; }
+  askedThisSession = true;
+  setTimeout(() => modal({
+    title: 'Scanner terhubung ✓',
+    body: `<p style="margin-top:0">Scanner USB / Bluetooth terdeteksi di perangkat ini. Mau scan pakai yang mana?</p>
+      <div class="small muted">Bisa diganti kapan saja lewat tombol di atas kolom scan atau menu <b>Pengaturan scanner</b> (menu profil).</div>`,
+    actions: [{ label: 'Kamera HP', value: 'kamera' }, { label: 'Pakai scanner alat', cls: 'btn-primary', value: 'alat' }]
+  }).then((v) => { if (v) { setScanMode(v); toast(v === 'alat' ? 'Mode scanner alat: keyboard HP disembunyikan' : 'Mode kamera HP', 'ok'); } }), 900);
+}
 
 export function scanBox(id, placeholder = 'Scan / ketik barcode lalu Enter') {
-  let hide = false; try { hide = localStorage.getItem(KB_KEY) === '1'; } catch (_) {}
-  return `<form class="scanbox" id="${id}" autocomplete="off">
-    <input class="input grow" name="code" placeholder="${esc(placeholder)}" inputmode="${hide ? 'none' : 'text'}" enterkeyhint="go" aria-label="${esc(placeholder)}" autocapitalize="characters" autocorrect="off" spellcheck="false">
-    <button type="button" class="btn" data-kb title="Sembunyikan / tampilkan keyboard HP saat memakai scanner Bluetooth" aria-label="Keyboard HP">${icon(hide ? 'scan' : 'list', 18)}<span class="hide-mobile">${hide ? 'Mode scanner' : 'Mode ketik'}</span></button>
-    <button type="button" class="btn btn-dark" data-cam aria-label="Scan pakai kamera">${icon('camera')}<span class="hide-mobile">Kamera</span></button>
-  </form>`;
+  return `<div class="scanwrap" data-ph="${esc(placeholder)}">
+    <div class="scan-modes" role="group" aria-label="Cara scan">${MODES.map(([k, ic, l]) => `<button type="button" class="sm-btn" data-mode="${k}">${icon(ic, 16)}<span>${l}</span></button>`).join('')}</div>
+    <form class="scanbox" id="${id}" autocomplete="off">
+      <input class="input grow" name="code" placeholder="${esc(placeholder)}" inputmode="text" enterkeyhint="go" aria-label="${esc(placeholder)}" autocapitalize="characters" autocorrect="off" spellcheck="false">
+      <button type="button" class="btn btn-dark" data-cam aria-label="Scan pakai kamera">${icon('camera')}<span class="cam-lbl">Kamera</span></button>
+    </form>
+    <div class="scan-hint" data-hint></div>
+  </div>`;
 }
 
 export function bindScan(root, id, onScan, { autofocus = true } = {}) {
   const form = root.querySelector('#' + id);
+  const wrap = form.closest('.scanwrap');
   const inp = form.querySelector('input');
+  const ph = wrap?.dataset.ph || inp.placeholder;
   let busy = false, times = [], idleTimer = null;
-  const fire = async (code) => {
+  const fire = async (code, meta = { source: 'ketik' }) => {
     code = String(code || '').replace(/[\r\n\t]/g, '').trim();
     if (!code || busy) return null;
+    if (meta.source === 'alat') noteHardware(meta);
     busy = true;
     try {
-      const res = await onScan(code);
+      const res = await onScan(code, meta);
       const r = res && typeof res === 'object' ? res : { ok: res !== false };
       form.classList.remove('scan-flash', 'bad'); void form.offsetWidth;
       form.classList.add('scan-flash'); if (!r.ok) form.classList.add('bad');
@@ -35,49 +91,72 @@ export function bindScan(root, id, onScan, { autofocus = true } = {}) {
       return r;
     } finally { busy = false; }
   };
-  const submit = () => { clearTimeout(idleTimer); const v = inp.value; inp.value = ''; times = []; fire(v); };
-  form.addEventListener('submit', (e) => { e.preventDefault(); submit(); });
+  const speed = () => { const n = times.length; return n >= 4 ? (times[n - 1] - times[0]) / (n - 1) : null; };
+  const submit = (suffix) => {
+    clearTimeout(idleTimer);
+    const ms = speed();
+    const meta = ms !== null && ms < 35 ? { source: 'alat', ms: Math.round(ms * 10) / 10, suffix } : { source: 'ketik' };
+    const v = inp.value; inp.value = ''; times = []; fire(v, meta);
+  };
+  form.addEventListener('submit', (e) => { e.preventDefault(); submit('Enter'); });
   inp.addEventListener('keydown', (e) => {
-    if (e.key === 'Tab' && inp.value.trim()) { e.preventDefault(); submit(); return; }   // scanner dengan akhiran Tab
+    if (e.key === 'Tab' && inp.value.trim()) { e.preventDefault(); submit('Tab'); return; }   // scanner dengan akhiran Tab
     if (e.key.length === 1) times.push(performance.now());
   });
   // scanner tanpa akhiran: huruf masuk sangat cepat lalu berhenti -> kirim otomatis
   inp.addEventListener('input', () => {
     clearTimeout(idleTimer);
-    const n = times.length;
-    if (n >= 4 && (times[n - 1] - times[0]) / (n - 1) < 35) idleTimer = setTimeout(submit, 120);
+    const s = speed();
+    if (s !== null && s < 35) idleTimer = setTimeout(() => submit('tanpa akhiran'), 120);
   });
-  form.querySelector('[data-cam]').addEventListener('click', () => openCamera(fire));
-  form.querySelector('[data-kb]').addEventListener('click', (e) => {
-    const hide = inp.getAttribute('inputmode') !== 'none';
-    try { localStorage.setItem(KB_KEY, hide ? '1' : '0'); } catch (_) {}
-    inp.setAttribute('inputmode', hide ? 'none' : 'text');
-    e.currentTarget.innerHTML = `${icon(hide ? 'scan' : 'list', 18)}<span class="hide-mobile">${hide ? 'Mode scanner' : 'Mode ketik'}</span>`;
-    toast(hide ? 'Mode scanner: keyboard HP disembunyikan' : 'Mode ketik: keyboard HP muncul');
-    inp.blur(); setTimeout(() => inp.focus(), 50);
-  });
+  form.querySelector('[data-cam]').addEventListener('click', () => openCamera((c) => fire(c, { source: 'kamera' })));
+
+  const applyMode = (m) => {
+    if (!wrap) return;
+    wrap.dataset.mode = m;
+    wrap.querySelectorAll('[data-mode]').forEach((b) => { b.classList.toggle('on', b.dataset.mode === m); b.setAttribute('aria-pressed', b.dataset.mode === m); });
+    inp.setAttribute('inputmode', m === 'alat' ? 'none' : 'text');
+    inp.placeholder = m === 'alat' ? 'Arahkan scanner ke barcode…' : m === 'kamera' ? 'Ketuk Kamera, atau ketik kode' : ph;
+    const hint = wrap.querySelector('[data-hint]');
+    if (m === 'alat') {
+      hint.innerHTML = `<span class="sc-status" data-sc-status><i></i><span></span></span>`;
+      paintStatus();
+    } else hint.innerHTML = m === 'kamera' ? '<span class="muted">Ketuk tombol <b>Kamera</b> lalu arahkan ke barcode.</span>' : '<span class="muted">Ketik kode lalu tekan Enter.</span>';
+    if (m === 'alat' && document.activeElement !== inp) { inp.blur(); setTimeout(() => inp.focus({ preventScroll: true }), 60); }
+  };
+  if (wrap) {
+    wrap.__applyMode = applyMode;
+    wrap.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => {
+      setScanMode(b.dataset.mode);
+      if (b.dataset.mode === 'kamera') openCamera((c) => fire(c, { source: 'kamera' }));
+    }));
+    applyMode(getScanMode());
+  }
   active = { fire, inp };
-  if (autofocus && (window.matchMedia('(min-width: 900px)').matches || inp.getAttribute('inputmode') === 'none')) setTimeout(() => inp.focus(), 60);
+  if (autofocus && (window.matchMedia('(min-width: 900px)').matches || getScanMode() === 'alat')) setTimeout(() => inp.focus({ preventScroll: true }), 60);
   return { focus: () => inp.focus(), fire };
 }
 
-// tangkap scan dari alat walau kolom scan tidak sedang dipilih.
-// Halaman tanpa kolom scan memakai "fallback" (cek kode + pop-up) yang dipasang app.js.
-let fallback = null, fbBusy = false;
+// Scan dari alat saat kolom scan tidak sedang dipilih.
+// Di halaman TANPA menu scan, scan ditolak (app.js memasang pesan penjelasannya lewat setFallbackScan).
+let fallback = null;
 export function setFallbackScan(fn) { fallback = fn; }
 function target() {
   if (active && document.body.contains(active.inp)) return active.fire;
   active = null;
   if (!fallback) return null;
-  return async (code) => {
+  return (code, meta) => {
     code = String(code || '').trim();
-    if (!code || fbBusy) return;
-    fbBusy = true;
-    try { const r = await fallback(code); beepSafe(r?.ok); showScanResult({ code, ...(r || { ok: true }) }); } finally { fbBusy = false; }
+    if (!code) return;
+    noteHardware(meta);
+    const r = fallback(code) || { ok: false, title: 'Bukan menu scan' };
+    beepSafe(false);
+    showScanResult({ code, ...r });
   };
 }
 function beepSafe(ok) { try { beep(ok !== false); } catch (_) {} }
 let buf = '', bufTimes = [], bufTimer = null;
+const bufSpeed = () => { const n = bufTimes.length; return n > 1 ? (bufTimes[n - 1] - bufTimes[0]) / (n - 1) : 999; };
 document.addEventListener('keydown', (e) => {
   const fire = target();
   if (!fire) return;
@@ -88,8 +167,8 @@ document.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.altKey || e.metaKey) return;
   const now = performance.now();
   if ((e.key === 'Enter' || e.key === 'Tab') && buf.length >= 3) {
-    const fast = bufTimes.length > 1 && (bufTimes[bufTimes.length - 1] - bufTimes[0]) / (bufTimes.length - 1) < 35;
-    if (fast) { e.preventDefault(); clearTimeout(bufTimer); const code = buf; buf = ''; bufTimes = []; fire(code); }
+    const ms = bufSpeed();
+    if (ms < 35) { e.preventDefault(); clearTimeout(bufTimer); const code = buf; buf = ''; bufTimes = []; fire(code, { source: 'alat', ms: Math.round(ms * 10) / 10, suffix: e.key }); }
     return;
   }
   if (e.key.length !== 1) return;
@@ -97,8 +176,8 @@ document.addEventListener('keydown', (e) => {
   buf += e.key; bufTimes.push(now);
   clearTimeout(bufTimer);
   bufTimer = setTimeout(() => {   // tanpa akhiran
-    const n = bufTimes.length;
-    if (buf.length >= 4 && n > 1 && (bufTimes[n - 1] - bufTimes[0]) / (n - 1) < 35) { const f = target(); f && f(buf); }
+    const ms = bufSpeed();
+    if (buf.length >= 4 && ms < 35) { const f = target(); f && f(buf, { source: 'alat', ms: Math.round(ms * 10) / 10, suffix: 'tanpa akhiran' }); }
     buf = ''; bufTimes = [];
   }, 150);
 });
