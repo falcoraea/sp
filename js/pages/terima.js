@@ -57,11 +57,11 @@ async function scanPO(el, id) {
   });
   const finish = async (short) => {
     const q = p.po_items.reduce((a, i) => a + i.qty, 0), r = p.po_items.reduce((a, i) => a + i.received_qty, 0);
-    if (r < q && !(await confirmBox('Barang kurang ' + (q - r), 'Kekurangan akan dicatat dan dilaporkan ke owner & admin. Pesanan yang belum terpenuhi kembali ke daftar beli WIN.', 'Selesai dengan kekurangan'))) return;
+    if (r < q && !(await confirmBox('Barang kurang ' + (q - r), 'Kekurangan akan dicatat dan dilaporkan ke owner & admin. Pesanan hasil scan resi yang barangnya tidak ada di WIN otomatis CANCEL (barang rak dikembalikan). Pesanan dari upload file kembali ke daftar beli.', 'Selesai dengan kekurangan'))) return;
     if (r === 0 && !short) return toast('Belum ada barang yang di-scan', 'err');
     try {
       const res = await rpc('finish_receive', { p_po: id });
-      toast(`Selesai: ${res.ke_packing} ke packing, ${res.ke_rak} ke rak${res.kurang ? ', kurang ' + res.kurang : ''}`, 'ok');
+      toast(`Selesai: ${res.siap ? res.siap + ' pesanan siap packing, ' : ''}${res.ke_packing} barang ke packing, ${res.ke_rak} ke rak${res.kurang ? ', kurang ' + res.kurang : ''}${res.cancel ? ' · ' + res.cancel + ' pesanan CANCEL (WIN kosong)' : ''}`, res.cancel ? 'err' : 'ok');
       location.hash = '#/terima';
     } catch (e) { toastErr(e); }
   };
