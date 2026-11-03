@@ -14,7 +14,12 @@ export default {
     let tab = params.tab || 'barang';
     el.innerHTML = `${pageHead('Stok & rak', 'Stok berubah hanya lewat scan: masuk WIN, ambil, retur, stok opname.')}
       <div class="stack">${chips('tab', [['barang', 'Barang & lokasi'], ['opname', 'Stok opname'], ['rak', 'Rak & label'], ['karantina', 'Karantina']], tab)}<div id="body"></div></div>`;
-    const show = () => ({ barang: tabBarang, opname: tabOpname, rak: tabRak, karantina: tabKarantina }[tab])(el.querySelector('#body'), params);
+    const show = () => {
+      // isi tab digambar di elemen baru -> klik dari tab sebelumnya tidak ikut terbawa (tidak ada pop-up dobel)
+      const old = el.querySelector('#body'), box = old.cloneNode(false);
+      old.replaceWith(box);
+      return ({ barang: tabBarang, opname: tabOpname, rak: tabRak, karantina: tabKarantina }[tab])(box, params);
+    };
     on(el, 'click', '[data-chips="tab"] .chip', (e, b) => { tab = b.dataset.v; b.parentElement.querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', c === b)); show(); });
     show();
   }
@@ -141,18 +146,27 @@ async function tabRak(box) {
   const cnt = {}; (prods || []).forEach((p) => { if (p.rack_code) { cnt[p.rack_code] ||= [0, 0]; cnt[p.rack_code][0]++; cnt[p.rack_code][1] += p.stock; } });
   const canEdit = ['owner', 'admin', 'kepala_gudang'].includes(store.role);
   box.innerHTML = `<div class="stack">
-    ${canEdit ? `<div class="card stack s8"><div class="row"><input class="input grow mono" id="nr" placeholder="Kode rak baru (A-01)" autocapitalize="characters"><button class="btn btn-primary" id="add" aria-label="Tambah rak">${icon('plus', 18)}<span class="hide-mobile">Tambah rak</span></button></div><button class="btn" id="prt">${icon('print', 18)} Cetak label semua rak</button></div>` : ''}
-    <div class="card flush">${racks?.length ? `<div class="list">${racks.map((r) => `<div class="list-item"><b class="mono" style="min-width:58px">${esc(r.code)}</b><div class="grow"><div class="small">${cnt[r.code]?.[0] || 0} jenis · ${cnt[r.code]?.[1] || 0} pcs</div>${r.note ? `<div class="xs muted">${esc(r.note)}</div>` : ''}</div><button class="btn btn-sm" data-rq="${esc(r.code)}" aria-label="Cetak label barang di rak ${esc(r.code)}">${icon('print', 16)}<span>Label</span></button></div>`).join('')}</div>` : emptyState('Belum ada rak. Tambahkan kode rak dulu.', 'box')}</div></div>`;
-  box.querySelector('#add')?.addEventListener('click', async () => {
-    const code = box.querySelector('#nr').value.trim().toUpperCase();
-    if (!code) return;
-    const { error } = await supa.from('racks').insert({ code });
-    if (error) return toastErr(error);
-    toast('Rak ' + code + ' ditambahkan', 'ok'); tabRak(box);
+    ${canEdit ? `<form class="card stack s8" id="addf" autocomplete="off"><label class="small" for="nr" style="font-weight:600">Tambah rak baru</label><div class="row" style="flex-wrap:nowrap"><input class="input grow mono" id="nr" placeholder="Kode rak, mis. A-01" autocapitalize="characters" enterkeyhint="done" style="text-transform:uppercase"><button class="btn btn-primary" id="add" type="submit" style="flex:none">${icon('plus', 18)}<span>Tambah</span></button></div><button class="btn" id="prt" type="button">${icon('print', 18)} Cetak label semua rak</button></form>` : ''}
+    <div class="card flush">${racks?.length ? `<div class="list">${racks.map((r) => `<div class="list-item" data-rack="${esc(r.code)}"><b class="mono" style="min-width:58px">${esc(r.code)}</b><div class="grow"><div class="small">${cnt[r.code]?.[0] || 0} jenis · ${cnt[r.code]?.[1] || 0} pcs</div>${r.note ? `<div class="xs muted">${esc(r.note)}</div>` : ''}</div><button class="btn btn-sm" data-rq="${esc(r.code)}" aria-label="Cetak label barang di rak ${esc(r.code)}">${icon('print', 16)}<span>Label</span></button></div>`).join('')}</div>` : emptyState('Belum ada rak. Tambahkan kode rak dulu.', 'box')}</div></div>`;
+  box.querySelector('#addf')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const inp = box.querySelector('#nr'), btn = box.querySelector('#add');
+    const code = inp.value.trim().toUpperCase().replace(/\s+/g, '-');
+    if (!code) { toast('Ketik kode rak dulu, mis. A-01', 'err'); inp.focus(); return; }
+    if ((racks || []).some((r) => r.code.toUpperCase() === code)) { toast('Rak ' + code + ' sudah ada', 'err'); return; }
+    btn.disabled = true; btn.innerHTML = 'Menyimpan…';
+    try {
+      const { error } = await supa.from('racks').insert({ code });
+      if (error) throw error;
+      toast('Rak ' + code + ' ditambahkan', 'ok');
+      await tabRak(box);
+      box.querySelector(`[data-rack="${CSS.escape(code)}"]`)?.classList.add('hl-new');
+    } catch (err) { toastErr(err); btn.disabled = false; btn.innerHTML = `${icon('plus', 18)}<span>Tambah</span>`; }
   });
   box.querySelector('#prt')?.addEventListener('click', () => printLabels((racks || []).map((r) => ({ sku: r.code, name: 'RAK ' + r.code, note: r.note })), 'rak'));
   on(box, 'click', '[data-rq]', async (e, b) => {
     e.preventDefault();
+    if (b.disabled) return; b.disabled = true; setTimeout(() => { b.disabled = false; }, 1200);
     const { data } = await supa.from('products').select('sku, name, rack_code, stock').eq('rack_code', b.dataset.rq).eq('active', true).order('name');
     printLabels(data || []);
   });
