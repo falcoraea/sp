@@ -6,11 +6,13 @@ import { renderLogin, renderPending } from './auth.js';
 import { runTour, mainSteps } from './tour.js';
 import { APP_NAME } from './config.js';
 import { setFallbackScan, showScanResult } from './scanner.js';
+import { startPaging } from './paging.js';
 
 const root = document.getElementById('app');
 let current = { page: null, mod: null };
 let channel = null;
 let booted = false;
+let routeSeq = 0;
 
 // ---------- PWA ----------
 if ('serviceWorker' in navigator) {
@@ -79,18 +81,18 @@ function renderShell() {
 
   root.innerHTML = `<div class="shell">
     <nav class="sidebar" aria-label="Menu utama">
-      <div class="side-brand"><span class="logo">SG</span><div><b>${esc(store.settings.nama_toko || APP_NAME)}</b><span>${esc(ROLE_LABEL[role])} · ${esc(p.full_name)}</span></div></div>
+      <div class="side-brand" data-me role="button" tabindex="0" title="Profil saya"><span class="logo">${esc(ini(store.settings.nama_toko || APP_NAME))}</span><div><b>${esc(store.settings.nama_toko || APP_NAME)}</b><span>${esc(ROLE_LABEL[role])} · ${esc(p.full_name)}</span></div></div>
       ${side}
       <div class="side-foot"><button class="side-link" data-logout style="background:none;border:0;cursor:pointer;width:100%">${icon('logout', 18)}<span>Keluar</span></button></div>
     </nav>
     <div class="main">
       <header class="topbar">
-        <span class="tb-logo">${esc(ini(store.settings.nama_toko || APP_NAME))}</span>
+        <button class="tb-logo" data-me aria-label="Profil saya">${esc(ini(p.full_name))}</button>
         <div class="grow tb-text"><div class="t-sub" id="t-sub"><span class="crumb" id="t-crumb"></span><span class="who">${esc(ROLE_LABEL[role])} · ${esc(p.full_name)}</span></div><h1 id="t-title">${esc(APP_NAME)}</h1></div>
         <span class="tb-date">${icon('calendar', 16)}${esc(new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).format(new Date()))}</span>
         <button class="icon-btn" data-help data-tour="help" aria-label="Bantuan halaman ini">${icon('help')}</button>
         <button class="icon-btn bell" data-bell data-tour="bell" aria-label="Notifikasi">${icon('bell')}<span class="badge-dot hidden" data-badge></span></button>
-        <a class="tb-user" href="#/akun" title="Akun saya"><span class="av">${esc(ini(p.full_name))}</span><span><b>${esc(p.full_name)}</b><small>${esc(ROLE_LABEL[role])}</small></span></a>
+        <button class="tb-user" data-me aria-haspopup="menu" aria-label="Profil saya"><span class="av">${esc(ini(p.full_name))}</span><span class="tb-u-txt"><b>${esc(p.full_name)}</b><small>${esc(ROLE_LABEL[role])}</small></span>${icon('chev', 16)}</button>
       </header>
       <main class="view" id="view" tabindex="-1"></main>
     </div>
@@ -100,6 +102,8 @@ function renderShell() {
   root.querySelector('[data-logout]').onclick = logout;
   root.querySelector('[data-more]').onclick = openMore;
   root.querySelector('[data-bell]').onclick = toggleBell;
+  root.querySelectorAll('[data-me]').forEach((b) => { b.onclick = (e) => toggleMe(e.currentTarget); b.onkeydown = (e) => { if (e.key === 'Enter') toggleMe(b); }; });
+  startPaging(root.querySelector('.main'));
   root.querySelector('[data-help]').onclick = () => {
     if (current.mod?.tour?.length) runTour({ steps: current.mod.tour });
     else startMainTour(false);
@@ -152,6 +156,42 @@ function openMore() {
   });
 }
 
+// ---------- menu profil (pojok kanan atas / logo) ----------
+function meMenuHtml() {
+  const p = store.profile, role = store.role;
+  const items = [['akun', 'user', 'Profil & ganti password'], ['panduan', 'compass', 'Panduan aplikasi'], ['notifikasi', 'bell', 'Semua notifikasi']];
+  if (role === 'owner') items.push(['pengaturan', 'gear', 'Pengaturan toko'], ['pegawai', 'users', 'Pegawai & jabatan']);
+  return `<div class="me-head"><span class="av">${esc(ini(p.full_name))}</span><div style="min-width:0"><b>${esc(p.full_name)}</b><div class="xs muted" style="overflow-wrap:anywhere">${esc(p.email || store.session?.user?.email || '')}</div><span class="tag dark" style="margin-top:6px">${esc(ROLE_LABEL[role])}</span></div></div>
+    <div class="me-list">${items.map(([k, ic, l]) => `<a class="me-item" href="#/${k}" data-close>${icon(ic, 18)}<span>${l}</span></a>`).join('')}
+    <button class="me-item danger" data-lo>${icon('logout', 18)}<span>Keluar</span></button></div>`;
+}
+function toggleMe(btn) {
+  document.getElementById('bell-panel')?.remove();
+  if (window.matchMedia('(max-width: 899px)').matches) {
+    modal({ title: 'Profil saya', body: `<div class="me-sheet">${meMenuHtml()}</div>`, actions: [], onOpen: (ov, close) => {
+      ov.querySelectorAll('[data-close]').forEach((a) => a.addEventListener('click', () => close(null)));
+      ov.querySelector('[data-lo]').onclick = () => { close(null); logout(); };
+    } });
+    return;
+  }
+  const ex = document.getElementById('me-panel');
+  if (ex) { ex.remove(); return; }
+  const panel = document.createElement('div');
+  panel.id = 'me-panel'; panel.className = 'me-panel'; panel.setAttribute('role', 'menu');
+  panel.innerHTML = meMenuHtml();
+  if (btn.closest('.sidebar')) panel.classList.add('from-side');
+  document.body.appendChild(panel);
+  panel.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (e.target.closest('[data-lo]')) { panel.remove(); logout(); return; }
+    if (e.target.closest('a')) panel.remove();
+  });
+  setTimeout(() => document.addEventListener('click', function off(e) {
+    if (!e.target.isConnected) return;
+    if (!panel.contains(e.target) && !e.target.closest('[data-me]')) { panel.remove(); document.removeEventListener('click', off); }
+  }), 0);
+}
+
 // ---------- notifikasi ----------
 function notifItem(n) {
   const color = n.level === 'masalah' ? 'var(--red)' : n.level === 'tugas' ? 'var(--accent)' : 'var(--blue)';
@@ -175,6 +215,7 @@ function renderBellBody(panel) {
 }
 
 function toggleBell() {
+  document.getElementById('me-panel')?.remove();
   if (window.matchMedia('(max-width: 899px)').matches) { location.hash = '#/notifikasi'; return; }
   const ex = document.getElementById('bell-panel');
   if (ex) { ex.remove(); return; }
@@ -229,11 +270,19 @@ async function route() {
   document.getElementById('t-title').textContent = pg.label;
   const cr = document.getElementById('t-crumb'); if (cr) cr.textContent = (pg.group || 'Beranda') + '  ›  ' + pg.label;
   document.title = pg.label + ' · ' + APP_NAME;
-  const view = document.getElementById('view');
+  document.getElementById('me-panel')?.remove();
+  // sisa jendela / panduan dari halaman sebelumnya (mis. tekan tombol Kembali HP) jangan sampai menutupi tombol
+  document.querySelectorAll('.overlay, .tour-block, .tour-hole, .tour-tip, .tour-welcome').forEach((x) => x.remove());
+  const seq = ++routeSeq;
+  // ganti elemen halaman dengan yang baru supaya event dari halaman sebelumnya tidak ikut terbawa
+  const oldView = document.getElementById('view');
+  const view = oldView.cloneNode(false);
+  oldView.replaceWith(view);
   view.innerHTML = '<div class="stack"><div class="skeleton" style="height:90px"></div><div class="skeleton" style="height:240px"></div></div>';
   try {
     current.mod?.destroy?.();
     const mod = (await import(`./pages/${page}.js`)).default;
+    if (seq !== routeSeq) return;
     current = { page, mod };
     await mod.render(view, { params, go: (h) => (location.hash = h), store });
   } catch (e) {
