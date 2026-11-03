@@ -5,6 +5,7 @@ import { esc, icon, toast, toastErr, ago, ROLE_LABEL, ROLE_COLOR, modal } from '
 import { renderLogin, renderPending } from './auth.js';
 import { runTour, mainSteps } from './tour.js';
 import { APP_NAME } from './config.js';
+import { CURRENT, versionLabel, deviceLabel, watchUpdates, fetchLatest, getLatest, isOutdated, applyUpdate } from './version.js';
 import { setFallbackScan, showScanResult } from './scanner.js';
 import { startPaging } from './paging.js';
 
@@ -58,7 +59,7 @@ async function boot(session) {
     } else {
       store.role = profile.role; store.superadmin = false;
       let logged = null; try { logged = sessionStorage.getItem('logged-' + profile.id); } catch (_) {}
-      if (!logged) { logEvent('login', 'Masuk aplikasi'); try { sessionStorage.setItem('logged-' + profile.id, '1'); } catch (_) {} }
+      if (!logged) { logEvent('login', 'Masuk aplikasi · ' + versionLabel() + ' · ' + deviceLabel()); try { sessionStorage.setItem('logged-' + profile.id, '1'); } catch (_) {} }
     }
     const { data: settings } = await supa.from('settings').select('*').eq('id', 1).single();
     store.settings = settings || {};
@@ -67,6 +68,8 @@ async function boot(session) {
     if (!hashBound) { window.addEventListener('hashchange', route); hashBound = true; }
     await route();
     subscribe();
+    rpc('report_version', { p_version: CURRENT.version, p_device: deviceLabel() }).catch(() => {});
+    watchUpdates();
     loadNotifs().catch(() => {});
     if (profile.tour_auto && !profile.tour_done?.main) setTimeout(() => startMainTour(true), 600);
   } catch (e) {
@@ -121,12 +124,13 @@ function renderShell() {
     <nav class="sidebar" aria-label="Menu utama">
       <div class="side-brand" data-me role="button" tabindex="0" title="Profil saya"><span class="logo">${esc(ini(store.settings.nama_toko || APP_NAME))}</span><div><b>${esc(store.settings.nama_toko || APP_NAME)}</b><span>${esc(ROLE_LABEL[role])} · ${esc(p.full_name)}</span></div></div>
       ${side}
-      <div class="side-foot"><button class="side-link" data-logout style="background:none;border:0;cursor:pointer;width:100%">${icon('logout', 18)}<span>Keluar</span></button></div>
+      <div class="side-foot"><button class="side-link" data-logout style="background:none;border:0;cursor:pointer;width:100%">${icon('logout', 18)}<span>Keluar</span></button>
+        <button class="side-ver" data-ver title="Info versi aplikasi">${icon('refresh', 14)}<span>Versi ${esc(versionLabel())}</span></button></div>
     </nav>
     <div class="main">
       <header class="topbar">
         <button class="tb-logo" data-me aria-label="Profil saya">${esc(ini(p.full_name))}</button>
-        <div class="grow tb-text"><div class="t-sub" id="t-sub"><span class="crumb" id="t-crumb"></span><span class="who">${esc(ROLE_LABEL[role])} · ${esc(p.full_name)}</span></div><h1 id="t-title">${esc(APP_NAME)}</h1></div>
+        <div class="grow tb-text"><div class="t-sub" id="t-sub"><span class="crumb" id="t-crumb"></span><span class="who">${esc(ROLE_LABEL[role])} · ${esc(p.full_name)}</span><span class="t-ver" data-ver>${esc(versionLabel())}</span></div><h1 id="t-title">${esc(APP_NAME)}</h1></div>
         <span class="tb-date">${icon('calendar', 16)}${esc(new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).format(new Date()))}</span>
         <button class="icon-btn" data-help data-tour="help" aria-label="Bantuan halaman ini">${icon('help')}</button>
         <button class="icon-btn bell" data-bell data-tour="bell" aria-label="Notifikasi">${icon('bell')}<span class="badge-dot hidden" data-badge></span></button>
@@ -142,6 +146,7 @@ function renderShell() {
   root.querySelector('[data-more]').onclick = openMore;
   root.querySelector('[data-bell]').onclick = toggleBell;
   root.querySelector('[data-sa]')?.addEventListener('click', switchActAs);
+  root.querySelectorAll('[data-ver]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); showVersion(); }));
   root.querySelectorAll('[data-me]').forEach((b) => { b.onclick = (e) => toggleMe(e.currentTarget); b.onkeydown = (e) => { if (e.key === 'Enter') toggleMe(b); }; });
   startPaging(root.querySelector('.main'));
   root.querySelector('[data-help]').onclick = () => {
@@ -190,13 +195,35 @@ function openMore() {
   modal({
     title: 'Menu lainnya',
     body: `<div class="list sheet-menu card flush" style="margin:0 -4px">${items.map((m) => `<a class="list-item" href="#/${m.key}" data-close>${icon(m.icon, 20)}<span class="grow">${esc(m.label)}</span>${icon('chev', 18)}</a>`).join('')}
-      <button class="list-item" data-lo>${icon('logout', 20)}<span class="grow">Keluar</span></button></div>`,
+      <button class="list-item" data-lo>${icon('logout', 20)}<span class="grow">Keluar</span></button>
+      <button class="list-item" data-ver-m>${icon('refresh', 20)}<span class="grow">Versi aplikasi</span><span class="small muted mono">${esc(versionLabel())}</span></button></div>`,
     actions: [],
     onOpen: (ov, close) => {
       ov.querySelectorAll('[data-close]').forEach((a) => a.addEventListener('click', () => close(null)));
       ov.querySelector('[data-lo]').onclick = () => { close(null); logout(); };
+      ov.querySelector('[data-ver-m]').onclick = () => { close(null); showVersion(); };
     }
   });
+}
+
+// ---------- info versi ----------
+async function showVersion() {
+  const l = await fetchLatest();
+  const old = isOutdated(CURRENT.version, l) && CURRENT.build !== 'dev';
+  const fmt = (d) => { try { return d ? new Date(d).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '–'; } catch (_) { return d; } };
+  const r = await modal({
+    title: 'Versi aplikasi',
+    body: `<div class="stack">
+      <div class="ver-big ${old ? 'old' : 'ok'}"><span>Dipakai di perangkat ini</span><b>${esc(versionLabel())}</b><small>${old ? 'Ada versi lebih baru' : 'Sudah versi terbaru'}</small></div>
+      <div class="line-row"><span>Versi terbaru di server</span><b class="mono">${l ? 'v' + esc(l.version) : '–'}</b></div>
+      <div class="line-row"><span>Diterbitkan</span><b>${esc(fmt(l?.date))}</b></div>
+      ${l?.note ? `<div class="line-row"><span>Catatan update</span><b style="text-align:right">${esc(l.note)}</b></div>` : ''}
+      <div class="line-row"><span>Perangkat</span><b>${esc(deviceLabel())}</b></div>
+      ${CURRENT.build === 'dev' ? '<div class="alert yellow small">Nomor versi otomatis belum aktif. Ikuti langkah "GitHub Actions" di panduan update 1.7.</div>' : ''}
+    </div>`,
+    actions: [{ label: 'Tutup', value: null }, { label: old ? 'Perbarui sekarang' : 'Muat ulang', cls: 'btn-primary', value: 'upd' }]
+  });
+  if (r === 'upd') applyUpdate();
 }
 
 // ---------- menu profil (pojok kanan atas / logo) ----------
@@ -206,6 +233,7 @@ function meMenuHtml() {
   if (role === 'owner') items.push(['log', 'clock', 'Log aktivitas'], ['pengaturan', 'gear', 'Pengaturan toko'], ['pegawai', 'users', 'Pegawai & jabatan']);
   return `<div class="me-head"><span class="av">${esc(ini(p.full_name))}</span><div style="min-width:0"><b>${esc(p.full_name)}</b><div class="xs muted" style="overflow-wrap:anywhere">${esc(p.email || store.session?.user?.email || '')}</div><span class="tag dark" style="margin-top:6px">${esc(ROLE_LABEL[role])}</span></div></div>
     <div class="me-list">${store.superadmin ? `<button class="me-item" data-sa-switch style="color:#A63A2A">${icon('shield', 18)}<span>Ganti jabatan (super admin)</span></button>` : ''}${items.map(([k, ic, l]) => `<a class="me-item" href="#/${k}" data-close>${icon(ic, 18)}<span>${l}</span></a>`).join('')}
+    <button class="me-item" data-ver-me>${icon('refresh', 18)}<span class="grow">Versi aplikasi</span><span class="small muted mono">${esc(versionLabel())}</span></button>
     <button class="me-item danger" data-lo>${icon('logout', 18)}<span>Keluar</span></button></div>`;
 }
 function toggleMe(btn) {
@@ -215,6 +243,7 @@ function toggleMe(btn) {
       ov.querySelectorAll('[data-close]').forEach((a) => a.addEventListener('click', () => close(null)));
       ov.querySelector('[data-lo]').onclick = () => { close(null); logout(); };
       ov.querySelector('[data-sa-switch]')?.addEventListener('click', () => { close(null); switchActAs(); });
+      ov.querySelector('[data-ver-me]').addEventListener('click', () => { close(null); showVersion(); });
     } });
     return;
   }
@@ -229,6 +258,7 @@ function toggleMe(btn) {
     e.stopPropagation();
     if (e.target.closest('[data-lo]')) { panel.remove(); logout(); return; }
     if (e.target.closest('[data-sa-switch]')) { panel.remove(); switchActAs(); return; }
+    if (e.target.closest('[data-ver-me]')) { panel.remove(); showVersion(); return; }
     if (e.target.closest('a')) panel.remove();
   });
   setTimeout(() => document.addEventListener('click', function off(e) {
