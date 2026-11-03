@@ -3,8 +3,26 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 
 export const configured = !SUPABASE_URL.includes('ISI-PROJECT') && !SUPABASE_ANON_KEY.includes('ISI-ANON');
 
+// Permintaan yang menggantung (sinyal jelek / HP baru bangun dari layar mati) dihentikan otomatis
+// supaya tombol tidak "macet" menunggu selamanya.
+function fetchTimeout(url, opt = {}) {
+  const ms = /\/storage\//.test(String(url)) ? 90000 : 25000;
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms);
+  if (opt.signal) opt.signal.addEventListener('abort', () => ctl.abort());
+  return fetch(url, { ...opt, signal: ctl.signal }).finally(() => clearTimeout(t));
+}
+// kunci sesi sederhana di dalam tab (kunci bawaan browser kadang tersangkut setelah tab lama di belakang)
+let lockChain = Promise.resolve();
+const tabLock = (_name, _timeout, fn) => { const run = lockChain.then(() => fn()); lockChain = run.catch(() => {}); return run; };
+
 export const supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: 'stok-gudang-auth' }
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: 'stok-gudang-auth', lock: tabLock },
+  global: { fetch: fetchTimeout }
+});
+// saat aplikasi dibuka lagi setelah lama di belakang: segarkan sesi
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') supa.auth.getSession().catch(() => {});
 });
 
 // klien sementara untuk membuat akun pegawai tanpa mengganti sesi owner
@@ -21,6 +39,8 @@ const MESSAGES = [
   [/Password should be at least/i, 'Password minimal 6 karakter.'],
   [/rate limit/i, 'Terlalu banyak percobaan. Tunggu sebentar lalu coba lagi.'],
   [/Failed to fetch|NetworkError|Load failed/i, 'Tidak ada koneksi internet / server tidak terjangkau.'],
+  [/AbortError|aborted/i, 'Server terlalu lama menjawab (koneksi lambat). Coba tekan lagi.'],
+  [/duplicate key|already exists/i, 'Data dengan kode itu sudah ada.'],
   [/JWT expired/i, 'Sesi habis, silakan login ulang.'],
   [/schema cache|Could not find the function/i, 'Database belum diperbarui ke versi aplikasi ini. Buka Supabase › SQL Editor, jalankan ulang seluruh isi supabase/schema.sql (aman, data tidak hilang), lalu coba lagi.']
 ];
