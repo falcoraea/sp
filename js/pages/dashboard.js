@@ -13,6 +13,36 @@ function range(p) {
   if (p === 'month') return [monthStart(t), t];
   return [t, t];
 }
+// periode pembanding: panjang sama, tepat sebelum periode yang dipilih.
+// "Bulan ini" dibandingkan dengan tanggal yang sama di bulan lalu (1 s/d tanggal yang sama).
+const days = (a, b) => Math.round((new Date(b + 'T00:00:00Z') - new Date(a + 'T00:00:00Z')) / 864e5) + 1;
+function prevRange(p, from, to) {
+  if (p === 'month') {
+    const d = new Date(from + 'T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() - 1);
+    const pf = d.toISOString().slice(0, 10);
+    const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+    const dd = Math.min(Number(to.slice(8, 10)), last);
+    return [pf, pf.slice(0, 8) + String(dd).padStart(2, '0')];
+  }
+  const n = days(from, to);
+  return [addDays(from, -n), addDays(from, -1)];
+}
+function prevLabel(p, pf, pt) {
+  if (p === 'today') return 'kemarin';
+  if (p === 'yesterday') return 'hari sebelumnya';
+  if (p === 'month') return 'bulan lalu (' + fmtDate(pf, { day: 'numeric', month: 'short' }) + ' – ' + fmtDate(pt, { day: 'numeric', month: 'short' }) + ')';
+  return days(pf, pt) + ' hari sebelumnya (' + fmtDate(pf, { day: 'numeric', month: 'short' }) + ' – ' + fmtDate(pt, { day: 'numeric', month: 'short' }) + ')';
+}
+// selisih: naik / turun berapa persen. goodUp=false untuk angka yang lebih baik kalau turun (rugi, biaya)
+function delta(cur, prev, goodUp = true, money = true) {
+  cur = Number(cur) || 0; prev = Number(prev) || 0;
+  const d = cur - prev;
+  if (!d) return `<div class="dl same">= sama</div>`;
+  const pctv = prev ? Math.round((d / Math.abs(prev)) * 100) : null;
+  const good = goodUp ? d > 0 : d < 0;
+  const amt = money ? (d > 0 ? '+' : '−') + rp(Math.abs(d)).replace('−', '') : (d > 0 ? '+' : '−') + num(Math.abs(d));
+  return `<div class="dl ${good ? 'up' : 'down'}">${d > 0 ? '▲' : '▼'} ${pctv === null ? 'baru' : Math.abs(pctv) + '%'} <span>${amt}</span></div>`;
+}
 const LV = { tinggi: ['Tinggi', 'solid-red'], sedang: ['Sedang', 'solid-yellow'], info: ['Info', ''] };
 
 export default {
@@ -25,8 +55,10 @@ export default {
   ],
   async render(el) {
     let period = sessionStorage.getItem('dash-period') || 'today';
+    let compare = sessionStorage.getItem('dash-compare') === '1';
     el.innerHTML = `<div class="stack" style="gap:16px">
-      <div class="row between wrap"><div class="muted small" id="rlabel">${esc(longToday())}</div>${chips('period', PERIODS, period)}</div>
+      <div class="row between wrap"><div class="muted small" id="rlabel">${esc(longToday())}</div>
+        <div class="row wrap dash-ctl">${chips('period', PERIODS, period)}<label class="cmp-toggle" title="Bandingkan dengan periode sebelumnya"><span class="switch"><input type="checkbox" id="cmp" ${compare ? 'checked' : ''}><span></span></span><b>Bandingkan</b></label></div></div>
       <form class="card row wrap ${period === 'custom' ? '' : 'hidden'}" id="custom"><label class="field" style="flex:1 1 140px">Dari tanggal<input type="date" class="input" id="cf" value="${custom ? custom[0] : addDays(todayStr(), -6)}" max="${todayStr()}"></label>
         <label class="field" style="flex:1 1 140px">Sampai tanggal<input type="date" class="input" id="ct" value="${custom ? custom[1] : todayStr()}" max="${todayStr()}"></label>
         <button class="btn btn-primary" style="align-self:flex-end">Terapkan</button></form>
@@ -57,6 +89,7 @@ export default {
       custom = [a, b]; try { sessionStorage.setItem('dash-range', JSON.stringify(custom)); } catch (_) {}
       load(); loadChart();
     });
+    el.querySelector('#cmp').addEventListener('change', (e) => { compare = e.target.checked; sessionStorage.setItem('dash-compare', compare ? '1' : '0'); load(); loadChart(); });
     rpc('run_checks').catch(() => {});
 
     const load = async () => {
@@ -64,24 +97,30 @@ export default {
       el.querySelector('#rlabel').textContent = from === to ? fmtDate(from, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : `${fmtDate(from)} – ${fmtDate(to)}`;
       el.querySelector('#kpi').innerHTML = '<div class="skeleton" style="height:110px"></div>';
       try {
-        const s = await rpc('get_summary', { p_from: from, p_to: to });
+        const [pf, pt] = prevRange(period, from, to);
+        const [s, ps] = await Promise.all([rpc('get_summary', { p_from: from, p_to: to }), compare ? rpc('get_summary', { p_from: pf, p_to: pt }) : null]);
+        const D = (k, goodUp = true) => (ps ? delta(s[k], ps[k], goodUp) + `<div class="dl-prev">sebelumnya ${rp(ps[k])}</div>` : '');
+        if (ps) el.querySelector('#rlabel').innerHTML = esc(el.querySelector('#rlabel').textContent) + ` <span class="cmp-lbl">dibandingkan ${esc(prevLabel(period, pf, pt))}</span>`;
         el.querySelector('#kpi').innerHTML = `<div class="grid gkpi">
-          <div class="card kpi"><div class="label">Omzet penjualan</div><div class="value">${rp(s.omzet)}</div><div class="sub">${s.resi} resi · ${s.proses} masih diproses</div></div>
-          <div class="card kpi"><div class="label">Omzet terbayar (lunas)</div><div class="value pos">${rp(s.omzet_lunas)}</div><div class="sub">belum cair ${rp(s.belum_cair)}</div></div>
-          <div class="card kpi"><div class="label">Profit kotor</div><div class="value">${rp(s.profit_kotor)}</div><div class="sub">dana Shopee − modal WIN</div></div>
-          <div class="card kpi" style="border:1.5px solid var(--red)"><div class="label">Rugi hilang &amp; rusak</div><div class="value neg">${rp(s.rugi)}</div><div class="sub">opname, retur rusak, ongkir retur</div></div>
-          <div class="card kpi dark wide-m"><div class="label">Laba bersih</div><div class="value">${rp(s.laba_bersih)}</div><div class="sub" style="color:#9FD6B8">setelah gaji &amp; operasional</div></div>
+          <div class="card kpi"><div class="label">Omzet penjualan</div><div class="value">${rp(s.omzet)}</div>${D('omzet')}<div class="sub">${s.resi} resi${ps ? ' (sebelumnya ' + ps.resi + ')' : ''} · ${s.proses} masih diproses</div></div>
+          <div class="card kpi"><div class="label">Omzet terbayar (lunas)</div><div class="value pos">${rp(s.omzet_lunas)}</div>${D('omzet_lunas')}<div class="sub">belum cair ${rp(s.belum_cair)}</div></div>
+          <div class="card kpi"><div class="label">Profit kotor</div><div class="value">${rp(s.profit_kotor)}</div>${D('profit_kotor')}<div class="sub">dana Shopee − modal WIN</div></div>
+          <div class="card kpi" style="border:1.5px solid var(--red)"><div class="label">Rugi hilang &amp; rusak</div><div class="value neg">${rp(s.rugi)}</div>${D('rugi', false)}<div class="sub">opname, retur rusak, ongkir retur</div></div>
+          <div class="card kpi dark wide-m"><div class="label">Laba bersih</div><div class="value">${rp(s.laba_bersih)}</div>${D('laba_bersih')}<div class="sub" style="color:#9FD6B8">setelah gaji &amp; operasional</div></div>
         </div>`;
-        el.querySelector('#breakdown').innerHTML = `<h2 class="sec-title" style="margin-bottom:10px">Dari omzet ke laba bersih</h2>
-          <div class="line-row"><span>Omzet penjualan</span><b>${rp(s.omzet)}</b></div>
-          <div class="line-row"><span>Potongan Shopee (selisih ke dana cair / estimasi)</span><span>${rp(-(s.omzet - s.dana_shopee))}</span></div>
-          <div class="line-row"><span>Modal barang (WIN)</span><span>${rp(-s.modal)}</span></div>
-          <div class="line-row total"><span>Profit kotor</span><span>${rp(s.profit_kotor)}</span></div>
-          <div class="line-row"><span>Bahan packing</span><span>${rp(-s.packing)}</span></div>
-          <div class="line-row"><span>Rugi hilang, rusak &amp; retur</span><span class="neg">${rp(-s.rugi)}</span></div>
-          <div class="line-row"><span>Gaji pegawai (porsi periode ini)</span><span>${rp(-s.gaji)}</span></div>
-          <div class="line-row"><span>Operasional</span><span>${rp(-s.operasional)}</span></div>
-          <div class="line-row total" style="color:var(--green)"><span>Laba bersih</span><span>${rp(s.laba_bersih)}</span></div>`;
+        const ln = (label, cur, prev, cls = '', goodUp = true) => `<div class="line-row ${cls}"><span>${label}</span><span class="lr-v">${ps ? `<span class="prev">${rp(prev)}</span>` : ''}<span>${rp(cur)}</span>${ps ? delta(cur, prev, goodUp) : ''}</span></div>`;
+        const f = (o) => o && { omzet: o.omzet, pot: -(o.omzet - o.dana_shopee), modal: -o.modal, pk: o.profit_kotor, pack: -o.packing, rugi: -o.rugi, gaji: -o.gaji, op: -o.operasional, lb: o.laba_bersih };
+        const a = f(s), b = f(ps) || {};
+        el.querySelector('#breakdown').innerHTML = `<div class="row between"><h2 class="sec-title" style="margin-bottom:10px">Dari omzet ke laba bersih</h2>${ps ? '<span class="xs muted">sebelumnya · sekarang</span>' : ''}</div>
+          ${ln('Omzet penjualan', a.omzet, b.omzet)}
+          ${ln('Potongan Shopee (selisih ke dana cair / estimasi)', a.pot, b.pot)}
+          ${ln('Modal barang (WIN)', a.modal, b.modal)}
+          ${ln('Profit kotor', a.pk, b.pk, 'total')}
+          ${ln('Bahan packing', a.pack, b.pack)}
+          ${ln('Rugi hilang, rusak &amp; retur', a.rugi, b.rugi, 'neg-l')}
+          ${ln('Gaji pegawai (porsi periode ini)', a.gaji, b.gaji)}
+          ${ln('Operasional', a.op, b.op)}
+          ${ln('Laba bersih', a.lb, b.lb, 'total lb')}`;
         const k = s.kepatuhan || {};
         const bar = (label, v) => `<div style="margin-bottom:12px"><div class="line-row"><span>${label}</span><b>${pct(v)}</b></div>
           <div class="progress"><div style="width:${v ?? 0}%;background:${v == null ? 'var(--line)' : v >= 95 ? 'var(--green)' : v >= 80 ? 'var(--accent)' : 'var(--red)'}"></div></div></div>`;
@@ -115,10 +154,18 @@ export default {
         let [from, to] = range(period);
         if (from === to) from = addDays(to, -13);
         if ((new Date(to) - new Date(from)) / 864e5 > 61) from = addDays(to, -61);
-        const rows = await rpc('range_series', { p_from: from, p_to: to });
-        const max = Math.max(1, ...rows.map((r) => Math.abs(Number(r.laba_bersih))));
-        box.innerHTML = `<h2 class="sec-title">Laba bersih per hari · ${fmtDate(from, { day: 'numeric', month: 'short' })} – ${fmtDate(to, { day: 'numeric', month: 'short' })}</h2><div class="muted xs" style="margin-bottom:10px">Merah = rugi di hari itu</div>
-          <div class="bars">${rows.map((r, i) => `<div class="b" title="${fmtDate(r.d)}: ${rp(r.laba_bersih)}"><i class="${i === rows.length - 1 ? 'today' : ''} ${Number(r.laba_bersih) < 0 ? 'neg' : ''}" style="height:${Math.max(2, Math.abs(Number(r.laba_bersih)) / max * 100)}%"></i><span>${String(r.d).slice(8)}</span></div>`).join('')}</div>`;
+        const n = days(from, to);
+        const [rows, prev] = await Promise.all([rpc('range_series', { p_from: from, p_to: to }),
+          compare ? rpc('range_series', { p_from: addDays(from, -n), p_to: addDays(from, -1) }) : null]);
+        const all = [...rows, ...(prev || [])].map((r) => Math.abs(Number(r.laba_bersih)));
+        const max = Math.max(1, ...all);
+        const sum = (l) => l.reduce((a, r) => a + Number(r.laba_bersih || 0), 0);
+        box.innerHTML = `<h2 class="sec-title">Laba bersih per hari · ${fmtDate(from, { day: 'numeric', month: 'short' })} – ${fmtDate(to, { day: 'numeric', month: 'short' })}</h2>
+          <div class="muted xs" style="margin-bottom:10px">Merah = rugi di hari itu${prev ? ` · <span class="lg-prev"></span> abu muda = ${n} hari sebelumnya (${fmtDate(addDays(from, -n), { day: 'numeric', month: 'short' })} – ${fmtDate(addDays(from, -1), { day: 'numeric', month: 'short' })}) · total ${rp(sum(rows))} vs ${rp(sum(prev))}` : ''}</div>
+          <div class="bars ${prev ? 'cmp' : ''}">${rows.map((r, i) => {
+            const pv = prev && prev[i];
+            return `<div class="b" title="${fmtDate(r.d)}: ${rp(r.laba_bersih)}${pv ? ' · sebelumnya ' + fmtDate(pv.d) + ': ' + rp(pv.laba_bersih) : ''}"><div class="bb">${pv ? `<i class="pv ${Number(pv.laba_bersih) < 0 ? 'neg' : ''}" style="height:${Math.max(2, Math.abs(Number(pv.laba_bersih)) / max * 100)}%"></i>` : ''}<i class="${i === rows.length - 1 ? 'today' : ''} ${Number(r.laba_bersih) < 0 ? 'neg' : ''}" style="height:${Math.max(2, Math.abs(Number(r.laba_bersih)) / max * 100)}%"></i></div><span>${String(r.d).slice(8)}</span></div>`;
+          }).join('')}</div>`;
       } catch (e) { console.error(e); box.innerHTML = '<div class="muted">Grafik gagal dimuat.</div>'; }
     };
 
