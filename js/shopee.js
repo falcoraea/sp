@@ -185,7 +185,22 @@ export function build(rows, headerRow, type, map) {
     }
     return { rows: [...m.values()] };
   }
-  if (type === 'pricelist') return { rows: uniq(data.map((r) => ({ sku: get(r, 'sku'), name: get(r, 'name'), macallan: parseNum(get(r, 'macallan')), harga_shopee: map.harga_shopee > -1 ? parseNum(get(r, 'harga_shopee')) : null, category: get(r, 'category') })).filter((x) => x.sku && x.macallan > 0), 'sku') };
+  if (type === 'pricelist') {
+    // judul bagian (mis. "***COMPLETE SET BODY HONDA***") diingat untuk baris-baris di bawahnya.
+    // Judul dengan tanda * = bagian utama; baris teks tanpa harga lainnya (mis. "HONDA") = sub judul.
+    let section = '';
+    const out = [];
+    for (const r of data) {
+      const sku = get(r, 'sku'), mac = parseNum(get(r, 'macallan'));
+      if (!(sku && mac > 0)) {
+        const text = r.map((c) => String(c ?? '').trim()).filter(Boolean).join(' ');
+        if (text && /\*/.test(text)) section = text.replace(/\*/g, '').replace(/\s+/g, ' ').trim();
+        continue;
+      }
+      out.push({ sku, name: get(r, 'name'), macallan: mac, harga_shopee: map.harga_shopee > -1 ? parseNum(get(r, 'harga_shopee')) : null, category: get(r, 'category'), section });
+    }
+    return { rows: uniq(out, 'sku') };
+  }
   return {};
 }
 const uniq = (arr, k) => { const s = new Set(); return arr.filter((x) => (s.has(x[k]) ? false : s.add(x[k]))); };
