@@ -625,8 +625,10 @@ details > summary { cursor: pointer; padding: 6px 0; }
 
 /* ===== 1.13: bandingkan periode ===== */
 .dash-ctl { gap: 10px; align-items: center; }
-.cmp-toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; padding: 4px 12px 4px 4px; border-radius: 99px; background: #fff; border: 1px solid var(--line-2); }
-.cmp-toggle .switch { width: 40px; height: 24px; }
+.cmp-toggle { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; font-size: 13px; min-height: 36px; padding: 0 12px 0 5px; border-radius: 99px; background: #fff; border: 1px solid var(--line-2); white-space: nowrap; flex: none; }
+.cmp-toggle .switch { display: inline-block; position: relative; width: 40px; height: 24px; flex: none; }
+.cmp-toggle b { font-weight: 600; }
+@media (max-width: 899px) { .cmp-toggle { min-height: 34px; font-size: 12.5px; padding-right: 10px; } }
 .cmp-toggle .switch span::after { width: 18px; height: 18px; }
 .cmp-toggle .switch input:checked + span::after { transform: translateX(16px); }
 .cmp-lbl { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 99px; background: var(--accent-soft); color: var(--accent-ink); font-weight: 600; font-size: 12px; }
@@ -645,3 +647,6 @@ details > summary { cursor: pointer; padding: 6px 0; }
 .bars .bb i.pv.neg { background: #E9B5AB; }
 .bars:not(.cmp) .bb i { width: 100%; }
 .lg-prev { display: inline-block; width: 8px; height: 10px; background: #D9D6CC; border-radius: 2px; vertical-align: -1px; }
+/* lonceng aktif saat halaman notifikasi terbuka (HP) */
+.topbar .icon-btn.bell.on { background: var(--accent); color: var(--ink); }
+@media (min-width: 900px) { .topbar .icon-btn.bell.on { background: var(--ink); color: #fff; } }
