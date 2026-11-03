@@ -54,11 +54,19 @@ export function skuMatch(scan, sku) {
 // ---------- dom ----------
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+// Pasang klik/aksi lewat delegasi. Kalau dipasang ulang (render ulang / buka halaman lagi)
+// pemasangan lama DIGANTI, bukan ditumpuk -> tidak ada pop-up dobel / tombol macet.
 export function on(root, event, selector, fn) {
-  root.addEventListener(event, (e) => {
+  const reg = root.__onReg || (root.__onReg = new Map());
+  const key = event + '|' + selector;
+  const prev = reg.get(key);
+  if (prev) root.removeEventListener(event, prev);
+  const h = (e) => {
     const t = e.target.closest(selector);
     if (t && root.contains(t)) fn(e, t);
-  });
+  };
+  reg.set(key, h);
+  root.addEventListener(event, h);
 }
 export const debounce = (fn, ms = 300) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
