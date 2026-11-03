@@ -1,6 +1,6 @@
 import { supa, rpc } from '../supa.js';
 import { store } from '../store.js';
-import { esc, rp, num, fmtTime, todayStr, addDays, on, toast, toastErr, icon, emptyState, confirmBox, promptBox, statusTag, beep } from '../ui.js';
+import { esc, rp, num, fmtTime, fmtDate, todayStr, addDays, on, toast, toastErr, icon, emptyState, confirmBox, promptBox, statusTag, beep } from '../ui.js';
 import { scanBox, bindScan } from '../scanner.js';
 
 // Catat pesanan tanpa SKU marketplace:
@@ -12,7 +12,7 @@ export default {
   tour: [
     { sel: '#stores', title: '1. Pilih toko', body: 'Pilih toko sekali. Semua resi yang di-scan masuk ke toko itu sampai tokonya diganti.' },
     { sel: '#scanwrap', title: '2. Scan resi, lalu scan barang', body: 'Scan barcode resi di label kirim, lalu scan setiap barangnya. Barang yang ada di rak langsung diambil, stok berkurang.' },
-    { sel: '#today', title: 'Resi hari ini', body: 'Semua resi yang sudah dicatat hari ini untuk toko ini, lengkap dengan statusnya. Tekan untuk membuka lagi.' }
+    { sel: '#today', title: 'Resi per tanggal & toko', body: 'Daftar resi yang sudah dicatat. Pilih tanggal lain atau centang Semua toko. Tekan resi untuk membukanya lagi.' }
   ],
   async render(el) {
     const { data: stores, error } = await supa.from('stores').select('*').eq('active', true).order('sort').order('name');
@@ -70,19 +70,30 @@ export default {
       </div>`;
     };
 
+    let listDate = todayStr(), listAll = false;
     const loadToday = async () => {
       const box = el.querySelector('#today');
-      if (!storeId) { box.innerHTML = ''; return; }
-      const t = todayStr();
-      const { data } = await supa.from('orders').select('id, resi, order_no, status, total_jual, created_at, order_items(qty, rack_qty)')
-        .eq('store_id', storeId).gte('created_at', t + 'T00:00:00+07:00').lt('created_at', addDays(t, 1) + 'T00:00:00+07:00').order('created_at', { ascending: false });
+      if (!storeId && !listAll) { box.innerHTML = ''; return; }
+      const { data } = await (() => {
+        let q = supa.from('orders').select('id, resi, order_no, status, total_jual, created_at, store_id, stores(name), order_items(qty, rack_qty)')
+          .gte('created_at', listDate + 'T00:00:00+07:00').lt('created_at', addDays(listDate, 1) + 'T00:00:00+07:00').order('created_at', { ascending: false }).limit(1000);
+        if (!listAll) q = q.eq('store_id', storeId);
+        return q;
+      })();
       const list = data || [];
       const n = (s) => list.filter((o) => o.status === s).length;
-      box.innerHTML = `<div class="card-h"><h2>Resi hari ini · ${esc(storeName())}</h2><span class="small muted">${list.length} resi · ${n('menunggu_win')} tunggu WIN · ${n('siap_packing')} siap packing · ${n('cancel')} cancel</span></div>
+      const isToday = listDate === todayStr();
+      box.innerHTML = `<div class="card-h cat-head"><div><h2>Resi ${isToday ? 'hari ini' : 'tanggal ' + esc(fmtDate(listDate, { day: 'numeric', month: 'long', year: 'numeric' }))} · ${listAll ? 'semua toko' : esc(storeName())}</h2>
+          <div class="small muted">${list.length} resi · ${n('menunggu_win')} tunggu WIN · ${n('siap_packing')} siap packing · ${n('dikirim') + n('selesai')} dikirim · ${n('cancel')} cancel</div></div>
+          <div class="row wrap"><button class="btn btn-sm" data-dshift="-1" aria-label="Hari sebelumnya">${icon('back', 16)}</button><input type="date" class="input sm" id="ld" value="${listDate}" max="${todayStr()}" style="max-width:160px"><button class="btn btn-sm" data-dshift="1" aria-label="Hari berikutnya" ${isToday ? 'disabled' : ''}>${icon('chev', 16)}</button>
+          <label class="check small"><input type="checkbox" id="lall" ${listAll ? 'checked' : ''}> Semua toko</label></div></div>
         ${list.length ? `<div class="list">${list.map((o) => `<button class="list-item" data-open="${o.id}"><span class="xs muted" style="width:40px">${fmtTime(o.created_at)}</span>
-          <div class="grow" style="min-width:0"><b class="mono">${esc(o.resi || o.order_no)}</b><div class="xs muted">${o.order_items.reduce((a, i) => a + i.qty, 0)} barang · ${o.order_items.reduce((a, i) => a + (i.rack_qty || 0), 0)} dari rak · ${rp(o.total_jual)}</div></div>${statusTag(o.status)}</button>`).join('')}</div>`
-          : emptyState('Belum ada resi hari ini untuk toko ini.', 'bag')}`;
+          <div class="grow" style="min-width:0"><b class="mono">${esc(o.resi || o.order_no)}</b>${listAll && o.stores?.name ? ` <span class="tag">${esc(o.stores.name)}</span>` : ''}<div class="xs muted">${o.order_items.reduce((a, i) => a + i.qty, 0)} barang · ${o.order_items.reduce((a, i) => a + (i.rack_qty || 0), 0)} dari rak · ${rp(o.total_jual)}</div></div>${statusTag(o.status)}</button>`).join('')}</div>`
+          : emptyState('Belum ada resi di tanggal ini' + (listAll ? '.' : ' untuk toko ini.'), 'bag')}`;
     };
+    on(el, 'change', '#ld', (e) => { listDate = e.target.value || todayStr(); loadToday(); });
+    on(el, 'change', '#lall', (e) => { listAll = e.target.checked; loadToday(); });
+    on(el, 'click', '[data-dshift]', (e, b) => { const d = addDays(listDate, +b.dataset.dshift); if (d > todayStr()) return; listDate = d; loadToday(); });
 
     const openResi = async (code) => {
       const r = await rpc('scan_order_start', { p_store: storeId, p_resi: code });
