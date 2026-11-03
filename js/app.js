@@ -8,6 +8,7 @@ import { APP_NAME } from './config.js';
 import { CURRENT, versionLabel, deviceLabel, watchUpdates, fetchLatest, getLatest, isOutdated, applyUpdate } from './version.js';
 import { setFallbackScan, showScanResult } from './scanner.js';
 import { startPaging } from './paging.js';
+import { initPush, enablePush, snoozeAsk, unsubscribePush } from './push.js';
 
 const root = document.getElementById('app');
 let current = { page: null, mod: null };
@@ -70,6 +71,7 @@ async function boot(session) {
     subscribe();
     rpc('report_version', { p_version: CURRENT.version, p_device: deviceLabel() }).catch(() => {});
     watchUpdates();
+    if (!store.superadmin) initPush({ onAsk: showPushAsk });
     loadNotifs().catch(() => {});
     if (profile.tour_auto && !profile.tour_done?.main) setTimeout(() => startMainTour(true), 600);
   } catch (e) {
@@ -184,6 +186,7 @@ async function logout() {
   if (await modal({ title: 'Keluar dari aplikasi?', body: '<p style="margin:0">Kamu perlu login lagi dengan email &amp; password.</p>', actions: [{ label: 'Batal', value: false }, { label: 'Keluar', cls: 'btn-dark', value: true }] })) {
     if (!store.superadmin) await Promise.race([supa.rpc('log_event', { p_kind: 'login', p_summary: 'Keluar aplikasi' }), new Promise((r) => setTimeout(r, 1500))]).catch(() => {});
     try { sessionStorage.removeItem('logged-' + store.profile.id); sessionStorage.removeItem('sa-role'); } catch (_) {}
+    await unsubscribePush();
     await supa.auth.signOut();
     location.hash = '';
   }
@@ -204,6 +207,20 @@ function openMore() {
       ov.querySelector('[data-ver-m]').onclick = () => { close(null); showVersion(); };
     }
   });
+}
+
+// ---------- ajakan aktifkan notifikasi HP ----------
+function showPushAsk() {
+  if (document.getElementById('push-ask')) return;
+  const bar = document.createElement('div');
+  bar.id = 'push-ask'; bar.className = 'upd-bar push-ask';
+  bar.innerHTML = `<span class="pa-ic">${icon('bell', 20)}</span><div class="grow"><b>Aktifkan notifikasi HP</b><div class="xs">Tugas &amp; masalah langsung muncul seperti pesan WA, walau aplikasi ditutup.</div></div><button class="btn btn-sm" data-on>Aktifkan</button><button class="upd-x" data-x aria-label="Nanti">×</button>`;
+  bar.querySelector('[data-on]').onclick = async (e) => {
+    e.target.disabled = true;
+    try { await enablePush(); bar.remove(); toast('Notifikasi HP aktif', 'ok'); } catch (err) { toastErr(err); e.target.disabled = false; }
+  };
+  bar.querySelector('[data-x]').onclick = () => { snoozeAsk(); bar.remove(); };
+  document.body.appendChild(bar);
 }
 
 // ---------- info versi ----------
@@ -324,9 +341,6 @@ function subscribe() {
       emit('notifs');
       if (n.source_user !== store.profile.id) {
         toast((n.level === 'masalah' ? '⚠ ' : '') + n.title);
-        if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
-          navigator.serviceWorker?.ready.then((r) => r.showNotification(n.title, { body: n.body || '', icon: 'assets/icon-192.png', tag: 'n' + n.id, data: { link: n.link } })).catch(() => {});
-        }
       }
     })
     .subscribe();
