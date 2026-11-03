@@ -573,3 +573,8 @@ button.tb-user { background: #fff; cursor: pointer; font: inherit; text-align: l
 .upd-bar .btn { background: var(--accent); color: var(--ink); border: 0; flex: none; }
 .upd-x { border: 0; background: none; color: #C9CCC8; font-size: 22px; line-height: 1; cursor: pointer; padding: 0 4px; }
 @media (min-width: 900px) { .upd-bar { bottom: 24px; left: auto; right: 24px; transform: none; } }
+/* ===== 1.8: ajakan notifikasi ===== */
+.push-ask { bottom: calc(var(--tabbar) + 12px + var(--safe-b)); }
+.push-ask .pa-ic { width: 38px; height: 38px; border-radius: 99px; background: rgba(255,255,255,.12); display: grid; place-items: center; flex: none; color: var(--accent); }
+#upd-bar ~ #push-ask, #push-ask ~ #upd-bar { bottom: calc(var(--tabbar) + 96px + var(--safe-b)); }
+@media (min-width: 900px) { #upd-bar ~ #push-ask, #push-ask ~ #upd-bar { bottom: 108px; } }
