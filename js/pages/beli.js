@@ -24,15 +24,17 @@ export default {
 async function renderNeed(box, afterCreate) {
   box.innerHTML = skeleton(3);
   const { data, error } = await supa.from('order_items')
-    .select('id, qty, ready_qty, product_id, sku, name, orders!inner(order_no, status), products(id, name, sku, harga_beli, stock, rack_code)')
+    .select('id, qty, ready_qty, rack_qty, product_id, sku, name, orders!inner(order_no, resi, status, entry), products(id, name, sku, harga_beli, stock, rack_code)')
     .eq('source', 'win').is('po_id', null).in('orders.status', ['baru', 'menunggu_win', 'siap_pick']);
   if (error) return toastErr(error);
-  const rows = data.filter((r) => r.qty > r.ready_qty);
+  // pesanan hasil scan resi: SEMUA barang dibeli (yang sudah diambil dari rak akan mengisi ulang rak)
+  const needOf = (r) => (r.orders.entry === 'scan' ? r.qty : r.qty - r.ready_qty);
+  const rows = data.filter((r) => needOf(r) > 0);
   const unknown = rows.filter((r) => !r.product_id);
   const groups = {};
   rows.filter((r) => r.product_id).forEach((r) => {
     const g = groups[r.product_id] ||= { p: r.products, need: 0, ids: [], orders: [] };
-    g.need += r.qty - r.ready_qty; g.ids.push(r.id); g.orders.push(r.orders.order_no);
+    g.need += needOf(r); g.ids.push(r.id); g.orders.push(r.orders.resi || r.orders.order_no); g.rack = (g.rack || 0) + (r.orders.entry === 'scan' ? r.rack_qty : 0);
   });
   const list = Object.values(groups);
   const { data: drivers } = await supa.from('profiles').select('id, full_name').eq('role', 'sopir').eq('active', true);
@@ -43,7 +45,7 @@ async function renderNeed(box, afterCreate) {
       <a class="btn btn-sm" style="margin-top:8px" href="#/barang">Tambah di master barang</a></div>` : ''}
     <div class="card flush" id="need"><div class="table-wrap"><table class="tbl" style="min-width:720px"><thead><tr><th></th><th>Barang</th><th class="right">Butuh</th><th class="right">Beli</th><th class="right">Harga beli / pcs</th><th class="right">Subtotal</th></tr></thead><tbody>
       ${list.map((g, i) => `<tr data-row="${i}"><td><input type="checkbox" class="check" data-ck checked aria-label="Pilih"></td>
-        <td><b>${esc(g.p.name)}</b><div class="xs muted mono">${esc(g.p.sku)} · stok ${g.p.stock} · untuk ${g.orders.length} pesanan</div></td>
+        <td><b>${esc(g.p.name)}</b><div class="xs muted mono">${esc(g.p.sku)} · stok ${g.p.stock} · untuk ${g.orders.length} pesanan${g.rack ? ` · ${g.rack} sudah diambil dari rak (beli untuk isi ulang)` : ''}</div></td>
         <td class="num">${g.need}</td><td class="right"><input class="input sm num" style="width:80px" data-qty value="${g.need}" inputmode="numeric"></td>
         <td class="right"><input class="input sm num" style="width:110px" data-cost value="${Math.round(g.p.harga_beli)}" inputmode="numeric"></td><td class="num" data-sub></td></tr>`).join('')}
       </tbody><tfoot><tr><td></td><td colspan="3">Total modal</td><td></td><td class="num" id="tot"></td></tr></tfoot></table></div></div>
