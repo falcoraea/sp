@@ -1,10 +1,10 @@
 // Service worker: aplikasi tetap terbuka cepat & bisa dipasang (PWA).
 // Naikkan VERSION setiap kali kamu upload perubahan file ke GitHub.
-const VERSION = 'v1.7.0';
+const VERSION = 'v1.8.0';
 const CACHE = 'stok-gudang-' + VERSION;
 const SHELL = [
   './', 'index.html', 'manifest.json', 'css/app.css',
-  'js/app.js', 'js/config.js', 'js/supa.js', 'js/ui.js', 'js/nav.js', 'js/store.js', 'js/auth.js', 'js/tour.js', 'js/scanner.js', 'js/shopee.js', 'js/labels.js', 'js/paging.js', 'js/version.js',
+  'js/app.js', 'js/config.js', 'js/supa.js', 'js/ui.js', 'js/nav.js', 'js/store.js', 'js/auth.js', 'js/tour.js', 'js/scanner.js', 'js/shopee.js', 'js/labels.js', 'js/paging.js', 'js/version.js', 'js/push.js',
   'assets/icon-192.png', 'assets/icon-512.png'
 ];
 
@@ -41,11 +41,26 @@ self.addEventListener('fetch', (e) => {
   })));
 });
 
+// push dari server: tampil walau aplikasi ditutup
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (_) { d = { title: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Stok Gudang', {
+    body: d.body || '',
+    icon: 'assets/icon-192.png',
+    badge: 'assets/badge-96.png',
+    tag: d.tag || undefined,
+    renotify: !!d.tag,
+    vibrate: d.level === 'masalah' ? [200, 100, 200, 100, 200] : [120, 60, 120],
+    data: { link: d.link || '#/notifikasi' }
+  }));
+});
+
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
   const link = e.notification.data?.link || '#/notifikasi';
   e.waitUntil(self.clients.matchAll({ type: 'window' }).then((list) => {
-    for (const c of list) { c.navigate(c.url.split('#')[0] + link); return c.focus(); }
+    for (const c of list) { return c.focus().then((w) => (w || c).navigate(c.url.split('#')[0] + link)).catch(() => c.focus()); }
     return self.clients.openWindow('./' + link);
   }));
 });
