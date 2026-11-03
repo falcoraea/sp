@@ -1,4 +1,4 @@
-import { supa, rpc } from '../supa.js';
+import { supa, rpc, fetchAll } from '../supa.js';
 import { store, nameOf } from '../store.js';
 import { esc, rp, num, fmtDateTime, chips, on, modal, toast, toastErr, pageHead, emptyState, skeleton, debounce, icon, loadScript, beep, skuMatch } from '../ui.js';
 import { scanBox, bindScan } from '../scanner.js';
@@ -32,7 +32,7 @@ async function tabBarang(box) {
     <div class="row wrap"><input class="input grow" id="q" placeholder="Cari nama / kode / rak, atau scan barcode" aria-label="Cari barang" style="min-width:220px">${chips('f', [['all', 'Semua'], ['low', 'Stok menipis'], ['zero', 'Habis'], ['norack', 'Tanpa rak']], filter)}</div>
     <div class="card flush" id="list">${skeleton()}</div></div>`;
   const kpi = async () => {
-    const { data } = await supa.from('products').select('stock, harga_beli, min_stock').eq('active', true);
+    const data = await fetchAll(() => supa.from('products').select('stock, harga_beli, min_stock').eq('active', true).order('id')).catch(() => []);
     const low = (data || []).filter((p) => p.min_stock > 0 && p.stock <= p.min_stock).length;
     const val = (data || []).reduce((a, p) => a + Math.max(0, p.stock) * p.harga_beli, 0);
     box.querySelector('#kpi').innerHTML = `<div class="card kpi"><div class="label">Jenis barang</div><div class="value">${num(data?.length || 0)}</div></div>
@@ -40,12 +40,16 @@ async function tabBarang(box) {
       <div class="card kpi" style="${low ? 'border:1.5px solid var(--accent)' : ''}"><div class="label">Stok menipis</div><div class="value">${low}</div></div>`;
   };
   const load = async () => {
-    let qy = supa.from('products').select('id, sku, name, rack_code, stock, stock_karantina, min_stock, harga_beli').eq('active', true).order('rack_code', { nullsFirst: false }).order('name').limit(300);
-    if (search) qy = qy.or(`name.ilike.%${search}%,sku.ilike.%${search}%,rack_code.ilike.%${search}%`);
-    if (filter === 'zero') qy = qy.lte('stock', 0);
-    if (filter === 'norack') qy = qy.is('rack_code', null);
-    const { data, error } = await qy;
-    if (error) return toastErr(error);
+    let data;
+    try {
+      data = await fetchAll(() => {
+        let qy = supa.from('products').select('id, sku, name, rack_code, stock, stock_karantina, min_stock, harga_beli').eq('active', true).order('rack_code', { nullsFirst: false }).order('name').order('id');
+        if (search) qy = qy.or(`name.ilike.%${search}%,sku.ilike.%${search}%,rack_code.ilike.%${search}%`);
+        if (filter === 'zero') qy = qy.lte('stock', 0);
+        if (filter === 'norack') qy = qy.is('rack_code', null);
+        return qy;
+      });
+    } catch (error) { return toastErr(error); }
     const list = filter === 'low' ? data.filter((p) => p.min_stock > 0 && p.stock <= p.min_stock) : data;
     box.querySelector('#list').innerHTML = list.length ? `<div class="list">${list.map((p) => `<button class="list-item" data-p="${p.id}">
       <span class="mono" style="width:64px;flex:none;font-weight:600">${esc(p.rack_code || '—')}</span>
@@ -142,7 +146,7 @@ async function tabOpname(box) {
 }
 
 async function tabRak(box) {
-  const [{ data: racks }, { data: prods }] = await Promise.all([supa.from('racks').select('*').order('code'), supa.from('products').select('rack_code, stock').eq('active', true)]);
+  const [{ data: racks }, { data: prods }] = await Promise.all([supa.from('racks').select('*').order('code'), fetchAll(() => supa.from('products').select('rack_code, stock').eq('active', true).order('id')).then((data) => ({ data })).catch(() => ({ data: [] }))]);
   const cnt = {}; (prods || []).forEach((p) => { if (p.rack_code) { cnt[p.rack_code] ||= [0, 0]; cnt[p.rack_code][0]++; cnt[p.rack_code][1] += p.stock; } });
   const canEdit = ['owner', 'admin', 'kepala_gudang'].includes(store.role);
   box.innerHTML = `<div class="stack">
