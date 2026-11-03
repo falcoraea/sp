@@ -161,7 +161,7 @@ function renderShell() {
 }
 
 // scan alat (USB/Bluetooth) di halaman yang BUKAN menu scan: ditolak, dengan petunjuk menu yang benar
-const SCAN_PAGES = ['ambil', 'packing', 'terima', 'retur', 'cek'];
+const SCAN_PAGES = ['catat', 'ambil', 'packing', 'terima', 'retur', 'cek'];
 function globalScan() {
   const menus = SCAN_PAGES.filter((k) => canOpen(k, store.role)).map((k) => PAGES[k].label);
   return { ok: false, title: 'Halaman ini bukan menu scan', info: 'Scan diabaikan. Buka menu: ' + menus.join(', ') + '.' };
