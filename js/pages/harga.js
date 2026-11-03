@@ -1,4 +1,4 @@
-import { supa, rpc } from '../supa.js';
+import { supa, rpc, fetchAll } from '../supa.js';
 import { store, nameOf } from '../store.js';
 import { esc, rp, num, fmtDate, chips, on, modal, toast, toastErr, pageHead, emptyState, skeleton, debounce, icon, downloadXlsx, parseNum, confirmBox } from '../ui.js';
 
@@ -19,10 +19,13 @@ export default {
       <section class="card stack" id="rules"><div class="row between wrap"><h2 class="sec-title">Rumus otomatis (untuk barang yang tidak dikunci)</h2><span class="xs muted">Terakhir diubah ${fmtDate(s.updated_at)}</span></div>
         <div class="grid gauto">
           <label class="field">Harga 5% = Macallan dikurangi (%)<input class="input num" id="r5" value="${s.potongan_5_pct}" inputmode="decimal"></label>
-          <label class="field">Harga beli = Macallan dikurangi diskon (%)<input class="input num" id="rb" value="${s.diskon_beli_pct}" inputmode="decimal"></label>
+          <label class="field">Harga beli barang biasa = Macallan dikurangi (%)<input class="input num" id="rb" value="${s.diskon_beli_pct}" inputmode="decimal"></label>
+          <label class="field">Harga beli bagian khusus = Macallan dikurangi (%)<input class="input num" id="rs" value="${s.diskon_set_pct ?? 30}" inputmode="decimal"></label>
+          <label class="field">Kata kunci judul bagian khusus di pricelist<input class="input" id="rk" value="${esc(s.diskon_set_keyword || 'COMPLETE SET')}"></label>
           <label class="field">Harga Shopee<select class="input" id="rm"><option value="file" ${s.harga_shopee_mode === 'file' ? 'selected' : ''}>Ikut file Shopee terakhir</option><option value="manual" ${s.harga_shopee_mode === 'manual' ? 'selected' : ''}>Isi manual (file hanya memberi tanda)</option></select></label>
           <label class="field">Estimasi potongan Shopee sebelum dana cair (%)<input class="input num" id="rf" value="${s.shopee_fee_pct}" inputmode="decimal"></label>
         </div>
+        <div class="alert yellow small">Pricelist WIN dibaca per bagian (judul <b>***...***</b>). Barang di bagian yang judulnya mengandung kata kunci (mis. <b>***COMPLETE SET BODY HONDA***</b>) memakai diskon bagian khusus. Barang lain memakai diskon barang biasa. Setelah mengubah kata kunci, upload ulang pricelist supaya bagian barang terbaca ulang.</div>
         <div class="alert blue small">Harga yang diubah manual diberi <b>kunci</b>. Upload pricelist WIN / file Shopee berikutnya <b>tidak menimpa</b> harga yang dikunci, hanya memberi tanda “Beda dengan file baru”.</div>
         <div class="row wrap" style="justify-content:flex-end"><button class="btn btn-dark" id="saveRules">Simpan rumus & hitung ulang</button></div></section>
       <div class="row wrap between"><div id="filters"></div><input class="input" id="q" placeholder="Cari nama / kode" style="max-width:280px" aria-label="Cari"></div>
@@ -53,25 +56,26 @@ export default {
     const val = (p, f) => (changed.get(p.id)?.[f] ?? p[f]);
     const margin = (p) => { const sp = +val(p, 'harga_shopee'), b = +val(p, 'harga_beli'); return sp ? Math.round(sp * (1 - s.shopee_fee_pct / 100) - b) : null; };
     const paint = () => {
-      const list = visible().slice(0, 400);
+      const list = visible().slice(0, 1000);
       el.querySelector('#tbl').innerHTML = list.length ? `<div class="table-wrap"><table class="tbl" style="min-width:1080px"><thead><tr><th><input type="checkbox" class="check" id="all" aria-label="Pilih semua"></th><th>Kode · Barang</th>${FIELDS.map(([, l]) => `<th class="right">${l}</th>`).join('')}<th class="right">Est. margin</th><th>Sumber</th></tr></thead><tbody>
         ${list.map((p) => {
           const ch = changed.has(p.id), m = margin(p), pend = p.pending_price;
           return `<tr class="${ch || sel.has(p.id) ? 'hl' : ''}" data-row="${p.id}"><td><input type="checkbox" class="check" data-sel="${p.id}" ${sel.has(p.id) ? 'checked' : ''} aria-label="Pilih"></td>
-            <td><b>${esc(p.name)}</b><div class="xs muted mono">${esc(p.sku)}${p.diskon_pct != null ? ` · diskon ${p.diskon_pct}%` : ''}</div></td>
+            <td><b>${esc(p.name)}</b><div class="xs muted mono">${esc(p.sku)}${p.diskon_pct != null ? ` · diskon ${p.diskon_pct}%` : p.price_group === 'set' ? ` · <span class="tag yellow">${esc(s.diskon_set_keyword || 'COMPLETE SET')} ${s.diskon_set_pct ?? 30}%</span>` : ''}</div></td>
             ${FIELDS.map(([f]) => `<td class="right"><input class="input sm num ${p.price_locked || ch ? 'locked' : f === 'harga_5' || f === 'harga_beli' ? 'calc' : ''}" style="width:104px" data-f="${f}" data-id="${p.id}" value="${num(val(p, f))}" inputmode="numeric" aria-label="${f}"></td>`).join('')}
             <td class="num"><b class="${m == null ? '' : m < 0 ? 'neg' : 'pos'}">${m == null ? '–' : rp(m)}</b></td>
             <td>${pend ? `<button class="tag yellow" style="border:0;cursor:pointer" data-pend="${p.id}">Beda: ${esc(pend.sumber)} ${pend.macallan ? 'Macallan ' + num(pend.macallan) : ''}${pend.harga_shopee ? ' Shopee ' + num(pend.harga_shopee) : ''}</button>`
               : p.price_locked ? '<span class="tag dark">Dikunci owner</span>' : !Number(p.harga_beli) ? '<span class="tag red">Modal kosong</span>' : '<span class="tag">Otomatis</span>'}</td></tr>`;
-        }).join('')}</tbody></table></div>${visible().length > 400 ? '<div class="xs muted" style="padding:8px 16px">Menampilkan 400 pertama, gunakan pencarian.</div>' : ''}` : emptyState('Tidak ada barang di filter ini.', 'tag');
+        }).join('')}</tbody></table></div>${visible().length > 1000 ? `<div class="xs muted" style="padding:8px 16px">Menampilkan 1.000 dari ${visible().length} barang. Gunakan pencarian / filter untuk barang lainnya.</div>` : ''}` : emptyState('Tidak ada barang di filter ini.', 'tag');
       el.querySelector('#savebar').classList.toggle('hidden', !changed.size);
       el.querySelector('#cn').textContent = changed.size;
       el.querySelector('#bulk').classList.toggle('hidden', !sel.size);
       el.querySelector('#bn').textContent = sel.size;
     };
     const load = async () => {
-      const { data, error } = await supa.from('products').select('id, sku, name, macallan, harga_5, harga_beli, harga_shopee, diskon_pct, price_locked, pending_price').eq('active', true).order('name');
-      if (error) return toastErr(error);
+      let data;
+      try { data = await fetchAll(() => supa.from('products').select('id, sku, name, category, macallan, harga_5, harga_beli, harga_shopee, diskon_pct, price_group, price_locked, pending_price').eq('active', true).order('name').order('id')); }
+      catch (error) { return toastErr(error); }
       products = data; changed.clear(); sel.clear(); paintFilters(); paint();
     };
     const hist = async () => {
@@ -88,7 +92,7 @@ export default {
       const c = changed.get(id) || {};
       c[f] = parseNum(inp.value);
       if (f === 'macallan' && !p.price_locked) {
-        const d = p.diskon_pct ?? s.diskon_beli_pct;
+        const d = p.diskon_pct ?? (p.price_group === 'set' ? (s.diskon_set_pct ?? 30) : s.diskon_beli_pct);
         c.harga_5 = Math.round(c.macallan * (1 - s.potongan_5_pct / 100)); c.harga_beli = Math.round(c.macallan * (1 - d / 100));
       }
       changed.set(id, c); paint();
@@ -116,7 +120,7 @@ export default {
       if (!r) return;
       const row = { id: p.id, clear_pending: true };
       if (r === 'yes') {
-        if (pend.macallan) { const d = p.diskon_pct ?? s.diskon_beli_pct; Object.assign(row, { macallan: pend.macallan, harga_5: Math.round(pend.macallan * (1 - s.potongan_5_pct / 100)), harga_beli: Math.round(pend.macallan * (1 - d / 100)) }); }
+        if (pend.macallan) { const d = p.diskon_pct ?? (p.price_group === 'set' ? (s.diskon_set_pct ?? 30) : s.diskon_beli_pct); Object.assign(row, { macallan: pend.macallan, harga_5: Math.round(pend.macallan * (1 - s.potongan_5_pct / 100)), harga_beli: Math.round(pend.macallan * (1 - d / 100)) }); }
         if (pend.harga_shopee) row.harga_shopee = pend.harga_shopee;
       }
       try { await rpc('update_prices', { p: { reason: r === 'yes' ? 'Terima harga dari ' + pend.sumber : 'Abaikan harga ' + pend.sumber, rows: [row] } }); toast('Tersimpan', 'ok'); load(); hist(); } catch (err) { toastErr(err); }
@@ -130,7 +134,7 @@ export default {
       } catch (err) { toastErr(err); } finally { e.target.disabled = false; }
     };
     el.querySelector('#saveRules').onclick = async () => {
-      const upd = { potongan_5_pct: +el.querySelector('#r5').value, diskon_beli_pct: +el.querySelector('#rb').value, harga_shopee_mode: el.querySelector('#rm').value, shopee_fee_pct: +el.querySelector('#rf').value, updated_at: new Date().toISOString() };
+      const upd = { potongan_5_pct: +el.querySelector('#r5').value, diskon_beli_pct: +el.querySelector('#rb').value, diskon_set_pct: +el.querySelector('#rs').value, diskon_set_keyword: el.querySelector('#rk').value.trim() || 'COMPLETE SET', harga_shopee_mode: el.querySelector('#rm').value, shopee_fee_pct: +el.querySelector('#rf').value, updated_at: new Date().toISOString() };
       if (!(await confirmBox('Simpan rumus?', `Harga 5% dan harga beli semua barang yang <b>tidak dikunci</b> akan dihitung ulang.`))) return;
       try {
         const { error } = await supa.from('settings').update(upd).eq('id', 1); if (error) throw error;
