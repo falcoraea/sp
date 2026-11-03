@@ -13,11 +13,13 @@ export default {
     { sel: '#hist', title: 'Riwayat upload', body: 'Siapa upload apa dan kapan. Owner juga mendapat notifikasi setiap upload.' }
   ],
   async render(el) {
-    const ALLOWED = { owner: Object.keys(TYPES), admin: ['pesanan', 'pembatalan', 'pengembalian', 'penghasilan', 'pricelist', 'rak'], kepala_gudang: ['rak', 'stok_awal'] }[store.role] || [];
+    const pesananOff = store.settings.upload_pesanan === false;
+    const ALLOWED = ({ owner: Object.keys(TYPES), admin: ['pesanan', 'pembatalan', 'pengembalian', 'penghasilan', 'pricelist', 'rak'], kepala_gudang: ['rak', 'stok_awal'] }[store.role] || []).filter((t) => !(pesananOff && t === 'pesanan'));
     let type = ALLOWED[0], parsed = null;
     const card = (t) => `<button class="type-card ${t === type ? 'on' : ''}" data-type="${t}"><b>${esc(TYPES[t].label)}</b><span class="xs muted">${esc(TYPES[t].desc)}</span><span class="tag" data-last="${t}">…</span></button>`;
     el.innerHTML = `${pageHead('Upload file Shopee', 'Ekspor dari Shopee Seller Center, lalu upload di sini. Data dicek dulu sebelum disimpan.')}
       <div class="stack" style="gap:16px">
+        ${pesananOff ? `<div class="alert blue small">Upload file <b>Pesanan</b> sedang dimatikan owner (marketplace tidak memakai SKU). Pesanan dicatat kepala gudang di menu <a href="#/catat">Catat pesanan</a> dengan scan resi + scan barang.${store.role === 'owner' ? ' Bisa dinyalakan lagi di Pengaturan.' : ''}</div>` : ''}
         <section><h2 class="sec-title" style="margin-bottom:8px">1. Pilih jenis file</h2><div class="grid gauto" id="types">${ALLOWED.map(card).join('')}</div></section>
         <section class="card"><h2 class="sec-title" style="margin-bottom:10px">2. Upload file</h2>
           <label class="dropzone" id="drop">${icon('upload', 34, 1.8)}<b>Tarik file .xlsx / .csv ke sini</b><span class="small muted">atau ketuk untuk memilih file</span>
