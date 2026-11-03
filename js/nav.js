@@ -18,6 +18,7 @@ export const PAGES = {
   laba:       { label: 'Laba per barang', short: 'Laba', icon: 'chart', roles: ['owner'], group: 'Keuangan' },
   gaji:       { label: 'Gaji & operasional', short: 'Gaji', icon: 'wallet', roles: ['owner'], group: 'Keuangan' },
   pegawai:    { label: 'Pegawai & jabatan', short: 'Pegawai', icon: 'users', roles: ['owner'], group: 'Pengaturan' },
+  log:        { label: 'Log aktivitas', short: 'Log', icon: 'clock', roles: ['owner'], group: 'Pengaturan' },
   pengumuman: { label: 'Pengumuman', short: 'Info', icon: 'bell', roles: ['owner'], group: 'Pengaturan' },
   pengaturan: { label: 'Pengaturan', icon: 'gear', roles: ['owner'], group: 'Pengaturan' },
   absen:      { label: 'Absen', icon: 'clock', roles: ['admin', 'sopir', 'kepala_gudang', 'picker', 'packing'], group: 'Saya' },
