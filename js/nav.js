@@ -1,3 +1,4 @@
+import { store } from './store.js';
 // Daftar halaman, siapa yang boleh membuka, dan susunan menu per jabatan.
 export const PAGES = {
   dashboard:  { label: 'Dashboard', icon: 'home', roles: ['owner'], group: '' },
@@ -25,6 +26,7 @@ export const PAGES = {
   absen:      { label: 'Absen', icon: 'clock', roles: ['admin', 'sopir', 'kepala_gudang', 'picker', 'packing'], group: 'Saya' },
   notifikasi: { label: 'Notifikasi', icon: 'bell', roles: ['*'], group: 'Saya', hidden: true },
   'pengaturan-scanner': { label: 'Pengaturan scanner', short: 'Scanner', icon: 'scan', roles: ['*'], group: 'Saya' },
+  superadmin: { label: 'Super admin', short: 'Super', icon: 'shield', roles: ['*'], group: 'Super admin', sa: true },
   panduan:    { label: 'Panduan aplikasi', short: 'Panduan', icon: 'compass', roles: ['*'], group: 'Saya' },
   akun:       { label: 'Akun saya', short: 'Akun', icon: 'user', roles: ['*'], group: 'Saya' }
 };
@@ -43,6 +45,7 @@ export const HOME = { owner: 'dashboard', admin: 'pesanan', sopir: 'tugas', kepa
 
 export function canOpen(page, role) {
   const p = PAGES[page];
+  if (p?.sa && !store.superadmin) return false;
   return !!p && (p.roles.includes('*') || p.roles.includes(role));
 }
 
