@@ -58,7 +58,7 @@ export default {
     let compare = sessionStorage.getItem('dash-compare') === '1';
     el.innerHTML = `<div class="stack" style="gap:16px">
       <div class="row between wrap"><div class="muted small" id="rlabel">${esc(longToday())}</div>
-        <div class="row wrap dash-ctl">${chips('period', PERIODS, period)}<label class="cmp-toggle" title="Bandingkan dengan periode sebelumnya"><span class="switch"><input type="checkbox" id="cmp" ${compare ? 'checked' : ''}><span></span></span><b>Bandingkan</b></label></div></div>
+        ${chips('period', PERIODS, period).replace(/<\/div>$/, `<label class="cmp-toggle" title="Bandingkan dengan periode sebelumnya"><span class="switch" style="display:inline-block"><input type="checkbox" id="cmp" ${compare ? 'checked' : ''}><span></span></span><b>Bandingkan</b></label></div>`)}</div>
       <form class="card row wrap ${period === 'custom' ? '' : 'hidden'}" id="custom"><label class="field" style="flex:1 1 140px">Dari tanggal<input type="date" class="input" id="cf" value="${custom ? custom[0] : addDays(todayStr(), -6)}" max="${todayStr()}"></label>
         <label class="field" style="flex:1 1 140px">Sampai tanggal<input type="date" class="input" id="ct" value="${custom ? custom[1] : todayStr()}" max="${todayStr()}"></label>
         <button class="btn btn-primary" style="align-self:flex-end">Terapkan</button></form>
