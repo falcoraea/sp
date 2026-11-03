@@ -1,6 +1,7 @@
 import { supa, tempClient, errMsg } from '../supa.js';
 import { store, loadProfiles } from '../store.js';
-import { esc, rp, num, on, modal, toast, toastErr, pageHead, emptyState, skeleton, icon, ROLE_LABEL, parseNum, confirmBox } from '../ui.js';
+import { esc, rp, num, on, modal, toast, toastErr, pageHead, emptyState, skeleton, icon, ROLE_LABEL, parseNum, confirmBox, ago } from '../ui.js';
+import { fetchLatest, isOutdated } from '../version.js';
 
 const ROLES = ['admin', 'sopir', 'kepala_gudang', 'picker', 'packing'];
 const DESC = {
@@ -18,19 +19,24 @@ export default {
   ],
   async render(el) {
     el.innerHTML = `${pageHead('Pegawai & jabatan', 'Setiap pegawai punya akun sendiri, supaya setiap scan tercatat siapa yang melakukannya.', `<button class="btn btn-primary" id="add">${icon('plus', 18)} Tambah pegawai</button>`)}
-      <div class="stack"><div id="pending"></div><div class="card flush" id="list">${skeleton()}</div>
+      <div class="stack"><div id="pending"></div><div class="small muted" id="verhead"></div><div class="card flush" id="list">${skeleton()}</div>
       <details class="card"><summary style="cursor:pointer;font-weight:700">Hak akses tiap jabatan</summary><div class="list" style="margin-top:8px">${ROLES.map((r) => `<div class="list-item" style="padding:8px 0"><b style="width:130px">${ROLE_LABEL[r]}</b><span class="small muted grow">${DESC[r]}</span></div>`).join('')}
         <div class="list-item" style="padding:8px 0"><b style="width:130px">Owner</b><span class="small muted grow">Semua menu, laba, gaji, harga, kecurangan, notifikasi semua jabatan</span></div></div></details></div>`;
     const load = async () => {
-      const { data, error } = await supa.from('profiles').select('*').order('role').order('full_name');
+      const [{ data, error }, latest] = await Promise.all([supa.from('profiles').select('*').order('role').order('full_name'), fetchLatest()]);
+      const verInfo = (p) => p.app_version
+        ? `<div class="xs" style="margin-top:3px"><span class="tag ${isOutdated(p.app_version, latest) ? 'red' : 'green'}">v${esc(p.app_version)}${isOutdated(p.app_version, latest) ? ' · versi lama' : ''}</span> <span class="muted">${esc(p.app_device || '')}${p.app_seen_at ? ' · dibuka ' + esc(ago(p.app_seen_at)) : ''}</span></div>`
+        : '<div class="xs muted" style="margin-top:3px">Belum membuka aplikasi versi 1.7+</div>';
       if (error) return toastErr(error);
       const pend = data.filter((p) => p.role === 'pending');
       el.querySelector('#pending').innerHTML = pend.length ? `<div class="card warn"><b>${pend.length} akun menunggu jabatan</b><div class="list">${pend.map((p) => `<div class="list-item" style="padding:8px 0"><span class="grow">${esc(p.full_name)} <span class="xs muted">${esc(p.email || '')}</span></span><button class="btn btn-sm" data-edit="${p.id}">Atur jabatan</button></div>`).join('')}</div></div>` : '';
       const staff = data.filter((p) => p.role !== 'pending');
       el.querySelector('#list').innerHTML = staff.length ? `<div class="list">${staff.map((p) => `<button class="list-item" data-edit="${p.id}" ${p.role === 'owner' ? 'disabled style="cursor:default"' : ''}>
-        <div class="grow"><b>${esc(p.full_name)}</b> ${p.active ? '' : '<span class="tag red">nonaktif</span>'}<div class="xs muted">${esc(p.email || '')}</div></div>
+        <div class="grow"><b>${esc(p.full_name)}</b> ${p.active ? '' : '<span class="tag red">nonaktif</span>'}<div class="xs muted">${esc(p.email || '')}</div>${verInfo(p)}</div>
         <span class="tag ${p.role === 'owner' ? 'dark' : ''}">${ROLE_LABEL[p.role]}</span>${p.role !== 'owner' ? `<span class="small muted hide-mobile" style="width:150px;text-align:right">${rp(p.base_salary)} + ${rp(p.meal_allowance)}/hr</span>` : ''}</button>`).join('')}</div>` : emptyState('Belum ada pegawai.', 'users');
       el._staff = data;
+      const old = staff.filter((p) => p.role !== 'owner' && p.app_version && isOutdated(p.app_version, latest)).length;
+      el.querySelector('#verhead').innerHTML = latest && latest.build !== 'dev' ? `Versi terbaru: <b>v${esc(latest.version)}</b>${old ? ` · <span style="color:var(--red)">${old} pegawai masih memakai versi lama</span> (minta tutup-buka aplikasi atau tekan Perbarui)` : ' · semua pegawai sudah versi terbaru'}` : '';
     };
 
     const form = (p = {}) => `<div class="grid g2">
