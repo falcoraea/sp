@@ -1,6 +1,6 @@
 import { supa, errMsg, configured } from './supa.js';
 import { esc, icon, modal, toast } from './ui.js';
-import { APP_NAME } from './config.js';
+import { APP_NAME, APP_VERSION } from './config.js';
 
 const dayStr = () => new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
 const fmtD = (v) => new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short' }).format(new Date(v));
@@ -21,7 +21,7 @@ export function renderLogin(root, { recovery = false } = {}) {
         <div class="ann-head"><span>${icon('bell', 18)} Pengumuman</span><span class="ann-date">${esc(dayStr())}</span></div>
         <div class="ann-list" id="ann-desk"><div class="ann-empty">Memuat…</div></div>
       </div>
-      <div class="login-legal">Akses hanya untuk pegawai. Akun dibuat oleh owner.</div>
+      <div class="login-legal">Akses hanya untuk pegawai. Akun dibuat oleh owner. · Versi v${esc(APP_VERSION)}</div>
     </section>
     <section class="login-side">
       <div class="login-card">
@@ -30,7 +30,7 @@ export function renderLogin(root, { recovery = false } = {}) {
         </div>
         <div id="login-body"></div>
         <section class="ann-mobile hidden" id="ann-mob-wrap"><div class="ann-head"><span>${icon('bell', 18)} Pengumuman</span></div><div class="ann-list" id="ann-mob"></div></section>
-        <div class="login-foot">Belum punya akun? Minta owner membuatkan akun untukmu.<br><button class="btn btn-ghost btn-sm hidden" id="install-btn" style="margin-top:10px">${icon('install', 18)} Pasang aplikasi di HP / laptop</button></div>
+        <div class="login-foot">Belum punya akun? Minta owner membuatkan akun untukmu.<br><button class="btn btn-ghost btn-sm hidden" id="install-btn" style="margin-top:10px">${icon('install', 18)} Pasang aplikasi di HP / laptop</button><div class="xs muted" style="margin-top:10px">Versi v${esc(APP_VERSION)}</div></div>
       </div>
     </section>
   </div>`;
