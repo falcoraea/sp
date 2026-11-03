@@ -23,6 +23,7 @@ export const PAGES = {
   pengaturan: { label: 'Pengaturan', icon: 'gear', roles: ['owner'], group: 'Pengaturan' },
   absen:      { label: 'Absen', icon: 'clock', roles: ['admin', 'sopir', 'kepala_gudang', 'picker', 'packing'], group: 'Saya' },
   notifikasi: { label: 'Notifikasi', icon: 'bell', roles: ['*'], group: 'Saya', hidden: true },
+  'pengaturan-scanner': { label: 'Pengaturan scanner', short: 'Scanner', icon: 'scan', roles: ['*'], group: 'Saya' },
   panduan:    { label: 'Panduan aplikasi', short: 'Panduan', icon: 'compass', roles: ['*'], group: 'Saya' },
   akun:       { label: 'Akun saya', short: 'Akun', icon: 'user', roles: ['*'], group: 'Saya' }
 };
