@@ -28,11 +28,11 @@ export default {
       const c = code.replace(/[^\w-]/g, '');
       const { data, error } = await supa.from('orders').select('*, order_items(*, products(sku, name))').or(`resi.ilike.${c},order_no.ilike.${c}`).limit(1);
       if (error) { toastErr(error); return false; }
-      if (!data.length) { beep(false); msg(`Resi / pesanan <b class="mono">${esc(code)}</b> tidak ditemukan. Sudah diupload dari Shopee?`); return { ok: false, title: 'Resi tidak ditemukan', info: 'Sudah diupload dari file pesanan Shopee?' }; }
+      if (!data.length) { beep(false); msg(`Resi / pesanan <b class="mono">${esc(code)}</b> tidak ditemukan. Sudah dicatat kepala gudang / diupload?`); return { ok: false, title: 'Resi tidak ditemukan', info: 'Sudah dicatat di menu Catat pesanan?' }; }
       order = data[0];
       if (['cancel', 'retur'].includes(order.status)) { beep(false); msg(`<b>PESANAN DIBATALKAN — JANGAN DIKIRIM.</b><br>Serahkan barangnya ke kepala gudang.`); order = null; return { ok: false, title: 'Pesanan dibatalkan — jangan dikirim', info: 'Serahkan barangnya ke kepala gudang' }; }
       if (['dikirim', 'selesai'].includes(order.status)) { beep(false); msg(`Pesanan ini sudah dipacking ${fmtDateTime(order.packed_at)}.`, 'yellow'); order = null; return { ok: false, title: 'Pesanan sudah dipacking', info: fmtDateTime(data[0].packed_at) }; }
-      beep(true); msg('');
+      beep(true); msg(order.status === 'menunggu_win' ? '<b>Menunggu barang WIN.</b> Boleh disiapkan dan di-scan, tapi baru bisa dikirim setelah kepala gudang selesai terima barang WIN. Kalau WIN kosong, pesanan ini otomatis cancel.' : '', 'yellow');
       getPhoto = () => null; paint();
       return { ok: true, title: 'Resi ' + (order.resi || order.order_no), info: order.order_items.map((i) => i.name + ' ×' + i.qty).join(', ') };
     };
