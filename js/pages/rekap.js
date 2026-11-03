@@ -1,5 +1,5 @@
-import { rpc } from '../supa.js';
-import { esc, rp, num, todayStr, addDays, fmtDate, chips, on, toastErr, pageHead, emptyState, skeleton, icon, downloadXlsx, statusTag } from '../ui.js';
+import { rpc, supa } from '../supa.js';
+import { esc, rp, num, todayStr, addDays, fmtDate, chips, on, toastErr, pageHead, emptyState, skeleton, icon, xlsx, statusTag } from '../ui.js';
 
 export default {
   tour: [
@@ -8,10 +8,13 @@ export default {
   ],
   async render(el, { params }) {
     let date = params.d || todayStr(), filter = 'all', rows = [];
+    let storeF = (() => { try { return sessionStorage.getItem('rekap-store') || 'all'; } catch (_) { return 'all'; } })();
+    const { data: stores } = await supa.from('stores').select('id, name, marketplace').order('sort').order('name');
     el.innerHTML = `${pageHead('Rekap harian per resi', 'Harga selesai = dana cair dari file Penghasilan Shopee. Sebelum cair dipakai estimasi (ditandai *).',
       `<button class="btn" id="xl">${icon('download', 18)} Unduh Excel</button><button class="btn btn-primary" id="pr">${icon('print', 18)} Cetak</button>`)}
       <div class="stack">
         <div class="row wrap no-print"><button class="btn btn-sm" data-shift="-1" aria-label="Hari sebelumnya">${icon('back', 16)}</button><input type="date" class="input" id="d" value="${date}" style="max-width:190px"><button class="btn btn-sm" data-shift="1" aria-label="Hari berikutnya">${icon('chev', 16)}</button><h3 style="font-size:16px" id="dl"></h3></div>
+        ${stores?.length ? `<div class="no-print" id="storef"></div>` : ''}
         <div class="grid gauto" id="kpi"></div>
         <div id="warn"></div>
         <div class="no-print" id="fil"></div>
@@ -24,8 +27,9 @@ export default {
       paint();
     };
     const paint = () => {
+      if (stores?.length) el.querySelector('#storef').innerHTML = chips('st', [['all', 'Semua toko'], ...stores.map((s) => [String(s.id), s.name + ' (' + new Set(rows.filter((r) => r.store_id === s.id).map((r) => r.order_id)).size + ')'])], storeF);
       const orders = new Map();
-      rows.forEach((r) => { if (!orders.has(r.order_id)) orders.set(r.order_id, { ...r, items: [] }); orders.get(r.order_id).items.push(r); });
+      rows.filter((r) => storeF === 'all' || String(r.store_id) === storeF).forEach((r) => { if (!orders.has(r.order_id)) orders.set(r.order_id, { ...r, items: [] }); orders.get(r.order_id).items.push(r); });
       const all = [...orders.values()];
       const valid = all.filter((o) => !['cancel', 'retur'].includes(o.status));
       const zeroCost = all.filter((o) => o.items.some((i) => !Number(i.harga_beli)));
@@ -43,8 +47,8 @@ export default {
       let n = 0;
       el.querySelector('#tbl').innerHTML = `<div class="table-wrap"><table class="tbl" style="min-width:1100px"><thead><tr><th>No</th><th>No resi</th><th>Kode</th><th>Keterangan</th><th class="right">Qty</th><th>Sumber</th><th class="right">Macallan</th><th class="right">Harga beli</th><th class="right">Harga Shopee</th><th class="right">Harga selesai</th><th class="right">Margin</th><th>Status</th></tr></thead><tbody>
         ${list.map((o) => o.items.map((i, k) => `<tr class="${['cancel', 'retur'].includes(o.status) ? 'bad' : !Number(i.harga_beli) ? 'hl' : ''}">
-          ${k === 0 ? `<td rowspan="${o.items.length}">${++n}</td><td rowspan="${o.items.length}" class="mono xs">${esc(o.resi || o.order_no)}</td>` : ''}
-          <td class="mono xs">${esc(i.sku || '')}</td><td class="small">${esc(i.name)}</td><td class="num">${i.qty}</td><td>${i.source === 'win' ? '<span class="tag yellow">WIN</span>' : '<span class="tag">Gudang</span>'}${i.rack ? ` <span class="xs mono muted">${esc(i.rack)}</span>` : ''}</td>
+          ${k === 0 ? `<td rowspan="${o.items.length}">${++n}</td><td rowspan="${o.items.length}" class="mono xs">${esc(o.resi || o.order_no)}${storeF === 'all' && o.store_name ? `<div><span class="tag">${esc(o.store_name)}</span></div>` : ''}</td>` : ''}
+          <td class="mono xs">${esc(i.sku || '')}</td><td class="small">${esc(i.name)}</td><td class="num">${i.qty}</td><td>${i.rack_qty ? `<span class="tag green">Rak ${i.rack_qty}</span> ` : ''}${i.source === 'win' ? '<span class="tag yellow">WIN</span>' : '<span class="tag">Gudang</span>'}${i.rack ? ` <span class="xs mono muted">${esc(i.rack)}</span>` : ''}</td>
           <td class="num">${num(i.macallan)}</td><td class="num ${!Number(i.harga_beli) ? 'neg' : ''}">${num(i.harga_beli * i.qty)}</td><td class="num">${num(i.harga_jual)}</td>
           ${k === 0 ? `<td rowspan="${o.items.length}" class="num">${num(o.harga_selesai)}${o.paid ? '' : '*'}</td><td rowspan="${o.items.length}" class="num"><b class="${o.margin < 0 ? 'neg' : 'pos'}">${num(o.margin)}</b></td><td rowspan="${o.items.length}">${statusTag(o.status)}</td>` : ''}</tr>`).join('')).join('')}
         </tbody><tfoot><tr><td colspan="7">Total ${list.length} resi</td><td class="num">${num(sum(list, 'modal_order'))}</td><td></td><td class="num">${num(sum(list.filter((o) => !['cancel', 'retur'].includes(o.status)), 'harga_selesai'))}</td><td class="num">${num(sum(list, 'margin'))}</td><td></td></tr></tfoot></table></div>`;
@@ -53,11 +57,34 @@ export default {
     el.querySelector('#d').addEventListener('change', (e) => { date = e.target.value; load(); });
     on(el, 'click', '[data-shift]', (e, b) => { date = addDays(date, +b.dataset.shift); el.querySelector('#d').value = date; load(); });
     on(el, 'click', '[data-chips="f"] .chip', (e, b) => { filter = b.dataset.v; paint(); });
+    on(el, 'click', '[data-chips="st"] .chip', (e, b) => { storeF = b.dataset.v; try { sessionStorage.setItem('rekap-store', storeF); } catch (_) {} paint(); });
     el.querySelector('#pr').onclick = () => window.print();
-    el.querySelector('#xl').onclick = () => downloadXlsx(`rekap-${date}.xlsx`, (el._list || []).flatMap((o) => o.items.map((i, k) => ({
-      'No resi': o.resi || o.order_no, Kode: i.sku, Keterangan: i.name, Qty: i.qty, Sumber: i.source, Macallan: Number(i.macallan || 0), 'Harga beli': Number(i.harga_beli) * i.qty,
-      'Harga Shopee': Number(i.harga_jual), 'Harga selesai': k === 0 ? Number(o.harga_selesai) : '', Margin: k === 0 ? Number(o.margin) : '', Status: o.status, Lunas: o.paid ? 'Ya' : 'Belum'
-    }))), 'Rekap');
+    // Excel seperti rekap kertas: 1 sheet per toko, judul "TOKO TANGGAL"
+    el.querySelector('#xl').onclick = async () => {
+      const X = await xlsx();
+      const wb = X.utils.book_new();
+      const tgl = fmtDate(date, { day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase();
+      const head = ['NO', 'NO RESI', 'KODE', 'KETERANGAN', 'QTT', 'MACALLAN', 'HARGA 5%', 'HARGA BELI (25-30%)', 'HARGA SHOPEE', 'HARGA SELESAI', 'MARGIN', 'STATUS', 'SUMBER'];
+      const groups = new Map();
+      rows.forEach((r) => { const k = r.store_name || 'TANPA TOKO'; if (!groups.has(k)) groups.set(k, new Map()); const g = groups.get(k); if (!g.has(r.order_id)) g.set(r.order_id, []); g.get(r.order_id).push(r); });
+      if (!groups.size) groups.set('REKAP', new Map());
+      for (const [name, ords] of groups) {
+        const aoa = [[name + ' ' + tgl], head]; let n = 0, tb = 0, ts = 0, tm = 0;
+        for (const items of ords.values()) {
+          n++; const o = items[0]; const bad = ['cancel', 'retur'].includes(o.status);
+          items.forEach((i, k) => aoa.push([k === 0 ? n : '', k === 0 ? (o.resi || o.order_no) : '', i.sku || '', i.name, i.qty, Number(i.macallan || 0) * i.qty, Number(i.harga_5 || 0) * i.qty,
+            Number(i.harga_beli || 0) * i.qty, Number(i.harga_jual || 0) * i.qty, k === 0 ? Number(o.harga_selesai || 0) : '', k === 0 ? Number(o.margin || 0) : '', k === 0 ? o.status + (o.paid ? ' (lunas)' : '') : '', i.rack_qty ? 'rak ' + (i.rack || '') + ' + WIN' : 'WIN']));
+          if (!bad) { tb += Number(o.modal_order || 0); ts += Number(o.harga_selesai || 0); }
+          tm += Number(o.margin || 0);
+        }
+        aoa.push([], ['', 'TOTAL ' + n + ' RESI', '', '', '', '', '', tb, '', ts, tm]);
+        const ws = X.utils.aoa_to_sheet(aoa);
+        ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }];
+        ws['!cols'] = [5, 18, 16, 34, 5, 11, 11, 14, 13, 13, 11, 14, 14].map((w) => ({ wch: w }));
+        X.utils.book_append_sheet(wb, ws, name.replace(/[\\/?*[\]:]/g, ' ').slice(0, 31));
+      }
+      X.writeFile(wb, `rekap-${date}.xlsx`);
+    };
     load();
   }
 };
