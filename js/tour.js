@@ -115,6 +115,8 @@ export function mainSteps(role) {
       bell, help
     ],
     kepala_gudang: [
+      { sel: sel('catat'), title: 'Catat pesanan', body: 'Pilih toko, scan resi dari admin, lalu scan setiap barang. Barang yang ada di rak langsung diambil.' },
+      { sel: sel('beli'), title: 'Beli WIN', body: 'Semua barang pesanan dibeli di WIN. Centang barang, isi no. order WIN, tugaskan sopir.' },
       { sel: sel('terima'), title: 'Terima barang WIN', body: 'Scan setiap barang yang dibawa sopir. Sistem langsung bilang: ke meja packing atau ke rak mana.' },
       { sel: sel('stok'), title: 'Stok & rak', body: 'Cari barang, lihat lokasi rak dan riwayat keluar-masuk. Stok opname juga di sini.' },
       { sel: sel('retur'), title: 'Retur & cancel', body: 'Scan barang retur / cancel, pilih kondisi baik atau rusak, ambil foto.' },
