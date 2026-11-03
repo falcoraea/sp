@@ -1,6 +1,6 @@
 import { supa, rpc } from '../supa.js';
 import { store } from '../store.js';
-import { esc, rp, pct, todayStr, addDays, monthStart, longToday, icon, chips, on, toastErr, ago, fmtDate } from '../ui.js';
+import { esc, rp, num, pct, todayStr, addDays, monthStart, longToday, icon, chips, on, toast, toastErr, ago, fmtDate, modal, downloadXlsx, parseNum } from '../ui.js';
 
 const PERIODS = [['today', 'Hari ini'], ['yesterday', 'Kemarin'], ['7', '7 hari'], ['month', 'Bulan ini'], ['30', '30 hari'], ['custom', 'Pilih tanggal…']];
 let custom = (() => { try { return JSON.parse(sessionStorage.getItem('dash-range') || 'null'); } catch (_) { return null; } })();
@@ -20,6 +20,7 @@ export default {
     { sel: '[data-chips="period"]', title: 'Pilih periode', body: 'Lihat angka hari ini, kemarin, 7 hari, atau bulan ini.' },
     { sel: '#kpi', title: 'Omzet sampai laba bersih', body: 'Omzet penjualan, omzet sudah terbayar (lunas), profit kotor, rugi hilang/rusak, dan laba bersih setelah gaji & operasional.' },
     { sel: '#fraud', title: 'Indikasi kecurangan', body: 'Kejadian yang tidak sesuai alur scan, lengkap dengan bukti, pegawai terkait, dan nilainya.' },
+    { sel: '#moving', title: 'Fast & slow moving', body: 'Barang paling laku dan barang yang lambat / tidak laku, berdasarkan jumlah transaksi atau omzet. Kriterianya bisa diatur lewat tombol Atur kriteria.' },
     { sel: '#flow', title: 'Kepatuhan alur scan', body: 'Persentase langkah yang dijalankan dengan benar. Angka rendah = ada langkah yang sering dilewati.' }
   ],
   async render(el) {
@@ -31,6 +32,7 @@ export default {
         <button class="btn btn-primary" style="align-self:flex-end">Terapkan</button></form>
       <div id="kpi"></div>
       <section class="card flush danger" id="fraud"></section>
+      <section class="card flush" id="moving"></section>
       <div class="grid gauto-lg">
         <section class="card" id="breakdown"></section>
         <section class="card" id="chart"></section>
@@ -137,6 +139,77 @@ export default {
         <a href="#/upload" class="btn btn-primary" style="margin-top:14px">Buka upload file Shopee</a>`;
     };
 
-    load(); loadFraud(); loadChart(); loadFiles();
+    // ---------- fast & slow moving ----------
+    let basis = (() => { try { return localStorage.getItem('mv-basis') || 'trx'; } catch (_) { return 'trx'; } })();
+    let mv = null;
+    const metric = (r) => basis === 'trx' ? `<b>${num(r.trx)}</b> trx` : `<b>${rp(r.omzet)}</b>`;
+    const sub = (r) => basis === 'trx' ? rp(r.omzet) : `${num(r.trx)} trx`;
+    const lastSold = (r) => r.last_sold ? 'terakhir laku ' + ago(r.last_sold) : 'belum pernah laku';
+    const crit = (k) => {
+      const c = mv.cfg[k];
+      const op = k === 'fast' ? '≥' : '≤';
+      return basis === 'trx' ? `${op} ${num(c.trx)} transaksi dalam ${c.days} hari terakhir` : `omzet ${op} ${rp(c.omzet)} dalam ${c.days} hari terakhir`;
+    };
+    const fastRow = (r, i) => `<div class="list-item mv-row"><span class="mv-rank">${i + 1}</span><div class="grow" style="min-width:0"><b class="mv-name">${esc(r.name)}</b><div class="xs muted">${num(r.qty)} pcs terjual · stok ${num(r.stock)}${r.rack_code ? ' · rak ' + esc(r.rack_code) : ''}</div></div>
+      <div class="right"><div>${metric(r)}</div><div class="xs muted">${sub(r)}</div></div></div>`;
+    const slowRow = (r) => `<div class="list-item mv-row"><div class="grow" style="min-width:0"><b class="mv-name">${esc(r.name)}</b><div class="xs muted">${esc(lastSold(r))} · stok ${num(r.stock)}${r.rack_code ? ' · rak ' + esc(r.rack_code) : ''}</div></div>
+      <div class="right"><div>${metric(r)}</div><div class="xs muted">${rp(r.nilai_stok)} tertahan</div></div></div>`;
+    const loadMoving = async () => {
+      const box = el.querySelector('#moving');
+      if (!mv) box.innerHTML = '<div class="skeleton" style="height:180px;margin:16px"></div>';
+      try { mv = await rpc('moving_report', { p_basis: basis }); }
+      catch (e) { box.innerHTML = `<div class="alert yellow" style="margin:16px">Laporan fast &amp; slow moving belum aktif. Jalankan <b>supabase/update-1.11.sql</b> di Supabase › SQL Editor.</div>`; return; }
+      const k = mv.count || {};
+      box.innerHTML = `<div class="card-h mv-head"><div><h2>Fast &amp; slow moving</h2><div class="small muted">Tidak ikut filter tanggal di atas. Rentang waktunya diatur di kriteria.</div></div>
+          <div class="row wrap">${chips('basis', [['trx', 'Berdasarkan transaksi'], ['omzet', 'Berdasarkan omzet']], basis)}<button class="btn btn-sm" id="mv-set">${icon('gear', 16)} Atur kriteria</button></div></div>
+        <div class="mv-grid">
+          <div class="mv-col"><div class="mv-title fast">${icon('chart', 18)}<div><b>Fast moving · ${num(k.fast)} barang</b><div class="xs">${esc(crit('fast'))}</div></div></div>
+            ${mv.fast.length ? `<div class="list no-page">${mv.fast.slice(0, 10).map(fastRow).join('')}</div>` : `<div class="empty small">Belum ada barang yang memenuhi kriteria fast moving.</div>`}
+            ${mv.fast.length > 10 ? `<button class="btn btn-ghost btn-block" data-all="fast">Lihat semua ${num(mv.fast.length)} barang</button>` : ''}</div>
+          <div class="mv-col"><div class="mv-title slow">${icon('clock', 18)}<div><b>Slow moving · ${num(k.slow)} barang</b><div class="xs">${esc(crit('slow'))} · hanya barang yang masih ada stok</div></div></div>
+            ${k.slow ? `<div class="mv-kpi"><span>Nilai stok tertahan <b>${rp(k.slow_nilai)}</b></span><span>Tidak laku sama sekali <b>${num(k.slow_tidak_laku)}</b></span></div>` : ''}
+            ${mv.slow.length ? `<div class="list no-page">${mv.slow.slice(0, 10).map(slowRow).join('')}</div>` : `<div class="empty small">Tidak ada barang slow moving. 👍</div>`}
+            ${mv.slow.length > 10 ? `<button class="btn btn-ghost btn-block" data-all="slow">Lihat semua ${num(mv.slow.length)} barang</button>` : ''}</div>
+        </div>`;
+    };
+    on(el, 'click', '[data-chips="basis"] .chip', (e, b) => { basis = b.dataset.v; try { localStorage.setItem('mv-basis', basis); } catch (_) {} loadMoving(); });
+    on(el, 'click', '#mv-set', async () => {
+      const c = mv?.cfg || { fast: { days: 30, trx: 10, omzet: 1000000 }, slow: { days: 60, trx: 2, omzet: 100000 } };
+      const r = await modal({
+        title: 'Atur kriteria fast & slow moving',
+        body: `<div class="stack">
+          <div class="card outline stack s8"><b style="color:var(--green)">Fast moving (barang laris)</b>
+            <label class="field">Dihitung dalam berapa hari terakhir<input class="input num" id="fd" inputmode="numeric" value="${c.fast.days}"></label>
+            <div class="grid g2"><label class="field">Minimal jumlah transaksi<input class="input num" id="ft" inputmode="numeric" value="${num(c.fast.trx)}"></label>
+            <label class="field">Minimal omzet (Rp)<input class="input num" id="fo" inputmode="numeric" value="${num(c.fast.omzet)}"></label></div></div>
+          <div class="card outline stack s8"><b style="color:var(--red)">Slow moving (barang lambat / tidak laku)</b>
+            <label class="field">Dihitung dalam berapa hari terakhir<input class="input num" id="sd" inputmode="numeric" value="${c.slow.days}"></label>
+            <div class="grid g2"><label class="field">Maksimal jumlah transaksi<input class="input num" id="st" inputmode="numeric" value="${num(c.slow.trx)}"></label>
+            <label class="field">Maksimal omzet (Rp)<input class="input num" id="so" inputmode="numeric" value="${num(c.slow.omzet)}"></label></div></div>
+          <div class="small muted">1 transaksi = 1 resi / pesanan yang berisi barang itu (pesanan cancel &amp; retur tidak dihitung). Pilihan "Berdasarkan transaksi" memakai batas transaksi, "Berdasarkan omzet" memakai batas omzet.</div></div>`,
+        actions: [{ label: 'Batal', value: null }, { label: 'Simpan kriteria', cls: 'btn-primary', onClick: (ov) => {
+          const v = (id) => Math.max(0, Math.round(parseNum(ov.querySelector('#' + id).value) || 0));
+          const m = { fast: { days: Math.max(1, v('fd')), trx: v('ft'), omzet: v('fo') }, slow: { days: Math.max(1, v('sd')), trx: v('st'), omzet: v('so') } };
+          if (m.fast.days > 365 || m.slow.days > 365) { toast('Maksimal 365 hari', 'err'); return false; }
+          return m;
+        } }]
+      });
+      if (!r) return;
+      const { error } = await supa.from('settings').update({ moving: r, updated_at: new Date().toISOString() }).eq('id', 1);
+      if (error) return toastErr(error);
+      store.settings.moving = r; toast('Kriteria tersimpan', 'ok'); loadMoving();
+    });
+    on(el, 'click', '[data-all]', (e, b) => {
+      const k = b.dataset.all, list = mv[k];
+      const title = (k === 'fast' ? 'Fast moving' : 'Slow moving') + ' · ' + (basis === 'trx' ? 'berdasarkan transaksi' : 'berdasarkan omzet');
+      modal({ title, wide: true, body: `<div class="small muted" style="margin-bottom:8px">${esc(crit(k))}</div>
+        <div class="table-wrap"><table class="tbl"><thead><tr><th>#</th><th>Barang</th><th>Rak</th><th class="right">Transaksi</th><th class="right">Qty</th><th class="right">Omzet</th><th class="right">Stok</th>${k === 'slow' ? '<th class="right">Nilai stok</th>' : ''}<th>Terakhir laku</th></tr></thead><tbody>
+        ${list.map((r, i) => `<tr><td>${i + 1}</td><td><b>${esc(r.name)}</b><div class="xs muted mono">${esc(r.sku)}</div></td><td class="mono">${esc(r.rack_code || '–')}</td><td class="num">${num(r.trx)}</td><td class="num">${num(r.qty)}</td><td class="num">${rp(r.omzet)}</td><td class="num">${num(r.stock)}</td>${k === 'slow' ? `<td class="num">${rp(r.nilai_stok)}</td>` : ''}<td class="small">${r.last_sold ? fmtDate(r.last_sold) : 'belum pernah'}</td></tr>`).join('')}
+        </tbody></table></div>`,
+        actions: [{ label: 'Unduh Excel', value: 'xl' }, { label: 'Tutup', cls: 'btn-primary', value: null }] })
+        .then((v) => { if (v === 'xl') downloadXlsx(`${k === 'fast' ? 'fast' : 'slow'}-moving-${basis}-${todayStr()}.xlsx`, list.map((r, i) => ({ No: i + 1, Kode: r.sku, Barang: r.name, Rak: r.rack_code || '', Transaksi: r.trx, Qty: r.qty, Omzet: Number(r.omzet), Stok: r.stock, ...(k === 'slow' ? { 'Nilai stok': Number(r.nilai_stok) } : {}), 'Terakhir laku': r.last_sold ? fmtDate(r.last_sold) : 'belum pernah' })), title.slice(0, 30)); });
+    });
+
+    load(); loadFraud(); loadChart(); loadFiles(); loadMoving();
   }
 };
