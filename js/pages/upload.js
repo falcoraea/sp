@@ -121,6 +121,13 @@ export default {
             stats += `<div class="stat gray"><b>${num(data.rows.reduce((a, r) => a + r.qty, 0))}</b><span>total pcs</span></div><div class="stat gray"><b>${num(new Set(data.rows.map((r) => r.rack)).size)}</b><span>rak</span></div><div class="stat ${unknown.length ? 'yellow' : 'gray'}"><b>${num(unknown.length)}</b><span>kode belum ada di master (dilewati)</span></div>`;
             extra = `<div class="small" style="line-height:1.7"><b>Yang terjadi setelah disimpan</b><br>• Rak dibuat otomatis kalau belum ada, dan setiap barang dipindah ke raknya<br>• Stok sistem disamakan dengan jumlah fisik di file (tercatat sebagai “Stok awal”)<br>${unknown.length ? `• Upload Pricelist WIN dulu untuk kode: <span class="mono xs">${unknown.slice(0, 10).map(esc).join(', ')}</span>` : ''}</div>`;
           }
+          if (type === 'pricelist') {
+            const kw = String(store.settings.diskon_set_keyword || 'COMPLETE SET').toUpperCase();
+            const setN = data.rows.filter((r) => r.section && r.section.toUpperCase().includes(kw)).length;
+            const secs = [...new Set(data.rows.map((r) => r.section).filter(Boolean))];
+            stats += `<div class="stat ${setN ? 'yellow' : 'gray'}"><b>${num(setN)}</b><span>barang bagian ${esc(kw)} · diskon beli ${store.settings.diskon_set_pct ?? 30}%</span></div><div class="stat gray"><b>${num(count - setN)}</b><span>barang lain · diskon beli ${store.settings.diskon_beli_pct}%</span></div>`;
+            extra = `<div class="small" style="line-height:1.7"><b>Bagian yang terbaca (${secs.length})</b><br>${secs.slice(0, 20).map((s) => `• ${esc(s)}${s.toUpperCase().includes(kw) ? ` <span class="tag yellow">${store.settings.diskon_set_pct ?? 30}%</span>` : ''}`).join('<br>')}${secs.length > 20 ? '<br>…' : ''}<br>Persentase diskon diatur owner di <b>Atur harga</b>. Harga yang dikunci owner tidak berubah.</div>`;
+          }
           if (type === 'penghasilan') stats += `<div class="stat gray"><b>${rp(data.rows.reduce((a, r) => a + r.amount, 0))}</b><span>total dana cair</span></div>`;
         }
         const sample = type === 'pesanan' ? data.orders.slice(0, 5).map((o) => [o.order_no, o.resi, o.shopee_status, o.items.map((i) => `${i.name} ×${i.qty}`).join('; ')]) : data.rows.slice(0, 5).map((r) => Object.values(r).map((v) => v ?? ''));
