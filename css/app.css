@@ -622,3 +622,26 @@ details > summary { cursor: pointer; padding: 6px 0; }
 .mv-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mv-row .right { text-align: right; flex: none; font-size: 13px; }
 @media (max-width: 899px) { .mv-name { white-space: normal; overflow: visible; } .mv-row { padding: 10px 14px; } }
+
+/* ===== 1.13: bandingkan periode ===== */
+.dash-ctl { gap: 10px; align-items: center; }
+.cmp-toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; padding: 4px 12px 4px 4px; border-radius: 99px; background: #fff; border: 1px solid var(--line-2); }
+.cmp-toggle .switch { width: 40px; height: 24px; }
+.cmp-toggle .switch span::after { width: 18px; height: 18px; }
+.cmp-toggle .switch input:checked + span::after { transform: translateX(16px); }
+.cmp-lbl { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 99px; background: var(--accent-soft); color: var(--accent-ink); font-weight: 600; font-size: 12px; }
+.dl { font-size: 12.5px; font-weight: 700; margin-top: 2px; }
+.dl span { font-weight: 500; opacity: .85; }
+.dl.up { color: var(--green); } .dl.down { color: var(--red); } .dl.same { color: var(--muted); }
+.dl-prev { font-size: 11.5px; color: var(--muted); }
+.kpi.dark .dl.up { color: #9FD6B8; } .kpi.dark .dl.down { color: #F2A99B; } .kpi.dark .dl-prev { color: #C9CCC8; }
+.line-row .lr-v { display: inline-flex; align-items: baseline; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.line-row .prev { color: var(--muted); font-size: 12.5px; text-decoration: none; }
+.line-row .dl { margin: 0; font-size: 11.5px; min-width: 48px; text-align: right; }
+.line-row .dl span { display: none; }
+.bars .bb { flex: 1; width: 100%; display: flex; align-items: flex-end; gap: 1px; }
+.bars.cmp .bb i { flex: 1; }
+.bars .bb i.pv { background: #D9D6CC; opacity: .9; flex: 0 0 35%; }
+.bars .bb i.pv.neg { background: #E9B5AB; }
+.bars:not(.cmp) .bb i { width: 100%; }
+.lg-prev { display: inline-block; width: 8px; height: 10px; background: #D9D6CC; border-radius: 2px; vertical-align: -1px; }
