@@ -16,6 +16,7 @@ let channel = null;
 let booted = false;
 let routeSeq = 0;
 let hashBound = false;
+let beforeBell = null;
 const SA_ROLES = [['owner', 'Semua menu, laporan, harga'], ['admin', 'Pesanan, upload, beli WIN'], ['kepala_gudang', 'Terima, stok, retur, opname'], ['picker', 'Ambil barang dari rak'], ['packing', 'Packing & scan resi'], ['sopir', 'Tugas ambil barang WIN']];
 
 // ---------- PWA ----------
@@ -289,7 +290,12 @@ function renderBellBody(panel) {
 
 function toggleBell() {
   document.getElementById('me-panel')?.remove();
-  if (window.matchMedia('(max-width: 899px)').matches) { location.hash = '#/notifikasi'; return; }
+  // HP: lonceng membuka halaman notifikasi; ditekan lagi = kembali ke halaman terakhir
+  if (window.matchMedia('(max-width: 899px)').matches) {
+    if (current.page === 'notifikasi') location.hash = beforeBell || '#/' + HOME[store.role];
+    else { beforeBell = location.hash || '#/' + HOME[store.role]; location.hash = '#/notifikasi'; }
+    return;
+  }
   const ex = document.getElementById('bell-panel');
   if (ex) { ex.remove(); return; }
   const panel = document.createElement('div');
@@ -336,6 +342,7 @@ async function route() {
   const params = Object.fromEntries(new URLSearchParams(qs || ''));
   document.getElementById('bell-panel')?.remove();
   document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('on', a.dataset.nav === page));
+  document.querySelector('[data-bell]')?.classList.toggle('on', page === 'notifikasi');
   const pg = PAGES[page];
   document.getElementById('t-title').textContent = pg.label;
   const cr = document.getElementById('t-crumb'); if (cr) cr.textContent = (pg.group || 'Beranda') + '  ›  ' + pg.label;
