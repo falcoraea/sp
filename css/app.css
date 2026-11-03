@@ -650,3 +650,9 @@ details > summary { cursor: pointer; padding: 6px 0; }
 /* lonceng aktif saat halaman notifikasi terbuka (HP) */
 .topbar .icon-btn.bell.on { background: var(--accent); color: var(--ink); }
 @media (min-width: 900px) { .topbar .icon-btn.bell.on { background: var(--ink); color: #fff; } }
+
+/* ===== 2.0: catat pesanan ===== */
+.store-chips .chip.on { background: var(--accent); color: var(--ink); border-color: var(--accent); }
+#scanwrap.mode-barang { box-shadow: inset 4px 0 0 var(--green); }
+.cur-order { border: 1.5px solid var(--line-2); border-radius: 12px; padding: 12px 14px; background: #fff; }
+.cat-item { padding: 10px 0; align-items: flex-start; }
