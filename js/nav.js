@@ -2,11 +2,12 @@
 export const PAGES = {
   dashboard:  { label: 'Dashboard', icon: 'home', roles: ['owner'], group: '' },
   masalah:    { label: 'Kecurangan & masalah', short: 'Masalah', icon: 'shield', roles: ['owner'], group: '' },
+  catat:      { label: 'Catat pesanan', short: 'Catat', icon: 'scan', roles: ['owner', 'admin', 'kepala_gudang'], group: 'Penjualan' },
   pesanan:    { label: 'Pesanan', icon: 'bag', roles: ['owner', 'admin'], group: 'Penjualan' },
   upload:     { label: 'Upload file', short: 'Upload', icon: 'upload', roles: ['owner', 'admin', 'kepala_gudang'], group: 'Penjualan' },
   retur:      { label: 'Retur & cancel', short: 'Retur', icon: 'ret', roles: ['owner', 'admin', 'kepala_gudang'], group: 'Penjualan' },
   rekap:      { label: 'Rekap harian', short: 'Rekap', icon: 'calendar', roles: ['owner', 'admin'], group: 'Penjualan' },
-  beli:       { label: 'Beli WIN', icon: 'truck', roles: ['owner', 'admin'], group: 'Gudang' },
+  beli:       { label: 'Beli WIN', icon: 'truck', roles: ['owner', 'admin', 'kepala_gudang'], group: 'Gudang' },
   tugas:      { label: 'Tugas ambil', short: 'Tugas', icon: 'truck', roles: ['sopir'], group: 'Gudang' },
   terima:     { label: 'Terima barang WIN', short: 'Terima', icon: 'scan', roles: ['owner', 'kepala_gudang'], group: 'Gudang' },
   ambil:      { label: 'Ambil dari rak', short: 'Ambil', icon: 'list', roles: ['owner', 'picker', 'kepala_gudang'], group: 'Gudang' },
@@ -33,12 +34,12 @@ export const TABS = {
   owner: ['dashboard', 'masalah', 'rekap', 'harga'],
   admin: ['pesanan', 'upload', 'beli', 'barang'],
   sopir: ['tugas', 'absen', 'notifikasi', 'akun'],
-  kepala_gudang: ['terima', 'stok', 'retur', 'ambil'],
+  kepala_gudang: ['catat', 'beli', 'terima', 'stok'],
   picker: ['ambil', 'absen', 'notifikasi', 'akun'],
   packing: ['packing', 'absen', 'notifikasi', 'akun']
 };
 
-export const HOME = { owner: 'dashboard', admin: 'pesanan', sopir: 'tugas', kepala_gudang: 'terima', picker: 'ambil', packing: 'packing' };
+export const HOME = { owner: 'dashboard', admin: 'pesanan', sopir: 'tugas', kepala_gudang: 'catat', picker: 'ambil', packing: 'packing' };
 
 export function canOpen(page, role) {
   const p = PAGES[page];
