@@ -532,3 +532,26 @@ button.tb-user { background: #fff; cursor: pointer; font: inherit; text-align: l
   table.tbl.mcard td.mc-check { position: absolute; top: 8px; right: 12px; padding: 0; min-height: 0; }
   table.tbl.mcard tbody td:first-child:not(.mc-title) { font-weight: 500; }
 }
+
+/* ===== 1.6: log aktivitas ===== */
+.g-log { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 899px) { .g-log { grid-template-columns: 1fr 1fr; } .g-log > :nth-child(3), .g-log > :nth-child(4) { grid-column: 1 / -1; } }
+.log-row { align-items: flex-start; gap: 10px; }
+.log-time { font-size: 12px; color: var(--muted); width: 42px; flex: none; padding-top: 7px; }
+.log-av { width: 30px; height: 30px; border-radius: 99px; color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 13px; flex: none; }
+.log-who { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 14px; }
+.log-sum { font-size: 14px; margin-top: 3px; line-height: 1.4; overflow-wrap: anywhere; }
+.log-more { color: var(--blue); font-size: 13px; }
+.log-day { padding: 10px 16px 6px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); background: var(--paper); }
+
+/* ===== 1.6: super admin ===== */
+.sa-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: #A63A2A; color: #fff; padding: 8px 16px; font-size: 13px; }
+.sa-bar b { font-weight: 700; }
+.sa-bar .btn { min-height: 30px; padding: 0 12px; background: #fff; color: #A63A2A; border: 0; font-size: 12.5px; }
+.sa-pick { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; background: var(--ink); }
+.sa-pick .card { width: 100%; max-width: 520px; }
+.sa-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.sa-role { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px; border-radius: 12px; border: 1.5px solid var(--line-2); background: #fff; cursor: pointer; text-align: left; font: inherit; }
+.sa-role:hover, .sa-role:focus-visible { border-color: var(--ink); background: var(--paper); }
+.sa-role b { font-size: 15px; }
+.sa-role span { font-size: 12px; color: var(--muted); }
