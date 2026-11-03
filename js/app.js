@@ -231,7 +231,7 @@ function meMenuHtml() {
   const items = [['akun', 'user', 'Profil & ganti password'], ['pengaturan-scanner', 'scan', 'Pengaturan scanner'], ['panduan', 'compass', 'Panduan aplikasi'], ['notifikasi', 'bell', 'Semua notifikasi']];
   if (role === 'owner') items.push(['log', 'clock', 'Log aktivitas'], ['pengaturan', 'gear', 'Pengaturan toko'], ['pegawai', 'users', 'Pegawai & jabatan']);
   return `<div class="me-head"><span class="av">${esc(ini(p.full_name))}</span><div style="min-width:0"><b>${esc(p.full_name)}</b><div class="xs muted" style="overflow-wrap:anywhere">${esc(p.email || store.session?.user?.email || '')}</div><span class="tag dark" style="margin-top:6px">${esc(ROLE_LABEL[role])}</span></div></div>
-    <div class="me-list">${store.superadmin ? `<button class="me-item" data-sa-switch style="color:#A63A2A">${icon('shield', 18)}<span>Ganti jabatan (super admin)</span></button>` : ''}${items.map(([k, ic, l]) => `<a class="me-item" href="#/${k}" data-close>${icon(ic, 18)}<span>${l}</span></a>`).join('')}
+    <div class="me-list">${store.superadmin ? `<a class="me-item" href="#/superadmin" data-close style="color:#A63A2A">${icon('shield', 18)}<span>Menu super admin</span></a><button class="me-item" data-sa-switch style="color:#A63A2A">${icon('shield', 18)}<span>Ganti jabatan (super admin)</span></button>` : ''}${items.map(([k, ic, l]) => `<a class="me-item" href="#/${k}" data-close>${icon(ic, 18)}<span>${l}</span></a>`).join('')}
     <button class="me-item" data-ver-me>${icon('refresh', 18)}<span class="grow">Versi aplikasi</span><span class="small muted mono">${esc(versionLabel())}</span></button>
     <button class="me-item danger" data-lo>${icon('logout', 18)}<span>Keluar</span></button></div>`;
 }
