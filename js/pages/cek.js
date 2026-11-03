@@ -1,4 +1,4 @@
-import { rpc } from '../supa.js';
+import { rpc, logEvent } from '../supa.js';
 import { store } from '../store.js';
 import { esc, rp, fmtDateTime, statusTag, beep, icon, emptyState } from '../ui.js';
 import { scanBox, bindScan } from '../scanner.js';
@@ -50,6 +50,7 @@ export default {
           <div class="small">Kode ini belum terdaftar sebagai barang, resi, atau rak.${['owner', 'admin', 'kepala_gudang'].includes(store.role) ? ` <a href="#/barang">Tambahkan di Master barang</a>.` : ''}</div></div>`;
       }
       beep(ok);
+      logEvent('cek', 'Cek kode ' + code + ' → ' + title, code);
       box.innerHTML = out;
       history.unshift({ code, title, ok, at: new Date() });
       el.querySelector('#hl').innerHTML = `<div class="list">${history.slice(0, 20).map((h) => `<div class="list-item"><span style="color:${h.ok ? 'var(--green)' : 'var(--red)'}">${icon(h.ok ? 'check' : 'x', 18, 3)}</span><div class="grow"><b>${esc(h.title)}</b><div class="xs muted mono">${esc(h.code)}</div></div><span class="xs muted">${fmtDateTime(h.at)}</span></div>`).join('')}</div>`;
