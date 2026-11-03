@@ -2,6 +2,8 @@ import { supa, rpc } from './supa.js';
 import { deviceLabel } from './version.js';
 
 // Push notifikasi: muncul di HP / laptop walau aplikasi ditutup (seperti pesan WhatsApp).
+export const isIOS = () => /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+export const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 export const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 export const pushPermission = () => ('Notification' in window ? Notification.permission : 'unsupported');
 
