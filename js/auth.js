@@ -40,6 +40,8 @@ export function renderLogin(root, { recovery = false } = {}) {
     return;
   }
   recovery ? newPasswordForm(body) : loginForm(body);
+  const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent) && !(window.matchMedia('(display-mode: standalone)').matches || navigator.standalone);
+  if (ios) root.querySelector('.login-foot').insertAdjacentHTML('beforeend', '<div class="alert blue small" style="margin-top:12px;text-align:left">Pasang di iPhone: buka di <b>Safari</b> › ketuk <b>Bagikan</b> (kotak panah ke atas) › <b>Tambah ke Layar Utama</b>.</div>');
   const ib = root.querySelector('#install-btn');
   if (window.__installPrompt) ib.classList.remove('hidden');
   ib.onclick = () => window.__installPrompt && window.__installPrompt.prompt();
