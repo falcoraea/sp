@@ -1,10 +1,10 @@
 // Service worker: aplikasi tetap terbuka cepat & bisa dipasang (PWA).
 // Naikkan VERSION setiap kali kamu upload perubahan file ke GitHub.
-const VERSION = 'v1.6.0';
+const VERSION = 'v1.7.0';
 const CACHE = 'stok-gudang-' + VERSION;
 const SHELL = [
   './', 'index.html', 'manifest.json', 'css/app.css',
-  'js/app.js', 'js/config.js', 'js/supa.js', 'js/ui.js', 'js/nav.js', 'js/store.js', 'js/auth.js', 'js/tour.js', 'js/scanner.js', 'js/shopee.js', 'js/labels.js', 'js/paging.js',
+  'js/app.js', 'js/config.js', 'js/supa.js', 'js/ui.js', 'js/nav.js', 'js/store.js', 'js/auth.js', 'js/tour.js', 'js/scanner.js', 'js/shopee.js', 'js/labels.js', 'js/paging.js', 'js/version.js',
   'assets/icon-192.png', 'assets/icon-512.png'
 ];
 
@@ -22,9 +22,12 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   // data Supabase selalu langsung dari server
   if (url.hostname.endsWith('supabase.co') || url.hostname.endsWith('supabase.in')) return;
-  // file aplikasi sendiri: ambil versi terbaru, kalau offline pakai cache
+  // info versi: selalu langsung dari server
+  if (url.origin === self.location.origin && url.pathname.endsWith('/version.json')) return;
+  // file aplikasi sendiri: ambil versi terbaru (cek ulang ke server, bukan cache browser), kalau offline pakai cache
   if (url.origin === self.location.origin) {
-    e.respondWith(fetch(req).then((res) => {
+    const net = req.mode === 'navigate' ? fetch(req) : fetch(req, { cache: 'no-cache' });   // halaman utama tidak boleh diberi opsi
+    e.respondWith(net.then((res) => {
       const copy = res.clone();
       caches.open(CACHE).then((c) => c.put(req, copy));
       return res;
