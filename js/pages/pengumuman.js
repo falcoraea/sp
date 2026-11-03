@@ -19,7 +19,7 @@ export default {
         <label class="field">Tampil sampai tanggal (kosongkan = terus tampil)<input class="input" type="date" name="expires_at" min="${todayStr()}"></label>
         <label class="check"><input type="checkbox" name="show_login" checked> Tampil di halaman login</label>
         <label class="check"><input type="checkbox" name="pinned"> Tandai <b>Penting</b> (paling atas)</label>
-        <label class="check"><input type="checkbox" name="notify"> Kirim juga sebagai notifikasi ke semua pegawai</label>
+        <div class="small muted">Pengumuman otomatis dikirim sebagai notifikasi ke semua pegawai (owner tidak menerima, karena owner yang menulis).</div>
         <button class="btn btn-primary btn-lg">Simpan pengumuman</button>
       </form>
       <section class="card flush" id="list"><div class="card-h"><h2>Daftar pengumuman</h2></div><div id="rows"></div></section>
@@ -60,7 +60,7 @@ export default {
       try {
         const { error } = await supa.from('announcements').insert(row);
         if (error) throw error;
-        if (fd.get('notify') === 'on') {
+        {
           const { error: ne } = await supa.from('notifications').insert(ROLES.map((r) => ({ target_role: r, level: 'info', source_role: 'owner', title: '📢 ' + row.title, body: row.body, link: '#/notifikasi' })));
           if (ne) throw ne;
         }
