@@ -8,7 +8,7 @@ import { APP_NAME } from './config.js';
 import { CURRENT, versionLabel, deviceLabel, watchUpdates, fetchLatest, getLatest, isOutdated, applyUpdate } from './version.js';
 import { setFallbackScan, showScanResult } from './scanner.js';
 import { startPaging } from './paging.js';
-import { initPush, enablePush, snoozeAsk, unsubscribePush } from './push.js';
+import { initPush, unsubscribePush } from './push.js';
 
 const root = document.getElementById('app');
 let current = { page: null, mod: null };
@@ -71,7 +71,7 @@ async function boot(session) {
     subscribe();
     rpc('report_version', { p_version: CURRENT.version, p_device: deviceLabel() }).catch(() => {});
     watchUpdates();
-    if (!store.superadmin) initPush({ onAsk: showPushAsk });
+    if (!store.superadmin) initPush();
     loadNotifs().catch(() => {});
     if (profile.tour_auto && !profile.tour_done?.main) setTimeout(() => startMainTour(true), 600);
   } catch (e) {
@@ -202,20 +202,6 @@ function openMore() {
       ov.querySelector('[data-ver-m]').onclick = () => { close(null); showVersion(); };
     }
   });
-}
-
-// ---------- ajakan aktifkan notifikasi HP ----------
-function showPushAsk() {
-  if (document.getElementById('push-ask')) return;
-  const bar = document.createElement('div');
-  bar.id = 'push-ask'; bar.className = 'upd-bar push-ask';
-  bar.innerHTML = `<span class="pa-ic">${icon('bell', 20)}</span><div class="grow"><b>Aktifkan notifikasi HP</b><div class="xs">Tugas &amp; masalah langsung muncul seperti pesan WA, walau aplikasi ditutup.</div></div><button class="btn btn-sm" data-on>Aktifkan</button><button class="upd-x" data-x aria-label="Nanti">×</button>`;
-  bar.querySelector('[data-on]').onclick = async (e) => {
-    e.target.disabled = true;
-    try { await enablePush(); bar.remove(); toast('Notifikasi HP aktif', 'ok'); } catch (err) { toastErr(err); e.target.disabled = false; }
-  };
-  bar.querySelector('[data-x]').onclick = () => { snoozeAsk(); bar.remove(); };
-  document.body.appendChild(bar);
 }
 
 // ---------- info versi ----------
