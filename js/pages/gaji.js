@@ -26,8 +26,8 @@ export default {
         pb.innerHTML = `<div class="hero" style="margin-bottom:12px"><div class="label">Total gaji ${fmtDate(period, { month: 'long', year: 'numeric' })}</div><div class="big">${rp(tot)}</div><div class="small" style="color:#C9CCC8">≈ ${rp(tot / (store.settings.hari_kerja || 26))}/hari, otomatis dipotong dari laba harian</div></div>
           <div class="card flush" id="ptbl"><div class="table-wrap"><table class="tbl" style="min-width:820px"><thead><tr><th>Pegawai</th><th class="right">Gaji pokok</th><th class="right">Hadir</th><th class="right">Uang makan</th><th class="right">Bonus</th><th class="right">Potongan</th><th class="right">Diterima</th><th></th></tr></thead><tbody>
           ${data.map((r) => `<tr><td><b>${esc(r.profiles.full_name)}</b><div class="xs muted">${ROLE_LABEL[r.profiles.role]}</div></td><td class="num">${num(r.base)}</td><td class="num">${r.days} hr</td><td class="num">${num(r.meal)}</td>
-            <td class="right"><input class="input sm num" style="width:96px" data-b="${r.id}" value="${num(r.bonus)}" ${r.paid ? 'disabled' : ''} aria-label="Bonus"></td>
-            <td class="right"><input class="input sm num" style="width:96px" data-d="${r.id}" value="${num(r.deduction)}" ${r.paid ? 'disabled' : ''} aria-label="Potongan"></td>
+            <td class="right"><input class="input sm num" style="width:96px" data-b="${r.id}" data-money inputmode="numeric" value="${num(r.bonus)}" ${r.paid ? 'disabled' : ''} aria-label="Bonus"></td>
+            <td class="right"><input class="input sm num" style="width:96px" data-d="${r.id}" data-money inputmode="numeric" value="${num(r.deduction)}" ${r.paid ? 'disabled' : ''} aria-label="Potongan"></td>
             <td class="num"><b>${num(r.total)}</b></td>
             <td class="nowrap">${r.paid ? `<span class="tag green">Dibayar ${fmtDate(r.paid_at, { day: 'numeric', month: 'short' })}</span>` : `<button class="btn btn-sm btn-primary" data-pay="${r.id}">Tandai dibayar</button>`} <button class="btn btn-sm" data-slip="${r.id}">Slip</button></td></tr>`).join('')}
           </tbody></table></div></div>`;
@@ -64,7 +64,7 @@ export default {
       box.innerHTML = `<div class="stack"><div class="card grid gauto">
           <label class="field">Tanggal<input type="date" class="input" id="ed" value="${todayStr()}"></label>
           <label class="field">Kategori<select class="input" id="ec"><option>Bensin & tol</option><option>Bahan packing</option><option>Listrik & internet</option><option>Sewa</option><option>Iklan</option><option>Operasional</option></select></label>
-          <label class="field">Jumlah<input class="input num" id="ea" inputmode="numeric" placeholder="0"></label>
+          <label class="field">Jumlah<input class="input num" id="ea" inputmode="numeric" data-money placeholder="0"></label>
           <label class="field">Catatan<input class="input" id="en"></label>
           <button class="btn btn-primary" id="eadd" style="align-self:end">${icon('plus', 18)} Tambah biaya</button></div>
         <div class="card flush" id="elist">${skeleton(2)}</div></div>`;
