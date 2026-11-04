@@ -53,12 +53,14 @@ export const TYPES = {
     required: ['rack', 'sku', 'qty'], labels: { rack: 'Kode rak', sku: 'Kode barang', name: 'Nama (tidak wajib)', qty: 'Jumlah fisik' }
   },
   pricelist: {
-    label: 'Pricelist WIN', desc: 'Harga terbaru dari pabrik (Macallan). Harga 5% & harga beli dihitung otomatis.',
+    label: 'Pricelist / harga', desc: 'Pricelist WIN (Macallan) dan/atau Harga Shopee. Kolom harga yang kosong tidak mengubah harga lama.',
     fields: {
       sku: ['Kode', 'Kode Barang', 'Part Number', 'Part No', 'SKU', 'Barcode'], name: ['Nama Barang', 'Nama', 'Keterangan', 'Deskripsi'],
-      macallan: ['Macallan', 'Harga WIN', 'HET', 'Harga'], harga_shopee: ['Harga Shopee'], category: ['Kategori', 'Category']
+      macallan: ['Macallan', 'Harga WIN', 'HET', 'Harga'], harga_shopee: ['Harga Shopee', 'Harga Jual Shopee', 'Shopee', 'Harga Jual'], category: ['Kategori', 'Category']
     },
-    required: ['sku', 'macallan'], labels: { sku: 'Kode', name: 'Nama barang', macallan: 'Macallan', harga_shopee: 'Harga Shopee', category: 'Kategori' }
+    // cukup salah satu kolom harga: Macallan ATAU Harga Shopee
+    required: ['sku'], requireAny: [['macallan', 'harga_shopee']],
+    labels: { sku: 'Kode', name: 'Nama barang', macallan: 'Macallan', harga_shopee: 'Harga Shopee', category: 'Kategori' }
   }
 };
 
@@ -72,6 +74,14 @@ export async function readSheet(file) {
   let best = null;
   for (const name of wb.SheetNames) {
     const rows = X.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: false, defval: '' });
+    // kode / barcode angka panjang tampil "8.99701E+12" di Excel -> pakai angka aslinya
+    if (rows.some((r) => r.some((c) => /\dE\+\d/i.test(c)))) {
+      const raw = X.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, defval: '' });
+      rows.forEach((r, i) => r.forEach((c, j) => {
+        const v = raw[i]?.[j];
+        if (/\dE\+\d/i.test(c) && typeof v === 'number' && Number.isFinite(v)) r[j] = Number.isInteger(v) ? BigInt(Math.round(v)).toString() : String(v);
+      }));
+    }
     const d = detect(rows);
     const score = d.score * 100000 + rows.length;
     if (!best || score > best.score) best = { rows, score, name };
@@ -85,6 +95,9 @@ function scoreRow(row, type) {
   for (const [f, aliases] of Object.entries(TYPES[type].fields)) {
     const hit = aliases.some((a) => cells.includes(norm(a)));
     if (hit) n++; else if (TYPES[type].required.includes(f)) missingReq++;
+  }
+  for (const group of TYPES[type].requireAny || []) {
+    if (!group.some((f) => TYPES[type].fields[f].some((a) => cells.includes(norm(a))))) missingReq++;
   }
   return n - missingReq * 2;
 }
@@ -112,18 +125,30 @@ export function findHeaderRow(rows, type) {
 export function autoMap(headers, type, rows = [], headerRow = 0) {
   const saved = JSON.parse(localStorage.getItem('map-' + type) || '{}');
   const H = headers.map(norm);
-  const map = {};
+  const map = {}, used = new Set();
   const sample = rows.slice(headerRow + 1, headerRow + 80);
   const fill = (i) => sample.reduce((a, r) => a + String(r[i] ?? '').trim().length, 0);
-  for (const [f, aliases] of Object.entries(TYPES[type].fields)) {
-    if (saved[f] && headers.includes(saved[f])) { map[f] = headers.indexOf(saved[f]); continue; }
-    let idx = -1;
+  const fields = Object.entries(TYPES[type].fields);
+  // 1) pilihan manual yang pernah disimpan, 2) nama kolom persis, 3) nama kolom mirip
+  for (const [f] of fields) {
+    if (saved[f] && headers.includes(saved[f]) && !used.has(headers.indexOf(saved[f]))) { map[f] = headers.indexOf(saved[f]); used.add(map[f]); }
+  }
+  for (const [f, aliases] of fields) {
+    if (map[f] > -1) continue;
     for (const a of aliases) {
-      const all = H.map((h, i) => (h === norm(a) ? i : -1)).filter((i) => i > -1);
-      if (all.length) { idx = all.length > 1 && sample.length ? all.sort((x, y) => fill(y) - fill(x))[0] : all[0]; break; }
+      const all = H.map((h, i) => (h === norm(a) && !used.has(i) ? i : -1)).filter((i) => i > -1);
+      if (all.length) { map[f] = all.length > 1 && sample.length ? all.sort((x, y) => fill(y) - fill(x))[0] : all[0]; used.add(map[f]); break; }
     }
-    if (idx === -1) for (const a of aliases) { idx = H.findIndex((h) => h && h.includes(norm(a))); if (idx > -1) break; }
-    map[f] = idx;
+  }
+  for (const [f, aliases] of fields) {
+    if (map[f] > -1) continue;
+    map[f] = -1;
+    for (const a of aliases) {
+      const na = norm(a);
+      if (na.length < 4 || na === 'harga') continue; // kata umum ("Harga") jangan dicocokkan sebagian: "Harga Shopee" bukan Macallan
+      const idx = H.findIndex((h, i) => h && !used.has(i) && h.includes(na));
+      if (idx > -1) { map[f] = idx; used.add(idx); break; }
+    }
   }
   return map;
 }
@@ -191,15 +216,20 @@ export function build(rows, headerRow, type, map) {
     let section = '';
     const out = [];
     for (const r of data) {
-      const sku = get(r, 'sku'), mac = parseNum(get(r, 'macallan'));
-      if (!(sku && mac > 0)) {
+      const sku = get(r, 'sku'), mac = map.macallan > -1 ? parseNum(get(r, 'macallan')) : 0;
+      const shp = map.harga_shopee > -1 ? parseNum(get(r, 'harga_shopee')) : 0;
+      const nm = get(r, 'name');
+      // baris barang: ada kode + harga, atau (file harga Shopee) hanya nama + harga Shopee
+      if (!((sku && (mac > 0 || shp > 0)) || (!sku && nm && shp > 0 && !(mac > 0)))) {
         const text = r.map((c) => String(c ?? '').trim()).filter(Boolean).join(' ');
         if (text && /\*/.test(text)) section = text.replace(/\*/g, '').replace(/\s+/g, ' ').trim();
         continue;
       }
-      out.push({ sku, name: get(r, 'name'), macallan: mac, harga_shopee: map.harga_shopee > -1 ? parseNum(get(r, 'harga_shopee')) : null, category: get(r, 'category'), section });
+      // harga kosong dikirim null = harga lama tidak diubah
+      out.push({ sku, name: nm, macallan: mac > 0 ? mac : null, harga_shopee: shp > 0 ? shp : null, category: get(r, 'category'), section: section || null });
     }
-    return { rows: uniq(out, 'sku') };
+    out.forEach((x) => { x._k = (x.sku || ('nama:' + x.name)).toUpperCase(); });
+    return { rows: uniq(out, '_k').map(({ _k, ...x }) => x) };
   }
   return {};
 }
