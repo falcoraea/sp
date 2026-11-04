@@ -7,6 +7,26 @@ export const num = (n) => nf.format(Math.round(Number(n) || 0));
 export const rp = (n) => (Number(n) < 0 ? '−Rp' : 'Rp') + nf.format(Math.abs(Math.round(Number(n) || 0)));
 export const pct = (n) => (n === null || n === undefined ? '–' : Math.round(n) + '%');
 
+// Kolom isian nominal (data-money): titik ribuan muncul langsung saat mengetik, mis. 15000 -> 15.000.
+// Baca nilainya dengan parseNum(), jangan dengan +value.
+export function fmtMoneyInput(inp) {
+  const v = inp.value, pos = inp.selectionStart ?? v.length;
+  const neg = inp.dataset.money === 'neg' && /^\s*[-−]/.test(v);
+  const before = v.slice(0, pos).replace(/\D/g, '').length;
+  const digits = v.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 15);
+  const out = (neg ? '-' : '') + (digits ? nf.format(Number(digits)) : '');
+  if (out === v) return;
+  inp.value = out;
+  let i = neg ? 1 : 0, d = 0;
+  while (i < out.length && d < before) { if (/\d/.test(out[i])) d++; i++; }
+  try { if (document.activeElement === inp) inp.setSelectionRange(i, i); } catch (_) {}
+}
+if (typeof document !== 'undefined') {
+  document.addEventListener('input', (e) => { if (e.target?.matches?.('input[data-money]')) fmtMoneyInput(e.target); }, true);
+  // nilai awal yang ditulis tanpa titik ikut dirapikan saat kolom disentuh
+  document.addEventListener('focusin', (e) => { if (e.target?.matches?.('input[data-money]')) fmtMoneyInput(e.target); }, true);
+}
+
 const TZ = 'Asia/Jakarta';
 export const todayStr = () => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date());
 export const addDays = (dateStr, n) => { const d = new Date(dateStr + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
