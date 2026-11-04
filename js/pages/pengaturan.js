@@ -1,6 +1,6 @@
 import { supa } from '../supa.js';
 import { store } from '../store.js';
-import { esc, toast, toastErr, pageHead, icon, on, promptBox, confirmBox } from '../ui.js';
+import { esc, toast, toastErr, pageHead, icon, on, promptBox, confirmBox, num, parseNum } from '../ui.js';
 import { APP_VERSION } from '../config.js';
 
 export default {
@@ -17,7 +17,7 @@ export default {
         <section class="card stack" id="stores"><div class="row between wrap"><h2 class="sec-title">Toko / marketplace</h2><button type="button" class="btn btn-sm" id="addstore">${icon('plus', 16)} Tambah toko</button></div>
           <div class="small muted">Dipilih kepala gudang saat scan resi. Rekap harian bisa dilihat per toko.</div><div id="storelist"></div></section>
         <section class="card stack"><h2 class="sec-title">Biaya & laba</h2><div class="grid gauto">
-          <label class="field">Biaya bahan packing per resi<input class="input num" name="packing_cost" inputmode="numeric" value="${s.packing_cost}"></label>
+          <label class="field">Biaya bahan packing per resi<input class="input num" name="packing_cost" inputmode="numeric" data-money value="${num(s.packing_cost)}"></label>
           <label class="field">Hari kerja per bulan (pembagi gaji harian)<input class="input num" name="hari_kerja" inputmode="numeric" value="${s.hari_kerja}"></label>
           <label class="field">Estimasi potongan Shopee (%)<input class="input num" name="shopee_fee_pct" inputmode="decimal" value="${s.shopee_fee_pct}"></label></div>
           <div class="small muted">Rumus Harga 5% & harga beli diatur di menu <a href="#/harga">Atur harga</a>.</div></section>
@@ -34,7 +34,7 @@ export default {
       e.preventDefault();
       const fd = new FormData(e.target);
       const upd = {
-        nama_toko: fd.get('nama_toko').trim() || 'Stok Gudang', packing_cost: +fd.get('packing_cost') || 0, hari_kerja: +fd.get('hari_kerja') || 26,
+        nama_toko: fd.get('nama_toko').trim() || 'Stok Gudang', packing_cost: parseNum(fd.get('packing_cost')) || 0, hari_kerja: +fd.get('hari_kerja') || 26,
         shopee_fee_pct: +fd.get('shopee_fee_pct') || 0, jam_mulai: fd.get('jam_mulai'), jam_selesai: fd.get('jam_selesai'),
         retur_grace_days: +fd.get('retur_grace_days') || 2, wajib_foto_packing: fd.get('wajib_foto_packing') === 'on', upload_pesanan: fd.get('upload_pesanan') === 'on', updated_at: new Date().toISOString()
       };
