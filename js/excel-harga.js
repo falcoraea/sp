@@ -3,10 +3,14 @@
 // Tab berikutnya  : satu tab per toko untuk tanggal yang dipilih, format seperti rekap kertas.
 //                   Ringkasan di atas memakai rumus: kalau resi & kode diketik manual di baris abu-abu,
 //                   keterangan & harga terisi otomatis dari tab PRICELIST dan totalnya ikut berubah.
-import { Book, colName } from './xlsx-writer.js';
+import { Book, colName, excelDate } from './xlsx-writer.js';
 
 const PINK = 'FF3EA5', PINK_SOFT = 'FDE3F1', RED_SOFT = 'F9E8E4', GREY = 'F3F2EE', MUTED = '6B6F6A';
 const RP = '"Rp"#,##0';
+const DATE_FMT = '[$-421]d mmmm yyyy';   // tanggal bahasa Indonesia, mis. 31 Agustus 2026
+const DATE_DAYS = 120;                   // pilihan tanggal: 60 hari sebelum s/d 59 hari sesudah
+// kode tanpa strip / spasi / titik, huruf besar (sama seperti pencarian di aplikasi)
+const normKey = (v) => String(v ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 export const EXTRA_ROWS = 50;   // baris kosong per toko untuk diisi manual
 const PL_HEAD = 9;              // baris judul tabel di tab PRICELIST
 const ST_HEAD = 8;              // baris judul tabel di tab toko
@@ -21,7 +25,8 @@ const sheetName = (s, used) => {
 };
 
 // data: { products, stores, rows (rekap_harian), settings, lastUpload, dateLabel, printedAt }
-export function buildHargaBook({ products, stores = [], rows = [], settings = {}, lastUpload = null, dateLabel, printedAt }) {
+// date: 'YYYY-MM-DD' (tanggal resi)
+export function buildHargaBook({ products, stores = [], rows = [], settings = {}, lastUpload = null, date, printedAt }) {
   const s = settings;
   const kw = String(s.diskon_set_keyword || 'COMPLETE SET').toUpperCase();
   const wb = new Book();
@@ -34,7 +39,10 @@ export function buildHargaBook({ products, stores = [], rows = [], settings = {}
     valN: wb.style({ bold: true, size: 12, border: true, h: 'right', fmt: '#,##0' }),
     valRp: wb.style({ bold: true, size: 12, border: true, h: 'right', fmt: RP }),
     valPct: wb.style({ bold: true, size: 12, border: true, h: 'right', fmt: '0.0%' }),
-    valT: wb.style({ bold: true, size: 12, border: true, h: 'right' })
+    valT: wb.style({ bold: true, size: 12, border: true, h: 'right' }),
+    titleR: wb.style({ bold: true, size: 13, color: 'FFFFFF', fill: PINK, h: 'right', v: 'center' }),
+    titleDate: wb.style({ bold: true, size: 13, color: 'FFFFFF', fill: PINK, h: 'left', v: 'center', fmt: DATE_FMT }),
+    keyCol: wb.style({ border: true, fmt: '@', italic: true, color: MUTED, fill: GREY })
   };
   const cell = {};
   const cs = (o) => { const k = JSON.stringify(o); return (cell[k] ??= wb.style({ border: true, ...o })); };
@@ -48,9 +56,9 @@ export function buildHargaBook({ products, stores = [], rows = [], settings = {}
 
   // ---------------- tab PRICELIST ----------------
   const pl = [...products].sort((a, b) => String(a.category || '').localeCompare(String(b.category || '')) || String(a.name).localeCompare(String(b.name)));
-  const ws = wb.sheet('PRICELIST', { cols: [6, 20, 44, 24, 14, 14, 18, 15, 11, 9], freezeRow: PL_HEAD });
-  title(ws, 'PRICELIST WIN TERBARU', 10);
-  ws.merge(2, 1, 2, 10);
+  const ws = wb.sheet('PRICELIST', { cols: [6, 20, 44, 24, 14, 14, 18, 15, 11, 9, 18], freezeRow: PL_HEAD });
+  title(ws, 'PRICELIST WIN TERBARU', 11);
+  ws.merge(2, 1, 2, 11);
   ws.set(2, 1, `Diunduh ${printedAt || ''}${lastUpload ? ` · pricelist terakhir diupload ${lastUpload}` : ''}`, st.sub);
   const cats = new Set(pl.map((p) => String(p.category || '').trim()).filter(Boolean));
   const nSet = pl.filter((p) => p.price_group === 'set').length;
@@ -63,7 +71,7 @@ export function buildHargaBook({ products, stores = [], rows = [], settings = {}
     ['Total Macallan (1 pcs tiap barang)', pl.reduce((a, p) => a + Number(p.macallan || 0), 0), st.valRp, 'Potongan harga 5% · est. potongan Shopee', `${s.potongan_5_pct ?? 5}% · ${s.shopee_fee_pct ?? 0}%`, st.valT]
   ];
   sum.forEach(([l1, v1, s1, l2, v2, s2], i) => { summary(ws, 3 + i, 2, 3, 4, l1, v1, s1); summary(ws, 3 + i, 5, 7, 8, l2, v2, s2); });
-  head(ws, PL_HEAD, ['NO', 'KODE', 'KETERANGAN', 'KATEGORI', 'MACALLAN', 'HARGA 5%', 'HARGA BELI (25-30%)', 'HARGA SHOPEE', 'DISKON BELI', 'DIKUNCI']);
+  head(ws, PL_HEAD, ['NO', 'KODE', 'KETERANGAN', 'KATEGORI', 'MACALLAN', 'HARGA 5%', 'HARGA BELI (25-30%)', 'HARGA SHOPEE', 'DISKON BELI', 'DIKUNCI', 'KODE TANPA STRIP']);
   const cN = cs({ h: 'center' }), cT = cs({ fmt: '@' }), cTx = cs({}), cR = cs({ fmt: RP }), cRz = cs({ fmt: RP, fill: RED_SOFT }), cP = cs({ fmt: '0%', h: 'center' });
   pl.forEach((p, i) => {
     const r = PL_HEAD + 1 + i;
@@ -71,10 +79,19 @@ export function buildHargaBook({ products, stores = [], rows = [], settings = {}
     ws.set(r, 1, i + 1, cN); ws.set(r, 2, String(p.sku || ''), cT); ws.set(r, 3, p.name || '', cTx); ws.set(r, 4, p.category || '', cTx);
     ws.set(r, 5, Number(p.macallan || 0), cR); ws.set(r, 6, Number(p.harga_5 || 0), cR); ws.set(r, 7, Number(p.harga_beli || 0), Number(p.harga_beli) ? cR : cRz);
     ws.set(r, 8, Number(p.harga_shopee || 0), cR); ws.set(r, 9, Number(d) / 100, cP); ws.set(r, 10, p.price_locked ? 'YA' : '', cN);
+    ws.set(r, 11, normKey(p.sku), st.keyCol);   // dipakai pencarian: kode dengan / tanpa strip dianggap sama
   });
   const plLast = PL_HEAD + Math.max(1, pl.length);
-  ws.autoFilter(PL_HEAD, 1, plLast, 10);
-  const PL = `PRICELIST!$B$${PL_HEAD + 1}:$H$${plLast}`;
+  ws.autoFilter(PL_HEAD, 1, plLast, 11);
+  const PLC = (col) => `PRICELIST!$${col}$${PL_HEAD + 1}:$${col}$${plLast}`;
+
+  // ---------------- daftar tanggal (tab tersembunyi) untuk pilihan tanggal di judul tab toko ----------------
+  const d0 = excelDate(date);
+  const tg = wb.sheet('TANGGAL', { cols: [22], hidden: true });
+  const dCell = wb.style({ fmt: DATE_FMT });
+  for (let i = 0; i < DATE_DAYS; i++) tg.set(i + 1, 1, d0 - 60 + i, dCell);
+  const DATE_LIST = `TANGGAL!$A$1:$A$${DATE_DAYS}`;
+  wb.sheets.splice(wb.sheets.indexOf(tg), 1);   // dipindah ke paling belakang setelah tab toko
 
   // ---------------- tab per toko ----------------
   const groups = new Map();
@@ -93,8 +110,14 @@ export function buildHargaBook({ products, stores = [], rows = [], settings = {}
   const norm = C(null), bad = C(RED_SOFT), grey = C(GREY);
 
   for (const { name, orders } of groups.values()) {
-    const sh = wb.sheet(sheetName(name, used), { cols: [6, 22, 18, 42, 6, 13, 13, 17, 14, 15, 13, 12], freezeRow: ST_HEAD });
-    title(sh, `${String(name).toUpperCase()} ${dateLabel}`, 12);
+    const sh = wb.sheet(sheetName(name, used), { cols: [6, 22, 18, 42, 6, 13, 13, 17, 14, 15, 13, 12, { w: 8, hidden: true }], freezeRow: ST_HEAD });
+    // judul: NAMA TOKO | tanggal (klik sel tanggal -> panah -> pilih tanggal lain)
+    sh.merge(1, 1, 1, 4); sh.set(1, 1, String(name).toUpperCase(), st.titleR);
+    for (let c = 2; c <= 4; c++) sh.set(1, c, null, st.titleR);
+    sh.merge(1, 5, 1, 12); sh.set(1, 5, d0, st.titleDate);
+    for (let c = 6; c <= 12; c++) sh.set(1, c, null, st.titleDate);
+    sh.height(1, 26);
+    sh.listValidation(1, 5, DATE_LIST);
     head(sh, ST_HEAD, HEAD);
     let r = ST_HEAD + 1, n = 0;
     const tot = { resi: 0, qty: 0, mac: 0, beli: 0, shp: 0, sel: 0, mar: 0, bad: 0, lunas: 0 };
@@ -121,13 +144,17 @@ export function buildHargaBook({ products, stores = [], rows = [], settings = {}
     const first = ST_HEAD + 1;
     // baris kosong dengan rumus: isi NO RESI, KODE, QTT, HARGA SELESAI -> sisanya otomatis dari tab PRICELIST
     for (let k = 0; k < EXTRA_ROWS; k++, r++) {
-      const key = `TRIM($C${r}&"")`, qty = `IF($E${r}="",1,$E${r})`;
-      const look = (col) => ({ f: `IF($C${r}="","",IFERROR(VLOOKUP(${key},${PL},${col},FALSE)*${qty},0))`, v: '' });
+      // kode diketik dengan / tanpa strip, spasi, titik -> dicocokkan ke kolom "KODE TANPA STRIP" di PRICELIST
+      // (barcode dengan 1 angka tambahan di belakang juga dicocokkan, sama seperti di aplikasi)
+      const key = `SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(UPPER(TRIM($C${r}&"")),"-","")," ",""),".",""),"/","")`;
+      const qty = `IF($E${r}="",1,$E${r})`;
+      const look = (col) => ({ f: `IF($C${r}="","",IF($M${r}=0,0,INDEX(${PLC(col)},$M${r})*${qty}))`, v: '' });
+      sh.set(r, 13, { f: `IF($C${r}="","",IFERROR(MATCH(${key},${PLC('K')},0),IF(LEN(${key})>6,IFERROR(MATCH(LEFT(${key},LEN(${key})-1),${PLC('K')},0),0),0)))`, v: '' });
       sh.set(r, 1, { f: `IF($B${r}="","",COUNTA($B$${first}:$B${r}))`, v: '' }, grey.n);
       sh.set(r, 2, null, norm.t); sh.set(r, 3, null, norm.t);
-      sh.set(r, 4, { f: `IF($C${r}="","",IFERROR(VLOOKUP(${key},${PL},2,FALSE),"KODE TIDAK ADA DI PRICELIST"))`, v: '' }, grey.x);
+      sh.set(r, 4, { f: `IF($C${r}="","",IF($M${r}=0,"KODE TIDAK ADA DI PRICELIST",INDEX(${PLC('C')},$M${r})))`, v: '' }, grey.x);
       sh.set(r, 5, null, norm.n);
-      [4, 5, 6, 7].forEach((col, j) => sh.set(r, 6 + j, look(col), grey.r));
+      ['E', 'F', 'G', 'H'].forEach((col, j) => sh.set(r, 6 + j, look(col), grey.r));
       sh.set(r, 10, null, norm.r);
       sh.set(r, 11, { f: `IF($J${r}="","",$J${r}-$H${r})`, v: '' }, grey.r);
       sh.set(r, 12, null, norm.n);
@@ -146,8 +173,9 @@ export function buildHargaBook({ products, stores = [], rows = [], settings = {}
     summary(sh, 5, 6, 8, 9, 'Total margin', { f: `SUM(${R('K')})`, v: tot.mar }, st.valRp);
     summary(sh, 6, 6, 8, 9, 'Margin dari pendapatan', { f: 'IFERROR(I5/I4,0)', v: tot.sel ? tot.mar / tot.sel : 0 }, st.valPct);
     sh.merge(2, 10, 6, 12);
-    sh.set(2, 10, 'Baris abu-abu: cukup ketik NO RESI, KODE, QTT & HARGA SELESAI. Keterangan, harga & margin terisi otomatis dari tab PRICELIST, ringkasan di kiri ikut berubah. Resi berisi beberapa barang: tulis harga selesai di baris pertama.', st.note);
+    sh.set(2, 10, 'Baris abu-abu: cukup ketik NO RESI, KODE (boleh pakai / tanpa strip), QTT & HARGA SELESAI. Keterangan, harga & margin terisi otomatis dari tab PRICELIST, ringkasan di kiri ikut berubah. Resi berisi beberapa barang: tulis harga selesai di baris pertama. Ganti tanggal: klik tanggal di judul, lalu pilih dari panah.', st.note);
   }
+  wb.sheets.push(tg);
   return { wb, stores: groups.size, products: pl.length, resi: new Set(rows.map((x) => x.order_id)).size, colName };
 }
 
@@ -163,7 +191,7 @@ export async function downloadHargaExcel({ date, products }) {
   const out = buildHargaBook({
     products, stores: stores || [], rows: rows || [], settings: store.settings || {},
     lastUpload: lu ? ui.fmtDate(lu.created_at) + (lu.filename ? ` (${lu.filename})` : '') : null,
-    dateLabel: ui.fmtDate(date, { day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase(),
+    date,
     printedAt: ui.fmtDateTime(new Date())
   });
   const blob = await out.wb.toBlob();
