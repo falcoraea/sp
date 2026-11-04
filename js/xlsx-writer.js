@@ -2,24 +2,28 @@
 // rumus, baris judul beku, dan filter. Dipakai untuk Excel pricelist + rekap per toko.
 const enc = new TextEncoder();
 const xmlEsc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+// tanggal 'YYYY-MM-DD' -> nomor tanggal Excel
+export const excelDate = (d) => (Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) - Date.UTC(1899, 11, 30)) / 864e5;
 export const colName = (c) => { let s = ''; for (let n = c; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + ((n - 1) % 26)) + s; return s; };
 const ref = (r, c) => colName(c) + r;
 const BUILTIN_FMT = { General: 0, '0': 1, '0.00': 2, '#,##0': 3, '#,##0.00': 4, '0%': 9, '0.00%': 10, '@': 49 };
 
 class Sheet {
-  constructor(name, opt = {}) { this.name = name; this.rows = new Map(); this.merges = []; this.heights = {}; this.cols = opt.cols || []; this.freeze = opt.freezeRow || 0; this.filter = null; }
+  constructor(name, opt = {}) { this.name = name; this.rows = new Map(); this.merges = []; this.heights = {}; this.cols = opt.cols || []; this.freeze = opt.freezeRow || 0; this.filter = null; this.hidden = !!opt.hidden; this.valids = []; }
   set(r, c, v, s = 0) { if (!this.rows.has(r)) this.rows.set(r, new Map()); this.rows.get(r).set(c, { v, s }); return this; }
   get(r, c) { return this.rows.get(r)?.get(c); }
   style(r, c, s) { const cell = this.get(r, c); if (cell) cell.s = s; else this.set(r, c, null, s); }
   merge(r1, c1, r2, c2) { this.merges.push(`${ref(r1, c1)}:${ref(r2, c2)}`); }
   height(r, h) { this.heights[r] = h; }
   autoFilter(r1, c1, r2, c2) { this.filter = `${ref(r1, c1)}:${ref(r2, c2)}`; }
+  // daftar pilihan (dropdown) di sel, sumber = rentang sel mis. TANGGAL!$A$1:$A$90
+  listValidation(r, c, source) { this.valids.push(`<dataValidation type="list" allowBlank="1" showErrorMessage="1" errorTitle="Pilih dari daftar" error="Klik panah di sel ini lalu pilih tanggal." sqref="${ref(r, c)}"><formula1>${xmlEsc(source)}</formula1></dataValidation>`); }
   xml() {
     const out = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'];
     out.push('<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView workbookViewId="0">');
     if (this.freeze) out.push(`<pane ySplit="${this.freeze}" topLeftCell="A${this.freeze + 1}" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A${this.freeze + 1}" sqref="A${this.freeze + 1}"/>`);
     out.push('</sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/>');
-    if (this.cols.length) out.push('<cols>' + this.cols.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('') + '</cols>');
+    if (this.cols.length) out.push('<cols>' + this.cols.map((w, i) => { const o = typeof w === 'object' ? w : { w }; return `<col min="${i + 1}" max="${i + 1}" width="${o.w}" customWidth="1"${o.hidden ? ' hidden="1"' : ''}/>`; }).join('') + '</cols>');
     out.push('<sheetData>');
     for (const r of [...this.rows.keys()].sort((a, b) => a - b)) {
       const cells = this.rows.get(r);
@@ -39,6 +43,7 @@ class Sheet {
     out.push('</sheetData>');
     if (this.filter) out.push(`<autoFilter ref="${this.filter}"/>`);
     if (this.merges.length) out.push(`<mergeCells count="${this.merges.length}">${this.merges.map((m) => `<mergeCell ref="${m}"/>`).join('')}</mergeCells>`);
+    if (this.valids.length) out.push(`<dataValidations count="${this.valids.length}">${this.valids.join('')}</dataValidations>`);
     out.push('<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>');
     return out.join('');
   }
@@ -86,7 +91,7 @@ export class Book {
         S.map((s, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('') + '</Types>',
       '_rels/.rels': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>',
       'xl/workbook.xml': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView activeTab="0"/></bookViews><sheets>' +
-        S.map((s, i) => `<sheet name="${xmlEsc(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('') + '</sheets>' +
+        S.map((s, i) => `<sheet name="${xmlEsc(s.name)}" sheetId="${i + 1}"${s.hidden ? ' state="hidden"' : ''} r:id="rId${i + 1}"/>`).join('') + '</sheets>' +
         (S.some((s) => s.filter) ? '<definedNames>' + S.map((s, i) => (s.filter ? `<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${xmlEsc(s.name.replace(/'/g, "''"))}'!${s.filter.replace(/([A-Z]+)(\d+)/g, '$$$1$$$2')}</definedName>` : '')).join('') + '</definedNames>' : '') +
         '<calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>',
       'xl/_rels/workbook.xml.rels': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
