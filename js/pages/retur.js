@@ -1,6 +1,6 @@
 import { supa, rpc } from '../supa.js';
 import { store, nameOf } from '../store.js';
-import { esc, rp, fmtDateTime, chips, on, modal, toast, toastErr, pageHead, emptyState, skeleton, photoField, bindPhoto, photoUrl, beep } from '../ui.js';
+import { esc, rp, fmtDateTime, chips, on, modal, toast, toastErr, pageHead, emptyState, skeleton, photoField, bindPhoto, photoUrl, beep, parseNum } from '../ui.js';
 import { scanBox, bindScan } from '../scanner.js';
 
 export default {
@@ -54,10 +54,10 @@ async function processReturn(id, after) {
       <div><div class="small" style="font-weight:600;margin-bottom:6px">Kondisi barang setelah dicek</div>
         <div class="grid g2"><button type="button" class="cond-btn good on" data-c="baik">Baik<br><span class="xs" style="font-weight:400">kembali ke rak</span></button><button type="button" class="cond-btn bad" data-c="rusak">Rusak<br><span class="xs" style="font-weight:400">ke karantina, dihitung rugi</span></button></div></div>
       ${photoField('rp', 'Foto kondisi barang')}
-      <div class="grid g2"><label class="field">Ongkir retur ditanggung toko<input class="input num" id="ong" inputmode="numeric" value="0"></label><label class="field">Catatan<input class="input" id="nt"></label></div>
+      <div class="grid g2"><label class="field">Ongkir retur ditanggung toko<input class="input num" id="ong" inputmode="numeric" data-money value="0"></label><label class="field">Catatan<input class="input" id="nt"></label></div>
     </div>`,
     actions: [{ label: 'Batal', value: null }, { label: 'Simpan retur', cls: 'btn-primary', onClick: async (ov) => {
-      const out = await rpc('process_return', { p_return: id, p_condition: cond, p_photo: getPhoto(), p_ongkir: +ov.querySelector('#ong').value || 0, p_note: ov.querySelector('#nt').value.trim() || null });
+      const out = await rpc('process_return', { p_return: id, p_condition: cond, p_photo: getPhoto(), p_ongkir: parseNum(ov.querySelector('#ong').value) || 0, p_note: ov.querySelector('#nt').value.trim() || null });
       return out;
     } }],
     onOpen: (ov) => {
