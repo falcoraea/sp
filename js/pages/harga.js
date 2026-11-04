@@ -1,6 +1,7 @@
 import { supa, rpc, fetchAll } from '../supa.js';
 import { store, nameOf } from '../store.js';
-import { esc, rp, num, fmtDate, chips, on, modal, toast, toastErr, pageHead, emptyState, skeleton, debounce, icon, downloadXlsx, parseNum, confirmBox } from '../ui.js';
+import { esc, rp, num, fmtDate, chips, on, modal, toast, toastErr, pageHead, emptyState, skeleton, debounce, icon, parseNum, confirmBox, todayStr } from '../ui.js';
+import { downloadHargaExcel } from '../excel-harga.js';
 
 const FIELDS = [['macallan', 'Macallan'], ['harga_5', 'Harga 5%'], ['harga_beli', 'Harga beli (25–30%)'], ['harga_shopee', 'Harga Shopee']];
 
@@ -14,7 +15,7 @@ export default {
     let filter = 'all', search = '', products = [], changed = new Map(), sel = new Set();
     const s = { ...store.settings };
     el.innerHTML = `${pageHead('Atur harga', 'Harga bisa terisi otomatis dari upload Pricelist WIN & file Shopee, dan tetap bisa diubah manual di sini.',
-      `<button class="btn" id="xl">${icon('download', 18)} Unduh Excel</button><a class="btn" href="#/upload">${icon('upload', 18)} Upload Excel harga</a>`)}
+      `<button class="btn" id="xl">${icon('download', 18)} Unduh Excel</button><a class="btn" href="#/upload?type=pricelist">${icon('upload', 18)} Upload Excel harga</a>`)}
       <div class="stack">
       <section class="card stack" id="rules"><div class="row between wrap"><h2 class="sec-title">Rumus otomatis (untuk barang yang tidak dikunci)</h2><span class="xs muted">Terakhir diubah ${fmtDate(s.updated_at)}</span></div>
         <div class="grid gauto">
@@ -62,7 +63,7 @@ export default {
           const ch = changed.has(p.id), m = margin(p), pend = p.pending_price;
           return `<tr class="${ch || sel.has(p.id) ? 'hl' : ''}" data-row="${p.id}"><td><input type="checkbox" class="check" data-sel="${p.id}" ${sel.has(p.id) ? 'checked' : ''} aria-label="Pilih"></td>
             <td><b>${esc(p.name)}</b><div class="xs muted mono">${esc(p.sku)}${p.diskon_pct != null ? ` · diskon ${p.diskon_pct}%` : p.price_group === 'set' ? ` · <span class="tag yellow">${esc(s.diskon_set_keyword || 'COMPLETE SET')} ${s.diskon_set_pct ?? 30}%</span>` : ''}</div></td>
-            ${FIELDS.map(([f]) => `<td class="right"><input class="input sm num ${p.price_locked || ch ? 'locked' : f === 'harga_5' || f === 'harga_beli' ? 'calc' : ''}" style="width:104px" data-f="${f}" data-id="${p.id}" value="${num(val(p, f))}" inputmode="numeric" aria-label="${f}"></td>`).join('')}
+            ${FIELDS.map(([f]) => `<td class="right"><input class="input sm num ${p.price_locked || ch ? 'locked' : f === 'harga_5' || f === 'harga_beli' ? 'calc' : ''}" style="width:104px" data-f="${f}" data-id="${p.id}" data-money value="${num(val(p, f))}" inputmode="numeric" aria-label="${f}"></td>`).join('')}
             <td class="num"><b class="${m == null ? '' : m < 0 ? 'neg' : 'pos'}">${m == null ? '–' : rp(m)}</b></td>
             <td>${pend ? `<button class="tag yellow" style="border:0;cursor:pointer" data-pend="${p.id}">Beda: ${esc(pend.sumber)} ${pend.macallan ? 'Macallan ' + num(pend.macallan) : ''}${pend.harga_shopee ? ' Shopee ' + num(pend.harga_shopee) : ''}</button>`
               : p.price_locked ? '<span class="tag dark">Dikunci owner</span>' : !Number(p.harga_beli) ? '<span class="tag red">Modal kosong</span>' : '<span class="tag">Otomatis</span>'}</td></tr>`;
@@ -142,7 +143,16 @@ export default {
         const n = await rpc('recalc_prices'); toast(`Rumus tersimpan. ${n} barang dihitung ulang.`, 'ok'); load(); hist();
       } catch (err) { toastErr(err); }
     };
-    el.querySelector('#xl').onclick = () => downloadXlsx('harga-barang.xlsx', products.map((p) => ({ Kode: p.sku, Nama: p.name, Macallan: p.macallan, 'Harga 5%': p.harga_5, 'Harga beli': p.harga_beli, 'Harga Shopee': p.harga_shopee, Dikunci: p.price_locked ? 'Ya' : '' })), 'Harga');
+    el.querySelector('#xl').onclick = async () => {
+      const d = await modal({ title: 'Unduh Excel pricelist & toko', body: `<div class="stack">
+        <div class="small muted">Tab pertama <b>PRICELIST</b> (harga terbaru + ringkasan jumlah barang & kategori). Tab berikutnya satu per toko untuk tanggal di bawah, dengan total modal, harga Shopee, pendapatan & margin di bagian atas. Baris kosong bisa diisi manual: ketik resi & kode, harga terisi otomatis.</div>
+        <label class="field">Tanggal resi<input type="date" class="input" id="xd" value="${todayStr()}" max="${todayStr()}"></label></div>`,
+        actions: [{ label: 'Batal', value: null }, { label: 'Unduh Excel', cls: 'btn-primary', onClick: (ov) => ov.querySelector('#xd').value || todayStr() }] });
+      if (!d) return;
+      const b = el.querySelector('#xl'); b.disabled = true; toast('Menyiapkan Excel…');
+      try { const r = await downloadHargaExcel({ date: d, products }); toast(`Excel siap: ${num(r.products)} barang, ${r.stores} toko, ${r.resi} resi`, 'ok'); }
+      catch (err) { toastErr(err); } finally { b.disabled = false; }
+    };
     load(); hist();
   }
 };
