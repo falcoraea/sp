@@ -1,6 +1,6 @@
 import { supa, rpc } from '../supa.js';
 import { store } from '../store.js';
-import { esc, rp, num, fmtDateTime, chips, on, modal, toast, toastErr, pageHead, emptyState, skeleton, icon, photoUrl, confirmBox } from '../ui.js';
+import { esc, rp, num, fmtDateTime, chips, on, modal, toast, toastErr, pageHead, emptyState, skeleton, icon, photoUrl, confirmBox, parseNum } from '../ui.js';
 
 const PO_ST = { draft: ['Draft', ''], ditugaskan: ['Ditugaskan', 'yellow'], berangkat: ['Sopir berangkat', 'yellow'], diambil: ['Sudah diambil', 'blue'], sampai: ['Sampai gudang', 'blue'], selesai: ['Selesai', 'green'], batal: ['Batal', 'red'] };
 export const poTag = (s) => `<span class="tag ${PO_ST[s]?.[1] || ''}">${PO_ST[s]?.[0] || s}</span>`;
@@ -47,7 +47,7 @@ async function renderNeed(box, afterCreate) {
       ${list.map((g, i) => `<tr data-row="${i}"><td><input type="checkbox" class="check" data-ck checked aria-label="Pilih"></td>
         <td><b>${esc(g.p.name)}</b><div class="xs muted mono">${esc(g.p.sku)} · stok ${g.p.stock} · untuk ${g.orders.length} pesanan${g.rack ? ` · ${g.rack} sudah diambil dari rak (beli untuk isi ulang)` : ''}</div></td>
         <td class="num">${g.need}</td><td class="right"><input class="input sm num" style="width:80px" data-qty value="${g.need}" inputmode="numeric"></td>
-        <td class="right"><input class="input sm num" style="width:110px" data-cost value="${Math.round(g.p.harga_beli)}" inputmode="numeric"></td><td class="num" data-sub></td></tr>`).join('')}
+        <td class="right"><input class="input sm num" style="width:110px" data-cost data-money value="${num(g.p.harga_beli)}" inputmode="numeric"></td><td class="num" data-sub></td></tr>`).join('')}
       </tbody><tfoot><tr><td></td><td colspan="3">Total modal</td><td></td><td class="num" id="tot"></td></tr></tfoot></table></div></div>
     <div class="card stack" id="poform">
       <div class="grid gauto">
@@ -60,7 +60,7 @@ async function renderNeed(box, afterCreate) {
   const recalc = () => {
     let tot = 0;
     box.querySelectorAll('[data-row]').forEach((tr) => {
-      const sub = (+tr.querySelector('[data-qty]').value || 0) * (+tr.querySelector('[data-cost]').value || 0);
+      const sub = (+tr.querySelector('[data-qty]').value || 0) * (parseNum(tr.querySelector('[data-cost]').value) || 0);
       tr.querySelector('[data-sub]').textContent = rp(sub);
       tr.style.opacity = tr.querySelector('[data-ck]').checked ? 1 : 0.45;
       if (tr.querySelector('[data-ck]').checked) tot += sub;
@@ -73,7 +73,7 @@ async function renderNeed(box, afterCreate) {
     box.querySelectorAll('[data-row]').forEach((tr) => {
       if (!tr.querySelector('[data-ck]').checked) return;
       const g = list[+tr.dataset.row];
-      items.push({ product_id: g.p.id, qty: Math.max(1, +tr.querySelector('[data-qty]').value || g.need), unit_cost: +tr.querySelector('[data-cost]').value || g.p.harga_beli, order_item_ids: g.ids });
+      items.push({ product_id: g.p.id, qty: Math.max(1, +tr.querySelector('[data-qty]').value || g.need), unit_cost: parseNum(tr.querySelector('[data-cost]').value) || g.p.harga_beli, order_item_ids: g.ids });
     });
     if (!items.length) return toast('Pilih minimal 1 barang', 'err');
     const over = items.filter((it) => { const g = list.find((x) => x.p.id === it.product_id); return it.unit_cost > g.p.harga_beli; });
