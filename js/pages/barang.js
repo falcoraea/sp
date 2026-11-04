@@ -69,6 +69,10 @@ export default {
             row.sku = v('f-sku'); if (!row.sku) { toast('Kode wajib diisi', 'err'); return false; }
             const mac = parseNum(v('f-mac')) || 0;
             Object.assign(row, { macallan: mac, harga_5: Math.round(mac * (1 - s.potongan_5_pct / 100)), harga_beli: Math.round(mac * (1 - s.diskon_beli_pct / 100)) });
+            if (s.harga_shopee_mode === 'rumus' && mac > 0) {
+              const v = mac * (1 + Number(s.shopee_plus_pct || 0) / 100) + Number(s.shopee_plus_rp || 0), r = Number(s.shopee_round || 1);
+              row.harga_shopee = r > 1 ? Math.ceil(v / r) * r : Math.round(v);
+            }
             const { data: ins, error } = await supa.from('products').insert(row).select().single();
             if (error) throw error;
             if (preset.sku || preset.name) {
