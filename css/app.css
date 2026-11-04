@@ -659,3 +659,22 @@ details > summary { cursor: pointer; padding: 6px 0; }
 /* 2.1 */
 .cat-head { flex-wrap: wrap; gap: 10px; }
 .danger-zone { border: 1.5px solid var(--red); }
+/* 2.2 */
+/* penanda toko & tanggal yang sedang dicatat */
+.ctx-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: var(--ink); color: #fff; border-radius: 10px; padding: 10px 12px; }
+.ctx-bar.none { background: var(--accent-soft); color: var(--accent-ink); }
+.ctx-lbl { font-size: 12.5px; font-weight: 600; opacity: .85; margin-right: 2px; }
+.ctx-pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 4px 12px; font-weight: 700; font-size: 15px; line-height: 1.3; vertical-align: middle; }
+.ctx-pill svg { flex: none; }
+.ctx-pill.store { background: var(--accent); color: var(--ink); }
+.ctx-pill.date { background: var(--blue-soft); color: var(--blue-ink); }
+.cat-head { background: var(--ink); color: #fff; border-radius: var(--radius) var(--radius) 0 0; }
+.cat-head h2 { color: #fff; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.cat-head .muted { color: #C9CCC8 !important; }
+.cat-head .check { color: #fff; }
+.cat-head.past .ctx-pill.date { background: #FFD9CF; color: var(--red-ink); }
+.ctx-warn { color: #FFD9CF; margin: 4px 0 2px; font-weight: 600; }
+/* judul kolom angka rata kanan, sejajar dengan isinya */
+.tbl th.right, .tbl th.num, .tbl td.right { text-align: right; }
+.tbl th.center, .tbl td.center { text-align: center; }
+.tbl td.right .input { margin-left: auto; }
