@@ -7,7 +7,7 @@ const FIELDS = [['macallan', 'Macallan'], ['harga_5', 'Harga 5%'], ['harga_beli'
 
 export default {
   tour: [
-    { sel: '#rules', title: 'Rumus otomatis', body: 'Harga 5% = Macallan − 5%, harga beli = Macallan − 30%. Ubah persennya di sini, lalu tekan “Hitung ulang”.' },
+    { sel: '#rules', title: 'Rumus otomatis', body: 'Harga 5% = Macallan − 5%, harga beli = Macallan − 25/30%. Harga Shopee bisa ikut file Excel atau rumus, mis. Macallan + Rp5.000. Ubah di sini, lalu tekan “Simpan rumus & hitung ulang”.' },
     { sel: '#tbl', title: 'Ubah harga per barang', body: 'Ketik langsung di tabel. Barang yang diubah manual otomatis dikunci supaya tidak tertimpa upload file berikutnya.' },
     { sel: '#savebar', title: 'Simpan dengan alasan', body: 'Setiap perubahan dicatat di riwayat: siapa, kapan, dan alasannya.' }
   ],
@@ -18,14 +18,24 @@ export default {
       `<button class="btn" id="xl">${icon('download', 18)} Unduh Excel</button><a class="btn" href="#/upload?type=pricelist">${icon('upload', 18)} Upload Excel harga</a>`)}
       <div class="stack">
       <section class="card stack" id="rules"><div class="row between wrap"><h2 class="sec-title">Rumus otomatis (untuk barang yang tidak dikunci)</h2><span class="xs muted">Terakhir diubah ${fmtDate(s.updated_at)}</span></div>
-        <div class="grid gauto">
-          <label class="field">Harga 5% = Macallan dikurangi (%)<input class="input num" id="r5" value="${s.potongan_5_pct}" inputmode="decimal"></label>
-          <label class="field">Harga beli barang biasa = Macallan dikurangi (%)<input class="input num" id="rb" value="${s.diskon_beli_pct}" inputmode="decimal"></label>
-          <label class="field">Harga beli bagian khusus = Macallan dikurangi (%)<input class="input num" id="rs" value="${s.diskon_set_pct ?? 30}" inputmode="decimal"></label>
-          <label class="field">Kata kunci judul bagian khusus di pricelist<input class="input" id="rk" value="${esc(s.diskon_set_keyword || 'COMPLETE SET')}"></label>
-          <label class="field">Harga Shopee<select class="input" id="rm"><option value="file" ${s.harga_shopee_mode === 'file' ? 'selected' : ''}>Ikut file Shopee terakhir</option><option value="manual" ${s.harga_shopee_mode === 'manual' ? 'selected' : ''}>Isi manual (file hanya memberi tanda)</option></select></label>
-          <label class="field">Estimasi potongan Shopee sebelum dana cair (%)<input class="input num" id="rf" value="${s.shopee_fee_pct}" inputmode="decimal"></label>
+        <div class="grid gauto fields-end">
+          <label class="field">Harga 5%: Macallan dikurangi (%)<input class="input num" id="r5" value="${s.potongan_5_pct}" inputmode="decimal"></label>
+          <label class="field">Harga beli barang biasa: Macallan dikurangi (%)<input class="input num" id="rb" value="${s.diskon_beli_pct}" inputmode="decimal"></label>
+          <label class="field">Harga beli bagian khusus: Macallan dikurangi (%)<input class="input num" id="rs" value="${s.diskon_set_pct ?? 30}" inputmode="decimal"></label>
+          <label class="field">Kata kunci judul bagian khusus<input class="input" id="rk" value="${esc(s.diskon_set_keyword || 'COMPLETE SET')}"></label>
         </div>
+        <h3 class="sub-title">Harga Shopee</h3>
+        <div class="grid gauto fields-end">
+          <label class="field">Harga Shopee diambil dari<select class="input" id="rm">
+            <option value="file" ${s.harga_shopee_mode === 'file' ? 'selected' : ''}>Ikut data Excel / file Shopee</option>
+            <option value="rumus" ${s.harga_shopee_mode === 'rumus' ? 'selected' : ''}>Rumus dari Macallan</option>
+            <option value="manual" ${s.harga_shopee_mode === 'manual' ? 'selected' : ''}>Isi manual (file hanya memberi tanda)</option></select></label>
+          <label class="field rumus-f">Macallan ditambah (Rp)<input class="input num" id="rp" data-money="neg" inputmode="text" value="${num(s.shopee_plus_rp || 0)}"></label>
+          <label class="field rumus-f">Ditambah lagi (%)<input class="input num" id="rpc" value="${s.shopee_plus_pct || 0}" inputmode="decimal"></label>
+          <label class="field rumus-f">Bulatkan ke atas<select class="input" id="rr">${[[1, 'Tidak dibulatkan'], [100, 'Kelipatan Rp100'], [500, 'Kelipatan Rp500'], [1000, 'Kelipatan Rp1.000']].map(([v, l]) => `<option value="${v}" ${Number(s.shopee_round || 1) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+          <label class="field">Est. potongan Shopee sebelum cair (%)<input class="input num" id="rf" value="${s.shopee_fee_pct}" inputmode="decimal"></label>
+        </div>
+        <div class="alert green small rumus-f" id="rprev"></div>
         <div class="alert yellow small">Pricelist WIN dibaca per bagian (judul <b>***...***</b>). Barang di bagian yang judulnya mengandung kata kunci (mis. <b>***COMPLETE SET BODY HONDA***</b>) memakai diskon bagian khusus. Barang lain memakai diskon barang biasa. Setelah mengubah kata kunci, upload ulang pricelist supaya bagian barang terbaca ulang.</div>
         <div class="alert blue small">Harga yang diubah manual diberi <b>kunci</b>. Upload pricelist WIN / file Shopee berikutnya <b>tidak menimpa</b> harga yang dikunci, hanya memberi tanda “Beda dengan file baru”.</div>
         <div class="row wrap" style="justify-content:flex-end"><button class="btn btn-dark" id="saveRules">Simpan rumus & hitung ulang</button></div></section>
@@ -63,7 +73,7 @@ export default {
           const ch = changed.has(p.id), m = margin(p), pend = p.pending_price;
           return `<tr class="${ch || sel.has(p.id) ? 'hl' : ''}" data-row="${p.id}"><td><input type="checkbox" class="check" data-sel="${p.id}" ${sel.has(p.id) ? 'checked' : ''} aria-label="Pilih"></td>
             <td><b>${esc(p.name)}</b><div class="xs muted mono">${esc(p.sku)}${p.diskon_pct != null ? ` · diskon ${p.diskon_pct}%` : p.price_group === 'set' ? ` · <span class="tag yellow">${esc(s.diskon_set_keyword || 'COMPLETE SET')} ${s.diskon_set_pct ?? 30}%</span>` : ''}</div></td>
-            ${FIELDS.map(([f]) => `<td class="right"><input class="input sm num ${p.price_locked || ch ? 'locked' : f === 'harga_5' || f === 'harga_beli' ? 'calc' : ''}" style="width:104px" data-f="${f}" data-id="${p.id}" data-money value="${num(val(p, f))}" inputmode="numeric" aria-label="${f}"></td>`).join('')}
+            ${FIELDS.map(([f]) => `<td class="right"><input class="input sm num ${p.price_locked || ch ? 'locked' : f === 'harga_5' || f === 'harga_beli' || (f === 'harga_shopee' && s.harga_shopee_mode === 'rumus') ? 'calc' : ''}" style="width:104px" data-f="${f}" data-id="${p.id}" data-money value="${num(val(p, f))}" inputmode="numeric" aria-label="${f}"></td>`).join('')}
             <td class="num"><b class="${m == null ? '' : m < 0 ? 'neg' : 'pos'}">${m == null ? '–' : rp(m)}</b></td>
             <td>${pend ? `<button class="tag yellow" style="border:0;cursor:pointer" data-pend="${p.id}">Beda: ${esc(pend.sumber)} ${pend.macallan ? 'Macallan ' + num(pend.macallan) : ''}${pend.harga_shopee ? ' Shopee ' + num(pend.harga_shopee) : ''}</button>`
               : p.price_locked ? '<span class="tag dark">Dikunci owner</span>' : !Number(p.harga_beli) ? '<span class="tag red">Modal kosong</span>' : '<span class="tag">Otomatis</span>'}</td></tr>`;
@@ -77,7 +87,7 @@ export default {
       let data;
       try { data = await fetchAll(() => supa.from('products').select('id, sku, name, category, macallan, harga_5, harga_beli, harga_shopee, diskon_pct, price_group, price_locked, pending_price').eq('active', true).order('name').order('id')); }
       catch (error) { return toastErr(error); }
-      products = data; changed.clear(); sel.clear(); paintFilters(); paint();
+      products = data; changed.clear(); sel.clear(); paintFilters(); paint(); paintRumus();
     };
     const hist = async () => {
       const { data } = await supa.from('price_history').select('*, products(name)').order('created_at', { ascending: false }).limit(25);
@@ -95,6 +105,7 @@ export default {
       if (f === 'macallan' && !p.price_locked) {
         const d = p.diskon_pct ?? (p.price_group === 'set' ? (s.diskon_set_pct ?? 30) : s.diskon_beli_pct);
         c.harga_5 = Math.round(c.macallan * (1 - s.potongan_5_pct / 100)); c.harga_beli = Math.round(c.macallan * (1 - d / 100));
+        if (s.harga_shopee_mode === 'rumus' && c.harga_shopee === undefined) c.harga_shopee = shopeeOf(c.macallan);
       }
       changed.set(id, c); paint();
     });
@@ -122,6 +133,7 @@ export default {
       const row = { id: p.id, clear_pending: true };
       if (r === 'yes') {
         if (pend.macallan) { const d = p.diskon_pct ?? (p.price_group === 'set' ? (s.diskon_set_pct ?? 30) : s.diskon_beli_pct); Object.assign(row, { macallan: pend.macallan, harga_5: Math.round(pend.macallan * (1 - s.potongan_5_pct / 100)), harga_beli: Math.round(pend.macallan * (1 - d / 100)) }); }
+        if (pend.macallan && s.harga_shopee_mode === 'rumus') row.harga_shopee = shopeeOf(pend.macallan);
         if (pend.harga_shopee) row.harga_shopee = pend.harga_shopee;
       }
       try { await rpc('update_prices', { p: { reason: r === 'yes' ? 'Terima harga dari ' + pend.sumber : 'Abaikan harga ' + pend.sumber, rows: [row] } }); toast('Tersimpan', 'ok'); load(); hist(); } catch (err) { toastErr(err); }
@@ -134,9 +146,27 @@ export default {
         toast(changed.size + ' harga tersimpan & dikunci', 'ok'); load(); hist();
       } catch (err) { toastErr(err); } finally { e.target.disabled = false; }
     };
+    // rumus harga Shopee: Macallan × (1 + %) + Rp, dibulatkan ke atas
+    const rumusIn = () => ({ rp: parseNum(el.querySelector('#rp').value), pct: parseFloat(String(el.querySelector('#rpc').value).replace(',', '.')) || 0, round: +el.querySelector('#rr').value || 1 });
+    const shopeeOf = (mac, r = { rp: Number(s.shopee_plus_rp || 0), pct: Number(s.shopee_plus_pct || 0), round: Number(s.shopee_round || 1) }) => {
+      if (!(mac > 0)) return 0;
+      const v = mac * (1 + r.pct / 100) + r.rp;
+      return r.round > 1 ? Math.ceil(v / r.round) * r.round : Math.round(v);
+    };
+    const paintRumus = () => {
+      const on = el.querySelector('#rm').value === 'rumus';
+      el.querySelectorAll('.rumus-f').forEach((x) => x.classList.toggle('hidden', !on));
+      const r = rumusIn(), ex = products.find((p) => Number(p.macallan) > 0);
+      const mac = ex ? Number(ex.macallan) : 100000;
+      el.querySelector('#rprev').innerHTML = `Rumus: Harga Shopee = Macallan${r.pct ? ` + ${r.pct}%` : ''}${r.rp ? ` ${r.rp < 0 ? '−' : '+'} ${rp(Math.abs(r.rp))}` : ''}${r.round > 1 ? `, dibulatkan ke atas kelipatan ${rp(r.round)}` : ''}.<br>Contoh${ex ? ' ' + esc(ex.name) : ''}: Macallan ${rp(mac)} → <b>Harga Shopee ${rp(shopeeOf(mac, r))}</b>. Berlaku untuk barang yang tidak dikunci, dan otomatis dipakai setiap upload pricelist.`;
+    };
+    el.querySelector('#rules').addEventListener('input', paintRumus);
+    el.querySelector('#rules').addEventListener('change', paintRumus);
+    paintRumus();
     el.querySelector('#saveRules').onclick = async () => {
-      const upd = { potongan_5_pct: +el.querySelector('#r5').value, diskon_beli_pct: +el.querySelector('#rb').value, diskon_set_pct: +el.querySelector('#rs').value, diskon_set_keyword: el.querySelector('#rk').value.trim() || 'COMPLETE SET', harga_shopee_mode: el.querySelector('#rm').value, shopee_fee_pct: +el.querySelector('#rf').value, updated_at: new Date().toISOString() };
-      if (!(await confirmBox('Simpan rumus?', `Harga 5% dan harga beli semua barang yang <b>tidak dikunci</b> akan dihitung ulang.`))) return;
+      const r = rumusIn();
+      const upd = { potongan_5_pct: +el.querySelector('#r5').value, diskon_beli_pct: +el.querySelector('#rb').value, diskon_set_pct: +el.querySelector('#rs').value, diskon_set_keyword: el.querySelector('#rk').value.trim() || 'COMPLETE SET', harga_shopee_mode: el.querySelector('#rm').value, shopee_fee_pct: +el.querySelector('#rf').value, shopee_plus_rp: r.rp, shopee_plus_pct: r.pct, shopee_round: r.round, updated_at: new Date().toISOString() };
+      if (!(await confirmBox('Simpan rumus?', `Harga 5% dan harga beli semua barang yang <b>tidak dikunci</b> akan dihitung ulang.${upd.harga_shopee_mode === 'rumus' ? ' Harga Shopee juga dihitung ulang dari Macallan.' : ''}`))) return;
       try {
         const { error } = await supa.from('settings').update(upd).eq('id', 1); if (error) throw error;
         Object.assign(store.settings, upd); Object.assign(s, upd);
