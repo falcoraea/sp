@@ -228,11 +228,11 @@ export default {
           <div class="card outline stack s8"><b style="color:var(--green)">Fast moving (barang laris)</b>
             <label class="field">Dihitung dalam berapa hari terakhir<input class="input num" id="fd" inputmode="numeric" value="${c.fast.days}"></label>
             <div class="grid g2"><label class="field">Minimal jumlah transaksi<input class="input num" id="ft" inputmode="numeric" value="${num(c.fast.trx)}"></label>
-            <label class="field">Minimal omzet (Rp)<input class="input num" id="fo" inputmode="numeric" value="${num(c.fast.omzet)}"></label></div></div>
+            <label class="field">Minimal omzet (Rp)<input class="input num" id="fo" inputmode="numeric" data-money value="${num(c.fast.omzet)}"></label></div></div>
           <div class="card outline stack s8"><b style="color:var(--red)">Slow moving (barang lambat / tidak laku)</b>
             <label class="field">Dihitung dalam berapa hari terakhir<input class="input num" id="sd" inputmode="numeric" value="${c.slow.days}"></label>
             <div class="grid g2"><label class="field">Maksimal jumlah transaksi<input class="input num" id="st" inputmode="numeric" value="${num(c.slow.trx)}"></label>
-            <label class="field">Maksimal omzet (Rp)<input class="input num" id="so" inputmode="numeric" value="${num(c.slow.omzet)}"></label></div></div>
+            <label class="field">Maksimal omzet (Rp)<input class="input num" id="so" inputmode="numeric" data-money value="${num(c.slow.omzet)}"></label></div></div>
           <div class="small muted">1 transaksi = 1 resi / pesanan yang berisi barang itu (pesanan cancel &amp; retur tidak dihitung). Pilihan "Berdasarkan transaksi" memakai batas transaksi, "Berdasarkan omzet" memakai batas omzet.</div></div>`,
         actions: [{ label: 'Batal', value: null }, { label: 'Simpan kriteria', cls: 'btn-primary', onClick: (ov) => {
           const v = (id) => Math.max(0, Math.round(parseNum(ov.querySelector('#' + id).value) || 0));
