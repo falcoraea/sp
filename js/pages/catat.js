@@ -32,6 +32,7 @@ export default {
         <div class="chips store-chips">${stores.map((s) => `<button class="chip ${s.id === storeId ? 'on' : ''}" data-store="${s.id}">${esc(s.name)}<span class="xs" style="opacity:.6;margin-left:4px">${esc(s.marketplace === 'Shopee' ? '' : s.marketplace)}</span></button>`).join('')}</div>
       </section>
       <section class="card stack" id="scanwrap">
+        <div class="ctx-bar" id="ctx"></div>
         <div class="row between wrap"><h2 class="sec-title" id="steptitle"></h2><button class="btn btn-sm hidden" id="next">${icon('check', 16)} Selesai, resi berikutnya</button></div>
         ${scanBox('sb', 'Scan resi')}
         <div id="cur"></div>
@@ -41,6 +42,14 @@ export default {
     </div>`;
 
     const storeName = () => stores.find((s) => s.id === storeId)?.name || '';
+    const longDate = (d) => fmtDate(d, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    // penanda besar: sedang mencatat untuk toko & tanggal apa (resi baru selalu tercatat hari ini)
+    const paintCtx = () => {
+      el.querySelector('#ctx').innerHTML = storeId
+        ? `<span class="ctx-lbl">Sedang mencatat</span><span class="ctx-pill store">${icon('bag', 15)} ${esc(storeName())}</span><span class="ctx-pill date">${icon('calendar', 15)} ${esc(longDate(todayStr()))}</span>`
+        : `<span class="ctx-lbl">Pilih toko dulu di atas</span>`;
+      el.querySelector('#ctx').classList.toggle('none', !storeId);
+    };
     const setMode = (m) => {
       mode = m;
       el.querySelector('#steptitle').textContent = m === 'resi' ? '2. Scan resi' : '3. Scan barang';
@@ -83,7 +92,8 @@ export default {
       const list = data || [];
       const n = (s) => list.filter((o) => o.status === s).length;
       const isToday = listDate === todayStr();
-      box.innerHTML = `<div class="card-h cat-head"><div><h2>Resi ${isToday ? 'hari ini' : 'tanggal ' + esc(fmtDate(listDate, { day: 'numeric', month: 'long', year: 'numeric' }))} · ${listAll ? 'semua toko' : esc(storeName())}</h2>
+      box.innerHTML = `<div class="card-h cat-head ${isToday ? '' : 'past'}"><div><h2>Resi <span class="ctx-pill date">${icon('calendar', 15)} ${isToday ? 'Hari ini · ' : ''}${esc(fmtDate(listDate, { day: 'numeric', month: 'long', year: 'numeric' }))}</span> <span class="ctx-pill store">${icon('bag', 15)} ${listAll ? 'Semua toko' : esc(storeName())}</span></h2>
+          ${isToday ? '' : '<div class="ctx-warn small">Melihat tanggal lain. Resi yang di-scan sekarang tetap masuk hari ini.</div>'}
           <div class="small muted">${list.length} resi · ${n('menunggu_win')} tunggu WIN · ${n('siap_packing')} siap packing · ${n('dikirim') + n('selesai')} dikirim · ${n('cancel')} cancel</div></div>
           <div class="row wrap"><button class="btn btn-sm" data-dshift="-1" aria-label="Hari sebelumnya">${icon('back', 16)}</button><input type="date" class="input sm" id="ld" value="${listDate}" max="${todayStr()}" style="max-width:160px"><button class="btn btn-sm" data-dshift="1" aria-label="Hari berikutnya" ${isToday ? 'disabled' : ''}>${icon('chev', 16)}</button>
           <label class="check small"><input type="checkbox" id="lall" ${listAll ? 'checked' : ''}> Semua toko</label></div></div>
@@ -132,6 +142,7 @@ export default {
     on(el, 'click', '[data-store]', (e, b) => {
       storeId = +b.dataset.store; try { localStorage.setItem(KEY, String(storeId)); } catch (_) {}
       el.querySelectorAll('[data-store]').forEach((c) => c.classList.toggle('on', c === b));
+      paintCtx();
       if (order && order.status === 'menunggu_win' && order.store_id !== storeId) {
         confirmBox('Pindahkan resi ini?', `Resi <b>${esc(order.resi)}</b> sedang terbuka. Pindahkan ke toko <b>${esc(storeName())}</b>?`, 'Pindahkan').then(async (y) => {
           if (y) { try { await rpc('scan_order_update', { p_order: order.id, p_store: storeId }); order.store_id = storeId; order.store = storeName(); paintCur(); toast('Dipindah', 'ok'); } catch (err) { toastErr(err); } }
@@ -157,6 +168,6 @@ export default {
       paintCur(); window.scrollTo({ top: 0, behavior: 'smooth' });
     });
 
-    setMode('resi'); paintCur(); loadToday();
+    setMode('resi'); paintCtx(); paintCur(); loadToday();
   }
 };
