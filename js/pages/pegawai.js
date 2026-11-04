@@ -43,8 +43,8 @@ export default {
       <label class="field" style="grid-column:1/-1">Nama lengkap<input class="input" id="f-n" value="${esc(p.full_name || '')}"></label>
       ${!p.id ? `<label class="field">Email login<input class="input" id="f-e" type="email" autocomplete="off"></label><label class="field">Password awal (min. 6)<input class="input" id="f-p" type="text" autocomplete="off" value="${Math.random().toString(36).slice(2, 8)}"></label>` : ''}
       <label class="field" style="grid-column:1/-1">Jabatan<select class="input" id="f-r">${ROLES.map((r) => `<option value="${r}" ${p.role === r ? 'selected' : ''}>${ROLE_LABEL[r]} — ${DESC[r]}</option>`).join('')}</select></label>
-      <label class="field">Gaji pokok / bulan<input class="input num" id="f-s" inputmode="numeric" value="${num(p.base_salary || 0)}"></label>
-      <label class="field">Uang makan / hari hadir<input class="input num" id="f-m" inputmode="numeric" value="${num(p.meal_allowance || 0)}"></label>
+      <label class="field">Gaji pokok / bulan<input class="input num" id="f-s" inputmode="numeric" data-money value="${num(p.base_salary || 0)}"></label>
+      <label class="field">Uang makan / hari hadir<input class="input num" id="f-m" inputmode="numeric" data-money value="${num(p.meal_allowance || 0)}"></label>
       <label class="field" style="grid-column:1/-1">No. HP<input class="input" id="f-h" value="${esc(p.phone || '')}" inputmode="tel"></label>
       ${p.id ? `<label class="check" style="grid-column:1/-1"><input type="checkbox" id="f-a" ${p.active ? 'checked' : ''}> Akun aktif (matikan kalau pegawai berhenti)</label>` : ''}
     </div>`;
