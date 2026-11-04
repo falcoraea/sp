@@ -65,10 +65,23 @@ function paint(c, key) {
   c.__pgSig = items.length + ':' + n + ':' + st.page;
 }
 
+// judul kolom angka ikut rata kanan supaya sejajar dengan isinya (layar lebar)
+function alignHeads(t, head) {
+  const body = t.tBodies[0];
+  if (!body || !body.rows.length) return;
+  const rows = [...body.rows].filter((r) => [...r.cells].every((c) => c.colSpan === 1 && c.rowSpan === 1)).slice(0, 6);
+  if (!rows.length) return;
+  [...head.cells].forEach((th, i) => {
+    if (th.colSpan !== 1 || th.classList.contains('right') || th.classList.contains('center') || th.style.textAlign) return;
+    if (rows.every((r) => r.cells[i] && (r.cells[i].classList.contains('num') || r.cells[i].classList.contains('right')))) th.classList.add('right');
+  });
+}
+
 // label kolom untuk mode kartu di HP
 function labelTable(t) {
   const head = t.tHead?.rows[0];
   if (!head) return;
+  alignHeads(t, head);
   t.classList.add('mcard');
   const labels = [];
   [...head.cells].forEach((th) => { for (let i = 0; i < th.colSpan; i++) labels.push(th.querySelector('input,select,button') ? '' : th.textContent.trim()); });
