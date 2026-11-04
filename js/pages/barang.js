@@ -1,6 +1,6 @@
 import { fetchAll, supa } from '../supa.js';
 import { store } from '../store.js';
-import { esc, rp, on, modal, toast, toastErr, pageHead, emptyState, skeleton, debounce, icon } from '../ui.js';
+import { esc, rp, on, modal, toast, toastErr, pageHead, emptyState, skeleton, debounce, icon, parseNum } from '../ui.js';
 import { openProduct, printLabels } from './stok.js';
 
 export default {
@@ -54,7 +54,7 @@ export default {
           <label class="field">Kategori<input class="input" id="f-cat" value="${esc(p?.category || '')}" placeholder="mis. Panel, Lampu"></label>
           <label class="field">Rak<input class="input mono" id="f-rack" list="racklist" value="${esc(p?.rack_code || '')}" autocapitalize="characters"><datalist id="racklist">${(racks || []).map((x) => `<option value="${esc(x.code)}">`).join('')}</datalist></label>
           <label class="field">Stok minimum<input class="input num" id="f-min" inputmode="numeric" value="${p?.min_stock ?? 0}"></label>
-          ${isNew && seePrice ? `<label class="field">Macallan (harga WIN)<input class="input num" id="f-mac" inputmode="numeric" value="0"></label>
+          ${isNew && seePrice ? `<label class="field">Macallan (harga WIN)<input class="input num" id="f-mac" inputmode="numeric" data-money value="0"></label>
             <div class="small muted" style="grid-column:1/-1">Harga 5% & harga beli dihitung otomatis (−${s.potongan_5_pct}% dan −${s.diskon_beli_pct}%).</div>` : ''}
           ${!isNew ? `<label class="check" style="grid-column:1/-1"><input type="checkbox" id="f-act" ${p.active ? 'checked' : ''}> Barang aktif</label>` : ''}
         </div>`,
@@ -67,7 +67,7 @@ export default {
           row.rack_code = rack;
           if (isNew) {
             row.sku = v('f-sku'); if (!row.sku) { toast('Kode wajib diisi', 'err'); return false; }
-            const mac = +v('f-mac') || 0;
+            const mac = parseNum(v('f-mac')) || 0;
             Object.assign(row, { macallan: mac, harga_5: Math.round(mac * (1 - s.potongan_5_pct / 100)), harga_beli: Math.round(mac * (1 - s.diskon_beli_pct / 100)) });
             const { data: ins, error } = await supa.from('products').insert(row).select().single();
             if (error) throw error;
