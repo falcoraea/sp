@@ -12,10 +12,10 @@ export default {
     { sel: '#drop', title: '2. Upload file', body: 'Ekspor dari Shopee Seller Center (.xlsx / .csv), lalu tarik ke sini. Jenis file dikenali otomatis.' },
     { sel: '#hist', title: 'Riwayat upload', body: 'Siapa upload apa dan kapan. Owner juga mendapat notifikasi setiap upload.' }
   ],
-  async render(el) {
+  async render(el, { params = {} } = {}) {
     const pesananOff = store.settings.upload_pesanan === false;
     const ALLOWED = ({ owner: Object.keys(TYPES), admin: ['pesanan', 'pembatalan', 'pengembalian', 'penghasilan', 'pricelist', 'rak'], kepala_gudang: ['rak', 'stok_awal'] }[store.role] || []).filter((t) => !(pesananOff && t === 'pesanan'));
-    let type = ALLOWED[0], parsed = null;
+    let type = ALLOWED.includes(params.type) ? params.type : ALLOWED[0], parsed = null;
     const card = (t) => `<button class="type-card ${t === type ? 'on' : ''}" data-type="${t}"><b>${esc(TYPES[t].label)}</b><span class="xs muted">${esc(TYPES[t].desc)}</span><span class="tag" data-last="${t}">…</span></button>`;
     el.innerHTML = `${pageHead('Upload file Shopee', 'Ekspor dari Shopee Seller Center, lalu upload di sini. Data dicek dulu sebelum disimpan.')}
       <div class="stack" style="gap:16px">
@@ -86,6 +86,8 @@ export default {
       const map = autoMap(headers, type, rows, hr);
       const render = async () => {
         const missing = T.required.filter((f) => map[f] < 0);
+        const missingAny = (T.requireAny || []).filter((g) => g.every((f) => map[f] < 0));
+        const missLabel = [...missing.map((f) => T.labels[f]), ...missingAny.map((g) => g.map((f) => T.labels[f]).join(' atau '))];
         const data = build(rows, hr, type, map);
         let stats = '', extra = '', count = 0;
         if (type === 'pesanan') {
@@ -123,24 +125,33 @@ export default {
           }
           if (type === 'pricelist') {
             const kw = String(store.settings.diskon_set_keyword || 'COMPLETE SET').toUpperCase();
-            const setN = data.rows.filter((r) => r.section && r.section.toUpperCase().includes(kw)).length;
-            const secs = [...new Set(data.rows.map((r) => r.section).filter(Boolean))];
-            stats += `<div class="stat ${setN ? 'yellow' : 'gray'}"><b>${num(setN)}</b><span>barang bagian ${esc(kw)} · diskon beli ${store.settings.diskon_set_pct ?? 30}%</span></div><div class="stat gray"><b>${num(count - setN)}</b><span>barang lain · diskon beli ${store.settings.diskon_beli_pct}%</span></div>`;
-            extra = `<div class="small" style="line-height:1.7"><b>Bagian yang terbaca (${secs.length})</b><br>${secs.slice(0, 20).map((s) => `• ${esc(s)}${s.toUpperCase().includes(kw) ? ` <span class="tag yellow">${store.settings.diskon_set_pct ?? 30}%</span>` : ''}`).join('<br>')}${secs.length > 20 ? '<br>…' : ''}<br>Persentase diskon diatur owner di <b>Atur harga</b>. Harga yang dikunci owner tidak berubah.</div>`;
+            const withMac = data.rows.filter((r) => r.macallan > 0), shpOnly = data.rows.filter((r) => !(r.macallan > 0) && r.harga_shopee > 0);
+            const withShp = data.rows.filter((r) => r.harga_shopee > 0).length;
+            const setN = withMac.filter((r) => r.section && r.section.toUpperCase().includes(kw)).length;
+            const secs = [...new Set(withMac.map((r) => r.section).filter(Boolean))];
+            stats += withMac.length ? `<div class="stat ${setN ? 'yellow' : 'gray'}"><b>${num(setN)}</b><span>barang bagian ${esc(kw)} · diskon beli ${store.settings.diskon_set_pct ?? 30}%</span></div><div class="stat gray"><b>${num(withMac.length - setN)}</b><span>barang lain · diskon beli ${store.settings.diskon_beli_pct}%</span></div>` : '';
+            stats += `<div class="stat ${withShp ? 'green' : 'gray'}"><b>${num(withShp)}</b><span>harga Shopee ikut diisi</span></div>`;
+            extra = `<div class="small" style="line-height:1.7"><b>Yang terjadi setelah disimpan</b><br>
+              • Kolom harga yang <b>kosong tidak mengubah</b> harga lama.<br>
+              ${withMac.length ? `• ${num(withMac.length)} barang: Macallan, harga 5% & harga beli diperbarui (barang baru ditambahkan ke master).<br>` : '• File ini tidak punya harga Macallan → harga WIN & modal tidak diubah.<br>'}
+              ${withShp ? `• ${num(withShp)} barang: Harga Shopee otomatis diisi sesuai kode${shpOnly.some((r) => !r.sku) ? ' / nama barang' : ''}${store.settings.harga_shopee_mode === 'manual' ? ' <span class="tag yellow">mode manual: hanya diberi tanda “Beda dengan file baru”</span>' : ''}.<br>` : ''}
+              ${shpOnly.length ? `• Kode yang belum ada di master tidak dibuat (modalnya belum diketahui), nanti dilaporkan.<br>` : ''}
+              ${secs.length ? `<b>Bagian yang terbaca (${secs.length})</b><br>${secs.slice(0, 20).map((s) => `• ${esc(s)}${s.toUpperCase().includes(kw) ? ` <span class="tag yellow">${store.settings.diskon_set_pct ?? 30}%</span>` : ''}`).join('<br>')}${secs.length > 20 ? '<br>…' : ''}<br>` : ''}
+              Persentase diskon diatur owner di <b>Atur harga</b>. Harga yang dikunci owner tidak berubah.</div>`;
           }
           if (type === 'penghasilan') stats += `<div class="stat gray"><b>${rp(data.rows.reduce((a, r) => a + r.amount, 0))}</b><span>total dana cair</span></div>`;
         }
         const sample = type === 'pesanan' ? data.orders.slice(0, 5).map((o) => [o.order_no, o.resi, o.shopee_status, o.items.map((i) => `${i.name} ×${i.qty}`).join('; ')]) : data.rows.slice(0, 5).map((r) => Object.values(r).map((v) => v ?? ''));
         box.innerHTML = `<div class="card stack">
           <div class="row between wrap"><h2 class="sec-title">3. Cek sebelum disimpan</h2><span class="mono xs muted">${esc(file.name)} · ${esc(T.label)}</span></div>
-          <details ${missing.length ? 'open' : ''}><summary style="cursor:pointer;font-weight:600">Pencocokan kolom ${missing.length ? '<span class="tag red">ada kolom wajib yang belum cocok</span>' : '<span class="tag green">otomatis</span>'}</summary>
-            <div class="grid gauto" style="margin-top:10px">${Object.keys(T.fields).map((f) => `<label class="field">${esc(T.labels[f])}${T.required.includes(f) ? ' *' : ''}
+          <details ${missLabel.length ? 'open' : ''}><summary style="cursor:pointer;font-weight:600">Pencocokan kolom ${missLabel.length ? '<span class="tag red">ada kolom wajib yang belum cocok</span>' : '<span class="tag green">otomatis</span>'}</summary>
+            <div class="grid gauto" style="margin-top:10px">${Object.keys(T.fields).map((f) => `<label class="field">${esc(T.labels[f])}${T.required.includes(f) ? ' *' : (T.requireAny || []).some((g) => g.includes(f)) ? ' (*salah satu)' : ''}
               <select class="input sm" data-map="${f}"><option value="-1">— tidak ada —</option>${headers.map((h, i) => `<option value="${i}" ${map[f] === i ? 'selected' : ''}>${esc(h || '(kolom ' + (i + 1) + ')')}</option>`).join('')}</select></label>`).join('')}</div></details>
-          ${missing.length ? `<div class="alert red">Kolom wajib belum cocok: ${missing.map((f) => esc(T.labels[f])).join(', ')}. Pilih kolomnya di atas.</div>` : `<div class="grid gauto">${stats}</div>${extra}`}
+          ${missLabel.length ? `<div class="alert red">Kolom wajib belum cocok: ${missLabel.map(esc).join(', ')}. Pilih kolomnya di atas.</div>` : `<div class="grid gauto">${stats}</div>${extra}`}
           ${sample.length ? `<div class="table-wrap"><table class="tbl small"><tbody>${sample.map((r) => `<tr>${r.map((c) => `<td class="small">${esc(String(c).slice(0, 80))}</td>`).join('')}</tr>`).join('')}</tbody></table><div class="xs muted" style="padding:6px 0">Contoh 5 baris pertama</div></div>` : ''}
           <div id="prog"></div>
           <div class="row wrap" style="justify-content:flex-end"><button class="btn" data-cancel>Batal</button>
-            <button class="btn btn-primary btn-lg" data-save ${missing.length || !count ? 'disabled' : ''}>Simpan ${num(count)} ${type === 'pesanan' ? 'resi' : 'baris'}</button></div>
+            <button class="btn btn-primary btn-lg" data-save ${missLabel.length || !count ? 'disabled' : ''}>Simpan ${num(count)} ${type === 'pesanan' ? 'resi' : 'baris'}</button></div>
         </div>`;
         box.querySelectorAll('[data-map]').forEach((s) => s.addEventListener('change', () => { map[s.dataset.map] = +s.value; saveMap(headers, type, map); render(); }));
         box.querySelector('[data-cancel]').onclick = () => { box.innerHTML = ''; parsed = null; };
@@ -166,13 +177,17 @@ export default {
             prog.innerHTML = `<div class="small muted">Menyimpan ${Math.min(i + CHUNK, total)} / ${total}…</div><div class="progress"><div style="width:${Math.round((i / total) * 100)}%"></div></div>`;
             const r = await rpc(fn, { p: { upload_id: uploadId, filename, final: i + CHUNK >= total, [key]: list.slice(i, i + CHUNK) } });
             uploadId = r.upload_id;
-            for (const [k, v] of Object.entries(r)) if (typeof v === 'number' && k !== 'upload_id') agg[k] = (agg[k] || 0) + v;
+            for (const [k, v] of Object.entries(r)) {
+              if (typeof v === 'number' && k !== 'upload_id') agg[k] = (agg[k] || 0) + v;
+              if (Array.isArray(v)) (agg.__list ||= {})[k] = [...(agg.__list[k] || []), ...v];
+            }
           }
           results.push([fn, agg]);
         }
-        const L = { total: 'Total', baru: 'Baru', dilewati: 'Dilewati', barang_gudang: 'Barang dari gudang', barang_win: 'Barang beli WIN', tidak_dikenal: 'Kode tidak dikenal', dikirim_tanpa_packing: 'Dikirim tanpa scan packing', perlu_dikembalikan: 'Perlu dikembalikan ke rak', dana_cair: 'Dana cair', diperbarui: 'Harga diperbarui', beda_harga_dikunci: 'Harga dikunci berbeda', tercatat: 'Barang tercatat di rak', pcs: 'Total pcs' };
+        const L = { total: 'Total', baru: 'Baru', dilewati: 'Dilewati', barang_gudang: 'Barang dari gudang', barang_win: 'Barang beli WIN', tidak_dikenal: 'Kode tidak dikenal', dikirim_tanpa_packing: 'Dikirim tanpa scan packing', perlu_dikembalikan: 'Perlu dikembalikan ke rak', dana_cair: 'Dana cair', diperbarui: 'Barang diperbarui', harga_shopee: 'Harga Shopee terisi', beda_harga_dikunci: 'Harga dikunci berbeda', tercatat: 'Barang tercatat di rak', pcs: 'Total pcs' };
         el.querySelector('#check').innerHTML = `<div class="card stack" style="border:2px solid var(--green)"><div class="row">${icon('check', 24)}<h2 class="sec-title">Upload berhasil disimpan</h2></div>
-          ${results.map(([fn, a]) => `<div class="grid gauto">${Object.entries(a).map(([k, v]) => `<div class="stat ${k === 'dikirim_tanpa_packing' && v ? 'red' : 'gray'}"><b>${k === 'dana_cair' ? rp(v) : num(v)}</b><span>${esc(L[k] || k)}</span></div>`).join('')}</div>`).join('')}
+          ${results.map(([fn, a]) => `<div class="grid gauto">${Object.entries(a).filter(([k]) => k !== '__list').map(([k, v]) => `<div class="stat ${(k === 'dikirim_tanpa_packing' || k === 'tidak_dikenal') && v ? 'red' : 'gray'}"><b>${k === 'dana_cair' ? rp(v) : num(v)}</b><span>${esc(L[k] || k)}</span></div>`).join('')}</div>
+            ${a.__list?.kode_tidak_dikenal?.length ? `<div class="alert yellow small">Kode tidak ada di master barang (harga Shopee tidak diisi): <span class="mono xs">${a.__list.kode_tidak_dikenal.slice(0, 30).map(esc).join(', ')}</span>. Upload pricelist WIN dulu untuk kode ini.</div>` : ''}`).join('')}
           <div class="row wrap">${type === 'pesanan' ? '<a class="btn btn-primary" href="#/beli">Buka daftar beli WIN</a><a class="btn" href="#/pesanan">Lihat pesanan</a>' : ''}${type === 'pricelist' ? '<a class="btn btn-primary" href="#/barang">Lihat master barang</a>' : ''}${type === 'stok_awal' || type === 'rak' ? '<a class="btn btn-primary" href="#/stok">Lihat stok & rak</a>' : ''}</div></div>`;
         parsed = null;
         toast('Upload tersimpan', 'ok');
