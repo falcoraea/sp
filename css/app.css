@@ -678,3 +678,9 @@ details > summary { cursor: pointer; padding: 6px 0; }
 .tbl th.right, .tbl th.num, .tbl td.right { text-align: right; }
 .tbl th.center, .tbl td.center { text-align: center; }
 .tbl td.right .input { margin-left: auto; }
+/* 2.3: kolom isian sejajar walau panjang label berbeda */
+.fields-end { align-items: end; }
+.fields-end > .field { justify-content: flex-end; }
+.sub-title { font-size: 15px; font-weight: 700; margin: 6px 0 -4px; }
+/* isian harga di tabel: rata kanan, lebar sama */
+.tbl td.right > .input.sm { display: block; margin-left: auto; }
