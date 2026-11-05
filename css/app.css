@@ -1063,3 +1063,81 @@ body { touch-action: pan-x pan-y; overscroll-behavior-y: none; }
   .ctx-pill { border-radius: 99px; }
   .modal { border-radius: 22px 22px 0 0; }
 }
+
+/* =========================================================
+   2.16 — menu samping laptop: cari menu, kategori buka-tutup, mode ikon saja
+   ========================================================= */
+.sidebar { transition: width .22s ease, padding .22s ease; }
+.main { transition: margin-left .22s ease; }
+.side-brand { position: relative; padding-right: 34px; }
+.side-brand .sb-t { min-width: 0; } .side-brand .sb-t b, .side-brand .sb-t span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side-mini-btn { position: absolute; right: 0; top: 8px; width: 28px; height: 28px; border-radius: 8px; border: 1px solid #3A3F3C; background: #232724; color: #C9CCC8; display: grid; place-items: center; cursor: pointer; }
+.side-mini-btn svg { transform: rotate(180deg); transition: transform .22s; }
+.side-mini-btn:hover { background: #30352F; color: #fff; }
+.side-search { display: flex; align-items: center; gap: 8px; margin: 2px 2px 8px; padding: 0 10px; height: 38px; border-radius: 10px; background: #232724; border: 1px solid #343935; color: #9A9E9A; cursor: text; }
+.side-search:focus-within { border-color: var(--accent); background: #262A27; color: #fff; }
+.side-search input { flex: 1; min-width: 0; background: none; border: 0; outline: 0; color: #fff; font-size: 13.5px; }
+.side-search input::placeholder { color: #8A8E8A; }
+.side-search kbd { font: 600 11px var(--mono); color: #8A8E8A; border: 1px solid #3F443F; border-radius: 5px; padding: 0 5px; }
+.side-menu { display: flex; flex-direction: column; gap: 2px; }
+.side-sec { display: flex; flex-direction: column; }
+.side-group { display: flex; align-items: center; gap: 8px; }
+.side-group i { width: 7px; height: 7px; border-radius: 99px; flex: none; opacity: .9; }
+.sg-btn { width: 100%; background: none; border: 0; cursor: pointer; font: inherit; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #9A9E9A;
+  padding: 10px 10px; border-radius: 8px; margin-top: 4px; text-align: left; }
+.sg-btn:hover { background: #232724; color: #E4E2DB; }
+.sg-btn small { margin-left: auto; font-size: 10.5px; font-weight: 700; letter-spacing: 0; color: #7E827E; background: #262A27; border-radius: 99px; padding: 1px 7px; }
+.sg-chev { display: grid; place-items: center; transition: transform .2s ease; color: #9A9E9A; }
+.side-sec.acc.open .sg-chev { transform: rotate(90deg); color: var(--accent); }
+.side-sec.acc.open .sg-btn { color: #fff; }
+.side-sec.acc:has(.side-link.on):not(.open) .sg-btn { color: var(--accent); }
+/* animasi buka-tutup halus */
+.side-sec.acc .side-items { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .22s ease; }
+.side-sec.acc.open .side-items, .sidebar.searching .side-sec.acc .side-items { grid-template-rows: 1fr; }
+.side-sec.acc .side-items > div { overflow: hidden; min-height: 0; display: flex; flex-direction: column; gap: 2px; }
+.side-sec.acc .side-items .side-link { margin-left: 8px; padding-left: 12px; border-left: 1px solid #2E332F; border-radius: 0 8px 8px 0; }
+.side-sec.acc .side-items .side-link.on { border-left-color: var(--accent); }
+.sidebar.searching .sg-chev { opacity: 0; }
+.side-none { color: #9A9E9A; font-size: 13px; padding: 10px; }
+@media (min-width: 900px) {
+  /* mode ikon saja */
+  .side-mini { --sidebar: 76px; }
+  .side-mini .sidebar { padding: 18px 10px; }
+  .side-mini .side-brand { flex-direction: column; padding: 4px 0 12px; gap: 10px; align-items: center; }
+  .side-mini .side-brand .sb-t, .side-mini .sl-t, .side-mini .side-search input, .side-mini .side-search kbd,
+  .side-mini .sg-btn small, .side-mini .sg-chev, .side-mini .side-link .lk, .side-mini .side-ver span, .side-mini .side-none { display: none; }
+  .side-mini .side-mini-btn { position: static; }
+  .side-mini .side-mini-btn svg { transform: none; }
+  .side-mini .side-search { justify-content: center; padding: 0; margin: 2px 0 8px; cursor: pointer; }
+  .side-mini .side-link { justify-content: center; padding: 11px 0; position: relative; }
+  .side-mini .side-link .cnt { position: absolute; top: 3px; right: 5px; margin: 0; padding: 0 5px; font-size: 10px; }
+  .side-mini .side-group, .side-mini .sg-btn { justify-content: center; padding: 8px 0 4px; margin-top: 6px; pointer-events: none; }
+  .side-mini .side-group i, .side-mini .sg-btn i { width: 22px; height: 3px; border-radius: 3px; }
+  .side-mini .side-sec.acc .side-items { grid-template-rows: 1fr; }
+  .side-mini .side-sec.acc .side-items .side-link { margin-left: 0; padding-left: 0; border-left: 0; border-radius: 8px; }
+  .side-mini .side-foot .side-link, .side-mini .side-ver { justify-content: center; }
+  .side-mini .side-link.locked > svg { opacity: .55; }
+}
+
+/* =========================================================
+   2.16 — bar atas HP premium (berwarna navy, sudut bawah membulat)
+   ========================================================= */
+@media (max-width: 899px) {
+  .topbar { background:
+      radial-gradient(90% 120% at 100% 0%, rgba(255,214,107,.22) 0%, rgba(255,214,107,0) 42%),
+      radial-gradient(120% 150% at 0% 0%, #4256C2 0%, #2A3890 42%, #18205A 100%);
+    color: #fff; border-radius: 0 0 24px 24px; border-bottom: 0; backdrop-filter: none; -webkit-backdrop-filter: none;
+    box-shadow: 0 12px 28px -14px rgba(24,32,90,.75); padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 16px; }
+  .topbar.scrolled { border-bottom: 0; }
+  .tb-logo { width: 44px; height: 44px; border-radius: 15px; color: #1A2461; font-weight: 800;
+    background: linear-gradient(150deg, #FFE08A, #F2B01E 60%, #D89200); box-shadow: 0 6px 16px rgba(242,176,30,.38), inset 0 1px 0 rgba(255,255,255,.6), inset 0 -2px 0 rgba(0,0,0,.08); }
+  .tb-logo.has-bill::after { border-color: #2A3890; }
+  .tb-id b { color: #fff; font-size: 16px; font-weight: 800; }
+  .role-pill { background: rgba(255,255,255,.14); color: #FFD66B; border: 1px solid rgba(255,214,107,.45); font-size: 9.5px; padding: 2px 8px; }
+  .topbar h1 { color: #C9D0F2; font-size: 12px; font-weight: 500; }
+  .topbar h1::before { background: #FFD66B; box-shadow: 0 0 0 3px rgba(255,214,107,.18); width: 6px; height: 6px; }
+  .topbar .icon-btn { background: rgba(255,255,255,.12); color: #fff; border: 1px solid rgba(255,255,255,.16); box-shadow: inset 0 1px 0 rgba(255,255,255,.12); }
+  .topbar .icon-btn:hover { background: rgba(255,255,255,.2); }
+  .topbar .icon-btn .badge-dot { border-color: #2A3890; }
+  .bill-bar { margin: 10px 16px 0; border-radius: 14px; }
+}
