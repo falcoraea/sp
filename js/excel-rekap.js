@@ -83,10 +83,10 @@ export function buildRekapBook({ rows = [], dateLabel = '', printedAt = '', stor
 
   // ---------- per toko ----------
   const used = new Set(['RINGKASAN']);
-  const HEAD = ['NO', 'NO RESI', 'KODE', 'KETERANGAN', 'QTT', 'SUMBER', 'MACALLAN', 'HARGA 5%', 'HARGA BELI', 'HARGA SHOPEE', 'HARGA SELESAI', 'MARGIN', 'STATUS'];
+  const HEAD = ['NO', 'NO RESI', 'KODE', 'KETERANGAN', 'QTT', 'SUMBER', 'MACALLAN', 'HARGA BELI', 'HARGA SHOPEE', 'HARGA SELESAI', 'MARGIN', 'STATUS'];
   for (const g of groups.values()) {
-    const sh = wb.sheet(sheetName(g.name, used), { cols: [6, 22, 18, 40, 6, 14, 13, 13, 14, 14, 15, 13, 12], freezeRow: HEAD_ROW });
-    title(sh, `${String(g.name).toUpperCase()} · ${dateLabel}`, 13);
+    const sh = wb.sheet(sheetName(g.name, used), { cols: [6, 22, 18, 40, 6, 14, 13, 14, 14, 15, 13, 12], freezeRow: HEAD_ROW });
+    title(sh, `${String(g.name).toUpperCase()} · ${dateLabel}`, 12);
     head(sh, HEAD_ROW, HEAD);
     let r = HEAD_ROW + 1, n = 0;
     const t = totals.find((x) => x.g === g);
@@ -97,28 +97,28 @@ export function buildRekapBook({ rows = [], dateLabel = '', printedAt = '', stor
         sh.set(r, 1, k === 0 ? n : null, S.n); sh.set(r, 2, k === 0 ? String(o.resi || o.order_no || '') : null, S.t); sh.set(r, 3, String(i.sku || ''), S.t);
         sh.set(r, 4, i.name || '', S.x); sh.set(r, 5, q, S.n);
         sh.set(r, 6, i.rack_qty ? `Rak ${i.rack || ''}${i.source === 'win' ? ' + WIN' : ''}`.trim() : i.source === 'win' ? 'WIN' : 'Gudang', S.n);
-        [Number(i.macallan || 0) * q, Number(i.harga_5 || 0) * q, Number(i.harga_beli || 0) * q, Number(i.harga_jual || 0) * q].forEach((v, j) => sh.set(r, 7 + j, v, S.r));
-        sh.set(r, 11, k === 0 ? Number(o.harga_selesai || 0) : null, S.r); sh.set(r, 12, k === 0 ? Number(o.margin || 0) : null, S.r);
-        sh.set(r, 13, stt, stt === 'LUNAS' ? cs({ h: 'center', fill: GREEN_SOFT }) : S.n);
+        [Number(i.macallan || 0) * q, Number(i.harga_beli || 0) * q, Number(i.harga_jual || 0) * q].forEach((v, j) => sh.set(r, 7 + j, v, S.r));
+        sh.set(r, 10, k === 0 ? Number(o.harga_selesai || 0) : null, S.r); sh.set(r, 11, k === 0 ? Number(o.margin || 0) : null, S.r);
+        sh.set(r, 12, stt, stt === 'LUNAS' ? cs({ h: 'center', fill: GREEN_SOFT }) : S.n);
         r++;
       });
     }
     const first = HEAD_ROW + 1, last = Math.max(first, r - 1);
     const R = (col) => `$${col}$${first}:$${col}$${last}`;
-    const ok = (col) => `SUMIFS(${R(col)},${R('M')},"<>CANCEL",${R('M')},"<>RETUR")`;
+    const ok = (col) => `SUMIFS(${R(col)},${R('L')},"<>CANCEL",${R('L')},"<>RETUR")`;
     summary(sh, 2, 2, 3, 4, 'Jumlah resi', { f: `COUNTA(${R('B')})`, v: t.resi }, st.valN);
     summary(sh, 3, 2, 3, 4, 'Total barang (qty)', { f: `SUM(${R('E')})`, v: t.qty }, st.valN);
     summary(sh, 4, 2, 3, 4, 'Total Macallan', { f: `SUM(${R('G')})`, v: t.mac }, st.valRp);
-    summary(sh, 5, 2, 3, 4, 'Resi cancel / retur', { f: `COUNTIFS(${R('M')},"CANCEL",${R('B')},"<>")+COUNTIFS(${R('M')},"RETUR",${R('B')},"<>")`, v: t.bad }, st.valN);
-    summary(sh, 6, 2, 3, 4, 'Resi sudah cair', { f: `COUNTIFS(${R('M')},"LUNAS",${R('B')},"<>")`, v: t.lunas }, st.valN);
-    summary(sh, 2, 6, 8, 9, 'Total modal (harga beli)', { f: ok('I'), v: t.modal }, st.valRp);
-    summary(sh, 3, 6, 8, 9, 'Total harga Shopee', { f: ok('J'), v: t.shp }, st.valRp);
-    summary(sh, 4, 6, 8, 9, 'Total harga selesai (pendapatan)', { f: ok('K'), v: t.sel }, st.valRp);
-    summary(sh, 5, 6, 8, 9, 'Total margin', { f: `SUM(${R('L')})`, v: t.mar }, st.valRp);
+    summary(sh, 5, 2, 3, 4, 'Resi cancel / retur', { f: `COUNTIFS(${R('L')},"CANCEL",${R('B')},"<>")+COUNTIFS(${R('L')},"RETUR",${R('B')},"<>")`, v: t.bad }, st.valN);
+    summary(sh, 6, 2, 3, 4, 'Resi sudah cair', { f: `COUNTIFS(${R('L')},"LUNAS",${R('B')},"<>")`, v: t.lunas }, st.valN);
+    summary(sh, 2, 6, 8, 9, 'Total modal (harga beli)', { f: ok('H'), v: t.modal }, st.valRp);
+    summary(sh, 3, 6, 8, 9, 'Total harga Shopee', { f: ok('I'), v: t.shp }, st.valRp);
+    summary(sh, 4, 6, 8, 9, 'Total harga selesai (pendapatan)', { f: ok('J'), v: t.sel }, st.valRp);
+    summary(sh, 5, 6, 8, 9, 'Total margin', { f: `SUM(${R('K')})`, v: t.mar }, st.valRp);
     summary(sh, 6, 6, 8, 9, 'Margin dari pendapatan', { f: 'IFERROR(I5/I4,0)', v: t.sel ? t.mar / t.sel : 0 }, st.valPct);
-    sh.merge(2, 10, 6, 13);
+    sh.merge(2, 10, 6, 12);
     sh.set(2, 10, 'Baris merah = resi cancel / retur (tidak dihitung di modal & pendapatan). Status LUNAS = dana Shopee sudah cair; BELUM CAIR memakai estimasi harga selesai.', wb.style({ italic: true, size: 9, color: MUTED, wrap: true, v: 'top' }));
-    sh.autoFilter(HEAD_ROW, 1, last, 13);
+    sh.autoFilter(HEAD_ROW, 1, last, 12);
   }
   return { wb, stores: groups.size, resi: totals.reduce((x, t) => x + t.resi, 0) };
 }
