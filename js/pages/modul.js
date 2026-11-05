@@ -1,6 +1,6 @@
 import { store } from '../store.js';
 import { PAGES } from '../nav.js';
-import { esc, icon, pageHead, on } from '../ui.js';
+import { esc, icon, pageHead, on, todayStr, fmtDate } from '../ui.js';
 import { loadModules, modOn, modStatus, priceTxt, buyModule, MOD_ICON } from '../modules.js';
 
 // Owner: daftar menu & jabatan tambahan, statusnya, dan tombol buka / perpanjang.
@@ -17,10 +17,11 @@ export default {
         <div class="mod-top"><span class="mod-ic">${icon(MOD_ICON[m.code] || 'grid', 22, 2)}${on ? '' : `<span class="pw-lock">${icon('lock', 11, 2.6)}</span>`}</span>
           <div class="grow" style="min-width:0"><b>${esc(m.name)}</b><div class="xs"><span class="tag ${cls}">${esc(st)}</span></div></div></div>
         <div class="small muted">${esc(m.description || '')}</div>
+        ${m.free_until && m.free_until >= todayStr() && !m.forever ? `<div class="alert blue small" style="padding:6px 10px">Gratis sampai ${esc(fmtDate(m.free_until, { day: 'numeric', month: 'long' }))}. Setelah itu terkunci kalau belum dibayar.</div>` : ''}
         ${m.features?.length ? `<ul class="pw-feat sm">${m.features.slice(0, 4).map((f) => `<li>${icon('check', 14, 2.6)}<span>${esc(f)}</span></li>`).join('')}</ul>` : ''}
         <div class="mod-foot"><span class="mod-price">${esc(priceTxt(m))}</span>
           ${on ? (pg ? `<a class="btn btn-sm" href="#/${pg}">Buka menu</a>` : m.kind === 'jabatan' ? '<a class="btn btn-sm" href="#/pegawai">Atur pegawai</a>' : '')
-               + (m.period === 'bulanan' && !m.forever && Number(m.price) > 0 ? `<button class="btn btn-sm btn-ghost" data-buy="${esc(m.code)}">Perpanjang</button>` : '')
+               + (!m.forever && Number(m.price) > 0 && (m.period === 'bulanan' || !(m.active_until >= todayStr())) ? `<button class="btn btn-sm btn-ghost" data-buy="${esc(m.code)}">${m.active_until >= todayStr() ? 'Perpanjang' : m.period === 'sekali' ? 'Beli permanen' : 'Langganan'}</button>` : '')
              : Number(m.price) > 0 ? `<button class="btn btn-sm btn-primary" data-buy="${esc(m.code)}">${icon('lock', 15)} ${m.active_until ? 'Perpanjang' : 'Buka sekarang'}</button>` : '<span class="xs muted">Hubungi pembuat aplikasi</span>'}
         </div></div>`;
     };
