@@ -126,7 +126,7 @@ function renderShell() {
 
   root.innerHTML = `<div class="shell">
     <nav class="sidebar" aria-label="Menu utama">
-      <div class="side-brand" data-me role="button" tabindex="0" title="Profil saya"><span class="logo">${esc(ini(store.settings.nama_toko || APP_NAME))}</span><div><b>${esc(store.settings.nama_toko || APP_NAME)}</b><span>${esc(ROLE_LABEL[role])} · ${esc(p.full_name)}</span></div></div>
+      <div class="side-brand"><span class="logo">${esc(ini(store.settings.nama_toko || APP_NAME))}</span><div><b>${esc(store.settings.nama_toko || APP_NAME)}</b><span>${esc(ROLE_LABEL[role])} · ${esc(p.full_name)}</span></div></div>
       ${side}
       <div class="side-foot"><button class="side-link" data-logout style="background:none;border:0;cursor:pointer;width:100%">${icon('logout', 18)}<span>Keluar</span></button>
         <button class="side-ver" data-ver title="Info versi aplikasi">${icon('refresh', 14)}<span>Versi ${esc(versionLabel())}</span></button></div>
@@ -136,6 +136,7 @@ function renderShell() {
         <button class="tb-logo" data-me aria-label="Profil saya">${esc(ini(p.full_name))}</button>
         <div class="grow tb-text"><div class="t-sub" id="t-sub"><span class="crumb" id="t-crumb"></span><span class="who">${esc(ROLE_LABEL[role])} · ${esc(p.full_name)}</span><span class="t-ver" data-ver>${esc(versionLabel())}</span></div><h1 id="t-title">${esc(APP_NAME)}</h1></div>
         <span class="tb-date">${icon('calendar', 16)}${esc(new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).format(new Date()))}</span>
+        ${role === 'owner' ? `<a class="icon-btn tb-bill" href="#/tagihan" data-bill aria-label="Tagihan" title="Tagihan">${icon('receipt')}<span class="badge-dot hidden" data-bill-badge></span></a>` : ''}
         <button class="icon-btn" data-help data-tour="help" aria-label="Bantuan halaman ini">${icon('help')}</button>
         <button class="icon-btn bell" data-bell data-tour="bell" aria-label="Notifikasi">${icon('bell')}<span class="badge-dot hidden" data-badge></span></button>
         <button class="tb-user" data-me aria-haspopup="menu" aria-label="Profil saya"><span class="av">${esc(ini(p.full_name))}</span><span class="tb-u-txt"><b>${esc(p.full_name)}</b><small>${esc(ROLE_LABEL[role])}</small></span>${icon('chev', 16)}</button>
@@ -343,6 +344,8 @@ async function billBar() {
     await rpc('billing_ensure').catch(() => {});
     const { data, error } = await supa.from('bills').select('amount, due_date').in('status', ['belum', 'menunggu']).order('due_date');
     document.getElementById('bill-bar')?.remove();
+    const badge = document.querySelector('[data-bill-badge]');
+    if (badge) { badge.classList.toggle('hidden', !data?.length); badge.textContent = data?.length > 1 ? data.length : ''; }
     if (error || !data?.length || data[0].due_date > addDays(todayStr(), 7)) return;
     const late = data[0].due_date < todayStr();
     const bar = document.createElement('a');
