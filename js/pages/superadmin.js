@@ -19,6 +19,7 @@ export default {
         <div class="small" id="pst"></div></section>
       <section class="card stack" id="billing"><h2 class="sec-title">${icon('receipt', 18)} Tagihan &amp; pembayaran (Mayar)</h2><div class="skeleton" style="height:120px"></div></section>
       <section class="card flush" id="bills"></section>
+      <section class="card stack" id="tgbot"></section>
       <section class="card stack danger-zone"><h2 class="sec-title" style="color:var(--red)">${icon('alert', 18)} Hapus semua data</h2>
         <div class="small">Menghapus <b>semua</b> barang, harga, rak, stok, pesanan, upload, beli WIN, retur, opname, notifikasi, kecurangan, log, absen, gaji, biaya, dan pengumuman.<br>
           <b>Tetap ada:</b> akun pegawai &amp; jabatan, pengaturan toko, daftar toko, dan pendaftaran notifikasi HP. <b>Tidak bisa dibatalkan.</b></div>
@@ -77,7 +78,7 @@ export default {
     };
     el.querySelector('#preg').onclick = async () => { try { await subscribePush(); toast('Perangkat terdaftar', 'ok'); loadInfo(); } catch (err) { toastErr(err); } };
     loadInfo();
-    loadBilling = billingUI(el); loadBilling();
+    loadBilling = billingUI(el); loadBilling(); tgBotUI(el.querySelector('#tgbot'));
   }
 };
 
@@ -173,3 +174,31 @@ function billingUI(root) {
   return load;
 }
 let loadBilling = () => {};
+
+
+// ---------- bot Telegram (milik pembuat aplikasi) ----------
+async function tgBotUI(box) {
+  let st;
+  try { st = await rpc('tg_status'); } catch (e) { box.innerHTML = `<h2 class="sec-title">${icon('send', 18)} Bot Telegram</h2><div class="alert yellow small">Jalankan <b>supabase/update-2.6.sql</b> dulu.</div>`; return; }
+  st = st || {};
+  box.innerHTML = `<h2 class="sec-title">${icon('send', 18)} Bot Telegram</h2>
+    <div class="small muted">Bot ini dipakai untuk mengirim notifikasi ke Telegram owner. Owner cukup menekan <b>Hubungkan</b> di menu Pengaturan. Bot yang sama boleh dipakai untuk banyak pelanggan.</div>
+    <details ${st.token_set ? '' : 'open'}><summary style="cursor:pointer;font-weight:600">Cara membuat bot (sekali saja)</summary>
+      <ol class="small" style="line-height:1.8;margin:8px 0 0;padding-left:20px">
+        <li>Buka Telegram, cari <b>@BotFather</b> (centang biru), tekan Start.</li>
+        <li>Kirim <span class="mono">/newbot</span>. Isi nama bot (mis. <i>Notif Stok Gudang</i>), lalu username yang berakhiran <b>bot</b> (mis. <i>NotifStokGudangBot</i>).</li>
+        <li>BotFather membalas dengan <b>token</b> (mis. <span class="mono">123456789:AAH…</span>). Salin token itu & username bot ke kolom di bawah.</li>
+        <li>Supaya bot bisa dimasukkan ke grup pelanggan: kirim <span class="mono">/setjoingroups</span> ke BotFather, pilih bot, pilih <b>Enable</b>.</li>
+        <li>Jangan pasang webhook pada bot ini (aplikasi membaca pesan Start lewat getUpdates).</li></ol></details>
+    <div class="grid gauto fields-end">
+      <label class="field">Token bot ${st.token_set ? '<span class="tag green">tersimpan</span>' : '<span class="tag red">belum ada</span>'}<input class="input mono" id="sb-token" type="password" autocomplete="off" placeholder="${st.token_set ? 'kosongkan = tetap pakai token lama' : '123456789:AAH…'}"></label>
+      <label class="field">Username bot<input class="input mono" id="sb-user" value="${esc(st.bot || '')}" placeholder="NotifStokGudangBot"></label>
+    </div>
+    <div class="small muted">Owner saat ini: ${st.chat_id ? `<b>terhubung</b> (${esc(st.chat_name || st.chat_id)})` : 'belum terhubung'}</div>
+    <div class="row" style="justify-content:flex-end"><button class="btn btn-primary" id="sb-save">Simpan bot</button></div>`;
+  box.querySelector('#sb-save').onclick = async () => {
+    const u = box.querySelector('#sb-user').value.trim();
+    if (!u) return toast('Isi username bot', 'err');
+    try { await rpc('sa_tg_bot', { p_token: box.querySelector('#sb-token').value.trim() || null, p_username: u }); toast('Bot tersimpan', 'ok'); tgBotUI(box); } catch (e) { toastErr(e); }
+  };
+}
