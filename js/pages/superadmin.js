@@ -2,42 +2,59 @@ import { rpc, supa } from '../supa.js';
 import { SUPABASE_URL } from '../config.js';
 import { billRow } from '../billing.js';
 import { store } from '../store.js';
-import { esc, num, rp, toast, toastErr, icon, modal, on, parseNum, todayStr, addDays, confirmBox, promptBox } from '../ui.js';
+import { esc, num, rp, toast, toastErr, icon, modal, on, parseNum, todayStr, addDays, confirmBox, promptBox, fmtDate } from '../ui.js';
 import { pushPermission, subscribePush, sendTestPush, pushSupported } from '../push.js';
 import { CURRENT, deviceLabel, fetchLatest } from '../version.js';
-import { loadModules, modStatus } from '../modules.js';
+import { loadModules, modStatus, modOn } from '../modules.js';
 
-// Menu khusus super admin: alat teknis. Tidak terlihat oleh jabatan lain.
+// Super admin (pembuat aplikasi): menu sendiri, terpisah dari menu toko.
+// Halaman ini = Ringkasan. Menu lain: sa-jabatan, sa-modul, sa-tagihan, sa-telegram, sa-alat (+ Log aktivitas).
+export const saGuard = (el) => { if (!store.superadmin) { el.innerHTML = '<div class="alert red">Hanya untuk super admin.</div>'; return false; } return true; };
+
 export default {
   async render(el) {
-    if (!store.superadmin) { el.innerHTML = '<div class="alert red">Hanya untuk super admin.</div>'; return; }
-    el.innerHTML = `<div class="stack" style="max-width:820px">
-      <div class="alert yellow small">${icon('shield', 16)} Menu ini hanya terlihat oleh <b>super admin</b>. Semua tindakan di sini tercatat di Log aktivitas owner.</div>
-      <section class="card stack" id="info"></section>
+    if (!saGuard(el)) return;
+    el.innerHTML = `<div class="stack" style="max-width:980px">
+      <div class="alert yellow small">${icon('shield', 16)} Menu khusus <b>super admin</b>. Tidak terlihat oleh owner &amp; pegawai. Semua tindakan tercatat di Log aktivitas.</div>
+      <div id="kpi"><div class="skeleton" style="height:96px"></div></div>
+      <div class="sa-tiles">${[['sa-jabatan', 'users', 'Masuk sebagai jabatan', 'Lihat & pakai aplikasi persis seperti owner / pegawai'],
+        ['sa-modul', 'lock', 'Menu & harga', 'Harga menu tambahan, buka semua menu gratis sampai tanggal tertentu'],
+        ['sa-tagihan', 'receipt', 'Tagihan & Mayar', 'Tagihan bulanan, tagihan khusus, koneksi Mayar'],
+        ['sa-telegram', 'send', 'Bot Telegram', 'Bot notifikasi untuk owner'],
+        ['log', 'clock', 'Log aktivitas', 'Semua kegiatan di aplikasi'],
+        ['sa-alat', 'gear', 'Alat & data', 'Tes notifikasi HP, hapus semua data']].map(([k, ic, t, d]) => `<a class="card sa-tile" href="#/${k}"><span class="sa-ic">${icon(ic, 20)}</span><div><b>${t}</b><div class="xs muted">${d}</div></div></a>`).join('')}</div>
+      <section class="card stack" id="info"><div class="skeleton" style="height:90px"></div></section>
+    </div>`;
+    const [s, l, bs, mods] = await Promise.all([rpc('sa_status').catch(() => null), fetchLatest(), rpc('billing_status').catch(() => null), loadModules().catch(() => ({}))]);
+    const all = Object.values(mods), on_ = all.filter((m) => modOn(m.code));
+    const free = all.find((m) => m.free_until && m.free_until >= todayStr());
+    el.querySelector('#kpi').innerHTML = `<div class="grid gauto">
+      <div class="card kpi dark"><div class="label">Tagihan belum dibayar</div><div class="value">${bs ? rp(bs.unpaid_total) : '–'}</div><div class="sub" style="color:var(--accent)">${bs ? bs.unpaid + ' tagihan' + (bs.next_due ? ' · jatuh tempo ' + fmtDate(bs.next_due) : '') : ''}</div></div>
+      <div class="card kpi"><div class="label">Menu tambahan aktif</div><div class="value">${on_.length} / ${all.length}</div><div class="sub">${free ? 'Gratis s/d ' + fmtDate(free.free_until) : 'tidak ada masa gratis'}</div></div>
+      <div class="card kpi"><div class="label">Mayar</div><div class="value" style="font-size:18px">${bs?.mayar_ready ? 'Terhubung' : 'Belum'}</div><div class="sub">${esc(bs?.mayar_mode || '')}</div></div>
+      <div class="card kpi"><div class="label">Pegawai</div><div class="value">${s ? num(s.pegawai) : '–'}</div><div class="sub">${s ? num(s.hp_notifikasi) + ' HP terdaftar notifikasi' : ''}</div></div></div>`;
+    el.querySelector('#info').innerHTML = s ? `<h2 class="sec-title">Ringkasan data</h2>
+      <div class="grid gkpi">${[['Barang', s.barang], ['Rak', s.rak], ['Pesanan', s.pesanan], ['Pergerakan stok', s.pergerakan_stok], ['Notifikasi', s.notifikasi], ['Log aktivitas', s.log]].map(([k, v]) => `<div class="stat gray"><b>${num(v)}</b><span>${k}</span></div>`).join('')}</div>
+      <div class="xs muted">Aplikasi v${esc(CURRENT.version)} (server v${esc(l?.version || '-')}) · ${esc(deviceLabel())}</div>` : '<div class="alert yellow">Jalankan <b>supabase/update-2.1.sql</b> dulu.</div>';
+  }
+};
+
+// ---------- alat: tes notifikasi & hapus semua data ----------
+export function alatUI(el) {
+  el.innerHTML = `<div class="stack" style="max-width:820px">
       <section class="card stack"><h2 class="sec-title">${icon('bell', 18)} Tes notifikasi HP</h2>
         <div class="small muted">Mengirim notifikasi tes ke perangkat ini. Tutup / kecilkan aplikasi setelah menekan tombol; notifikasi harus muncul dalam beberapa detik.</div>
         <div class="row wrap"><button class="btn btn-primary" id="ptest">Kirim notifikasi tes</button><button class="btn" id="preg">Daftarkan ulang perangkat ini</button></div>
         <div class="small" id="pst"></div></section>
-      <section class="card stack" id="billing"><h2 class="sec-title">${icon('receipt', 18)} Tagihan &amp; pembayaran (Mayar)</h2><div class="skeleton" style="height:120px"></div></section>
-      <section class="card flush" id="bills"></section>
-      <section class="card flush" id="mods"></section>
-      <section class="card stack" id="tgbot"></section>
       <section class="card stack danger-zone"><h2 class="sec-title" style="color:var(--red)">${icon('alert', 18)} Hapus semua data</h2>
         <div class="small">Menghapus <b>semua</b> barang, harga, rak, stok, pesanan, upload, beli WIN, retur, opname, notifikasi, kecurangan, log, absen, gaji, biaya, dan pengumuman.<br>
           <b>Tetap ada:</b> akun pegawai &amp; jabatan, pengaturan toko, daftar toko, dan pendaftaran notifikasi HP. <b>Tidak bisa dibatalkan.</b></div>
-        <div id="keybox"></div></section>
-    </div>`;
-
+        <div class="xs muted" id="cnt"></div>
+        <div id="keybox"></div></section></div>`;
     const loadInfo = async () => {
-      try {
-        const [s, l] = await Promise.all([rpc('sa_status'), fetchLatest()]);
-        el.querySelector('#info').innerHTML = `<h2 class="sec-title">Ringkasan data</h2>
-          <div class="grid gkpi">${[['Barang', s.barang], ['Rak', s.rak], ['Pesanan', s.pesanan], ['Pergerakan stok', s.pergerakan_stok], ['Notifikasi', s.notifikasi], ['Log aktivitas', s.log], ['Pegawai', s.pegawai], ['HP terdaftar notifikasi', s.hp_notifikasi]].map(([k, v]) => `<div class="stat gray"><b>${num(v)}</b><span>${k}</span></div>`).join('')}</div>
-          <div class="xs muted">Aplikasi v${esc(CURRENT.version)} (server v${esc(l?.version || '-')}) · ${esc(deviceLabel())} · masuk sebagai ${esc(store.role)}</div>`;
-        paintKey(s.kunci_ada);
-      } catch (e) { el.querySelector('#info').innerHTML = `<div class="alert yellow">Jalankan <b>supabase/update-2.1.sql</b> dulu. (${esc(e.message)})</div>`; }
+      try { const s = await rpc('sa_status'); paintKey(s.kunci_ada); el.querySelector('#cnt').textContent = `${num(s.barang)} barang · ${num(s.pesanan)} pesanan · ${num(s.pergerakan_stok)} pergerakan stok`; }
+      catch (e) { el.querySelector('#keybox').innerHTML = `<div class="alert yellow small">${esc(e.message)}</div>`; }
     };
-
     const paintKey = (has) => {
       const box = el.querySelector('#keybox');
       box.innerHTML = has ? `<div class="grid g2">
@@ -80,12 +97,10 @@ export default {
     };
     el.querySelector('#preg').onclick = async () => { try { await subscribePush(); toast('Perangkat terdaftar', 'ok'); loadInfo(); } catch (err) { toastErr(err); } };
     loadInfo();
-    loadBilling = billingUI(el); loadBilling(); modsUI(el.querySelector('#mods')); tgBotUI(el.querySelector('#tgbot'));
-  }
-};
+}
 
 // ---------- tagihan: diatur super admin, dibayar owner ----------
-function billingUI(root) {
+export function billingUI(root) {
   const box = root.querySelector('#billing'), list = root.querySelector('#bills');
   const load = async () => {
     let st, cfg;
@@ -175,11 +190,10 @@ function billingUI(root) {
   });
   return load;
 }
-let loadBilling = () => {};
 
 
 // ---------- bot Telegram (milik pembuat aplikasi) ----------
-async function tgBotUI(box) {
+export async function tgBotUI(box) {
   let st;
   try { st = await rpc('tg_status'); } catch (e) { box.innerHTML = `<h2 class="sec-title">${icon('send', 18)} Bot Telegram</h2><div class="alert yellow small">Jalankan <b>supabase/update-2.6.sql</b> dulu.</div>`; return; }
   st = st || {};
@@ -206,7 +220,7 @@ async function tgBotUI(box) {
 }
 
 // ---------- menu & jabatan tambahan: harga, masa aktif, buka / kunci manual ----------
-async function modsUI(box) {
+export async function modsUI(box) {
   const mods = Object.values(await loadModules());
   if (!mods.length) { box.innerHTML = `<div class="card-h"><h2>${icon('lock', 18)} Menu tambahan</h2></div><div class="alert yellow small" style="margin:0 16px 16px">Jalankan <b>supabase/update-2.13.sql</b> dulu.</div>`; return; }
   box.innerHTML = `<div class="card-h"><h2>${icon('lock', 18)} Menu &amp; jabatan tambahan</h2></div>
@@ -224,9 +238,9 @@ async function modsUI(box) {
   box.querySelectorAll('[data-acc]').forEach((b) => b.addEventListener('click', async () => {
     const code = b.closest('tr').dataset.m, m = mods.find((x) => x.code === code);
     const r = await modal({ title: 'Akses: ' + m.name, body: `<div class="stack"><div class="small">Status sekarang: <b>${esc(modStatus(m)[0])}</b></div>
-        <label class="field">Buka sampai tanggal<input class="input" type="date" id="mu" value="${m.active_until && m.active_until > todayStr() ? m.active_until : addDays(todayStr(), 30)}"></label>
-        <div class="xs muted">Dipakai untuk masa coba gratis, pembayaran di luar Mayar, atau kompensasi. Semua perubahan tercatat di log.</div></div>`,
-      actions: [{ label: 'Kunci', cls: 'btn-ghost', value: 'kunci' }, { label: 'Buka selamanya', value: 'selamanya' }, { label: 'Buka sampai tanggal', cls: 'btn-primary', onClick: (ov) => 'sampai:' + ov.querySelector('#mu').value }] });
+        <label class="field">Gratis sampai tanggal<input class="input" type="date" id="mu" value="${m.free_until && m.free_until > todayStr() ? m.free_until : addDays(todayStr(), 30)}"></label>
+        <div class="xs muted">Gratis = terbuka tanpa bayar sampai tanggal itu (masa coba, pembayaran di luar Mayar, kompensasi). Kunci = cabut semua akses (gratis &amp; langganan). Semua perubahan tercatat di log.</div></div>`,
+      actions: [{ label: 'Kunci', cls: 'btn-ghost', value: 'kunci' }, { label: 'Buka selamanya', value: 'selamanya' }, { label: 'Gratis sampai tanggal', cls: 'btn-primary', onClick: (ov) => 'gratis:' + ov.querySelector('#mu').value }] });
     if (!r) return;
     const [act, until] = r.split(':');
     if (act === 'kunci' && !await confirmBox('Kunci ' + m.name + '?', 'Menu ini langsung terkunci untuk owner & pegawai. Data tidak dihapus.', 'Kunci', true)) return;
