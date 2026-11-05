@@ -122,7 +122,7 @@ function renderShell() {
   const tabs = (TABS[role] || []).map((k) => {
     const pg = PAGES[k];
     return `<a class="tab" href="#/${k}" data-nav="${k}" data-tour="nav-${k}"><span class="ic">${icon(pg.icon, 22)}${k === 'notifikasi' ? '<span class="badge-dot hidden" data-badge></span>' : ''}</span><span class="lbl">${esc(pg.short || pg.label)}</span></a>`;
-  }).join('') + `<button class="tab" data-more data-tour="nav-lainnya"><span class="ic">${icon('more', 22)}</span><span class="lbl">Lainnya</span></button>`;
+  }).join('') + `<a class="tab" href="#/menu" data-nav="menu" data-tour="nav-lainnya"><span class="ic">${icon('grid', 22)}</span><span class="lbl">Lainnya</span></a>`;
 
   root.innerHTML = `<div class="shell">
     <nav class="sidebar" aria-label="Menu utama">
@@ -134,7 +134,7 @@ function renderShell() {
     <div class="main">
       <header class="topbar">
         <button class="tb-logo" data-me aria-label="Profil saya">${esc(ini(p.full_name))}</button>
-        <div class="grow tb-text"><div class="t-sub" id="t-sub"><span class="crumb" id="t-crumb"></span><span class="who">${esc(ROLE_LABEL[role])} · ${esc(p.full_name)}</span><span class="t-ver" data-ver>${esc(versionLabel())}</span></div><h1 id="t-title">${esc(APP_NAME)}</h1></div>
+        <div class="grow tb-text"><div class="tb-id"><b>${esc(p.full_name)}</b><span class="role-pill">${esc(ROLE_LABEL[role])}</span></div><div class="t-sub" id="t-sub"><span class="crumb" id="t-crumb"></span><span class="who">${esc(ROLE_LABEL[role])} · ${esc(p.full_name)}</span><span class="t-ver" data-ver>${esc(versionLabel())}</span></div><h1 id="t-title">${esc(APP_NAME)}</h1></div>
         <span class="tb-date">${icon('calendar', 16)}${esc(new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).format(new Date()))}</span>
         ${role === 'owner' ? `<a class="icon-btn tb-bill" href="#/tagihan" data-bill aria-label="Tagihan" title="Tagihan">${icon('receipt')}<span class="badge-dot hidden" data-bill-badge></span></a>` : ''}
         <button class="icon-btn" data-help data-tour="help" aria-label="Bantuan halaman ini">${icon('help')}</button>
@@ -148,7 +148,6 @@ function renderShell() {
   </div>`;
 
   root.querySelector('[data-logout]').onclick = logout;
-  root.querySelector('[data-more]').onclick = openMore;
   root.querySelector('[data-bell]').onclick = toggleBell;
   root.querySelector('[data-sa]')?.addEventListener('click', switchActAs);
   root.querySelectorAll('[data-ver]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); showVersion(); }));
@@ -190,29 +189,6 @@ async function logout() {
   }
 }
 
-// menu "Lainnya" di HP: ikon per kategori (seperti menu di aplikasi marketplace)
-const GROUP_STYLE = { '': ['Utama', '#1A1D1B', '#F2B01E'], Penjualan: ['Penjualan', '#8A2E20', '#F6DCD7'], Gudang: ['Gudang', '#17563A', '#DCEFE4'], Keuangan: ['Keuangan', '#6B4A00', '#FBE7B5'], Pengaturan: ['Pengaturan', '#1B4280', '#DDE6F5'], Saya: ['Saya', '#5B3E9A', '#E8E0F5'], 'Super admin': ['Super admin', '#A63A2A', '#F6DCD7'] };
-function openMore() {
-  const tabs = new Set(TABS[store.role] || []);
-  const items = menuFor(store.role).filter((m) => !tabs.has(m.key));
-  const groups = [];
-  items.forEach((m) => { const g = m.group || ''; let x = groups.find((y) => y.g === g); if (!x) groups.push((x = { g, items: [] })); x.items.push(m); });
-  modal({
-    title: 'Menu lainnya',
-    body: `<div class="menu-grid-wrap">${groups.map(({ g, items: list }) => {
-      const [label, ink, bg] = GROUP_STYLE[g] || [g, '#1A1D1B', '#ECEAE4'];
-      return `<section class="menu-cat"><h3>${esc(label)}</h3><div class="menu-grid">${list.map((m) => `<a class="menu-tile" href="#/${m.key}" data-close><span class="mt-ic" style="background:${bg};color:${ink}">${icon(m.icon, 24)}</span><span class="mt-lbl">${esc(m.short || m.label)}</span></a>`).join('')}</div></section>`;
-    }).join('')}
-      <div class="menu-foot"><button class="btn" data-lo>${icon('logout', 18)} Keluar</button><button class="btn btn-ghost" data-ver-m>${icon('refresh', 16)} Versi ${esc(versionLabel())}</button></div></div>`,
-    actions: [],
-    onOpen: (ov, close) => {
-      ov.querySelectorAll('[data-close]').forEach((a) => a.addEventListener('click', () => close(null)));
-      ov.querySelector('[data-lo]').onclick = () => { close(null); logout(); };
-      ov.querySelector('[data-ver-m]').onclick = () => { close(null); showVersion(); };
-    }
-  });
-}
-
 // ---------- info versi ----------
 async function showVersion() {
   const l = await fetchLatest();
@@ -236,10 +212,11 @@ async function showVersion() {
 // ---------- menu profil (pojok kanan atas / logo) ----------
 function meMenuHtml() {
   const p = store.profile, role = store.role;
-  const items = [['akun', 'user', 'Profil & ganti password'], ['pengaturan-scanner', 'scan', 'Pengaturan scanner'], ['panduan', 'compass', 'Panduan aplikasi'], ['notifikasi', 'bell', 'Semua notifikasi']];
+  const items = [['akun', 'user', 'Profil & ganti password'], ['pengaturan-scanner', 'bt', 'Pengaturan scanner'], ['panduan', 'compass', 'Panduan aplikasi'], ['notifikasi', 'bell', 'Semua notifikasi']];
+  if (role === 'owner') items.unshift(['tagihan', 'receipt', 'Tagihan aplikasi', billUnpaid ? `<span class="tag red">${billUnpaid} belum dibayar</span>` : '']);
   if (role === 'owner') items.push(['log', 'clock', 'Log aktivitas'], ['pengaturan', 'gear', 'Pengaturan toko'], ['pegawai', 'users', 'Pegawai & jabatan']);
   return `<div class="me-head"><span class="av">${esc(ini(p.full_name))}</span><div style="min-width:0"><b>${esc(p.full_name)}</b><div class="xs muted" style="overflow-wrap:anywhere">${esc(p.email || store.session?.user?.email || '')}</div><span class="tag dark" style="margin-top:6px">${esc(ROLE_LABEL[role])}</span></div></div>
-    <div class="me-list">${store.superadmin ? `<a class="me-item" href="#/superadmin" data-close style="color:#A63A2A">${icon('shield', 18)}<span>Menu super admin</span></a><button class="me-item" data-sa-switch style="color:#A63A2A">${icon('shield', 18)}<span>Ganti jabatan (super admin)</span></button>` : ''}${items.map(([k, ic, l]) => `<a class="me-item" href="#/${k}" data-close>${icon(ic, 18)}<span>${l}</span></a>`).join('')}
+    <div class="me-list">${store.superadmin ? `<a class="me-item" href="#/superadmin" data-close style="color:#A63A2A">${icon('shield', 18)}<span>Menu super admin</span></a><button class="me-item" data-sa-switch style="color:#A63A2A">${icon('shield', 18)}<span>Ganti jabatan (super admin)</span></button>` : ''}${items.map(([k, ic, l, extra]) => `<a class="me-item" href="#/${k}" data-close>${icon(ic, 18)}<span class="grow">${l}</span>${extra || ''}</a>`).join('')}
     <button class="me-item" data-ver-me>${icon('refresh', 18)}<span class="grow">Versi aplikasi</span><span class="small muted mono">${esc(versionLabel())}</span></button>
     <button class="me-item danger" data-lo>${icon('logout', 18)}<span>Keluar</span></button></div>`;
 }
@@ -343,13 +320,15 @@ function subscribe() {
 
 // ---------- router ----------
 // bar pengingat tagihan aplikasi (owner): tampil kalau ada tagihan terlambat / jatuh tempo ≤ 7 hari
-let billBarAt = 0;
+let billBarAt = 0, billUnpaid = 0;
 async function billBar() {
   billBarAt = Date.now();
   try {
     await rpc('billing_ensure').catch(() => {});
     const { data, error } = await supa.from('bills').select('amount, due_date').in('status', ['belum', 'menunggu']).order('due_date');
     document.getElementById('bill-bar')?.remove();
+    billUnpaid = data?.length || 0;
+    document.querySelector('.tb-logo')?.classList.toggle('has-bill', !!billUnpaid);
     const badge = document.querySelector('[data-bill-badge]');
     if (badge) { badge.classList.toggle('hidden', !data?.length); badge.textContent = data?.length > 1 ? data.length : ''; }
     if (error || !data?.length || data[0].due_date > addDays(todayStr(), 7)) return;
