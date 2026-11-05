@@ -26,13 +26,15 @@ export function modOn(code) {
   if (!code) return true;
   const m = store.modules[code];
   if (!m) return false;
-  return !!m.forever || (!!m.active_until && m.active_until >= todayStr());
+  const t = todayStr();
+  return !!m.forever || (!!m.active_until && m.active_until >= t) || (!!m.free_until && m.free_until >= t);
 }
 export const modName = (code) => store.modules[code]?.name || code;
 export function modStatus(m) {
   if (!m) return ['Belum tersedia', 'red'];
   if (m.forever) return ['Aktif selamanya', 'green'];
   if (m.active_until && m.active_until >= todayStr()) return ['Aktif s/d ' + fmtDate(m.active_until, { day: 'numeric', month: 'short', year: 'numeric' }), 'green'];
+  if (m.free_until && m.free_until >= todayStr()) return ['Gratis s/d ' + fmtDate(m.free_until, { day: 'numeric', month: 'short', year: 'numeric' }), 'blue'];
   if (m.active_until) return ['Habis ' + fmtDate(m.active_until, { day: 'numeric', month: 'short' }), 'red'];
   return ['Terkunci', ''];
 }
@@ -76,7 +78,7 @@ export function paywall(el, code, { roleLock = false } = {}) {
           <div class="xs muted">Bayar lewat QRIS, transfer bank (VA), atau e-wallet. Menu terbuka otomatis setelah pembayaran diterima.</div>`
           : '<div class="small muted">Menu ini belum dijual. Hubungi pembuat aplikasi untuk membukanya.</div>'}`
         : `<div class="alert small">${roleLock ? 'Jabatanmu belum aktif.' : 'Menu ini belum dibuka.'} Minta <b>owner</b> membukanya di menu <b>Menu tambahan</b>.</div>`}
-      ${store.superadmin ? `<div class="xs" style="color:#A63A2A">Super admin: buka gratis / atur harga di <a href="#/superadmin">Menu super admin › Menu tambahan</a>. Status: ${esc(st)}${cls ? '' : ''}</div>` : ''}
+      ${store.superadmin ? `<div class="xs" style="color:#A63A2A">Super admin: buka gratis / atur harga di menu super admin › <b>Menu &amp; harga</b>. Status: ${esc(st)}${cls ? '' : ''}</div>` : ''}
     </div></div>`;
   el.querySelector('[data-buy]')?.addEventListener('click', (e) => buyModule(code, e.currentTarget));
 }
