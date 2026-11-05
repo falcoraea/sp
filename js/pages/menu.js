@@ -5,7 +5,7 @@ import { versionLabel } from '../version.js';
 
 // Halaman "Lainnya" (HP): semua menu sebagai ikon per kategori, seperti menu di aplikasi marketplace.
 export const GROUP_STYLE = {
-  '': ['Utama', '#4A524D', '#1A1D1B'], Penjualan: ['Penjualan', '#F0765E', '#B8402A'], Gudang: ['Gudang', '#34B377', '#16663F'],
+  '': ['Utama', '#3546A8', '#23307A'], Penjualan: ['Penjualan', '#F0765E', '#B8402A'], Gudang: ['Gudang', '#34B377', '#16663F'],
   Keuangan: ['Keuangan', '#F7C548', '#D58A00'], Pengaturan: ['Pengaturan', '#5A8DE0', '#22488F'], Saya: ['Saya', '#9C7BE0', '#5B3E9A'], 'Super admin': ['Super admin', '#E2614C', '#8A2E20']
 };
 const DESC = {
