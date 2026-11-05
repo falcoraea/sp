@@ -78,7 +78,7 @@ export async function openProduct(id, after) {
     supa.from('products').select('*').eq('id', id).single(),
     supa.from('stock_movements').select('*').eq('product_id', id).order('created_at', { ascending: false }).limit(30)
   ]);
-  const canAdj = ['owner', 'kepala_gudang'].includes(store.role);
+  const canAdj = ['owner', 'kepala_gudang', 'supervisor'].includes(store.role);
   const r = await modal({
     title: p.name, wide: true,
     body: `<div class="stack">
@@ -118,7 +118,7 @@ export async function openProduct(id, after) {
 }
 
 async function tabOpname(box) {
-  if (!['owner', 'kepala_gudang'].includes(store.role)) { box.innerHTML = `<div class="card">${emptyState('Stok opname dilakukan oleh kepala gudang.', 'clip')}</div>`; return; }
+  if (!['owner', 'kepala_gudang', 'supervisor'].includes(store.role)) { box.innerHTML = `<div class="card">${emptyState('Stok opname dilakukan oleh kepala gudang.', 'clip')}</div>`; return; }
   const { data: racks } = await supa.from('racks').select('code').order('code');
   box.innerHTML = `<div class="stack"><div class="card stack">
       <div class="alert blue small">Hitung barang fisik di satu rak, isi jumlahnya, lalu simpan. Stok sistem sengaja tidak ditampilkan supaya hitungan jujur. Selisih kurang langsung dilaporkan ke owner beserta siapa yang terakhir memegang barang itu.</div>
@@ -154,7 +154,7 @@ async function tabOpname(box) {
 async function tabRak(box) {
   const [{ data: racks }, { data: prods }] = await Promise.all([supa.from('racks').select('*').order('code'), fetchAll(() => supa.from('products').select('rack_code, stock').eq('active', true).order('id')).then((data) => ({ data })).catch(() => ({ data: [] }))]);
   const cnt = {}; (prods || []).forEach((p) => { if (p.rack_code) { cnt[p.rack_code] ||= [0, 0]; cnt[p.rack_code][0]++; cnt[p.rack_code][1] += p.stock; } });
-  const canEdit = ['owner', 'admin', 'kepala_gudang'].includes(store.role);
+  const canEdit = ['owner', 'admin', 'kepala_gudang', 'supervisor'].includes(store.role);
   box.innerHTML = `<div class="stack">
     ${canEdit ? `<form class="card stack s8" id="addf" autocomplete="off"><label class="small" for="nr" style="font-weight:600">Tambah rak baru</label><div class="row" style="flex-wrap:nowrap"><input class="input grow mono" id="nr" placeholder="Kode rak, mis. A-01" autocapitalize="characters" enterkeyhint="done" style="text-transform:uppercase"><button class="btn btn-primary" id="add" type="submit" style="flex:none">${icon('plus', 18)}<span>Tambah</span></button></div><button class="btn" id="prt" type="button">${icon('print', 18)} Cetak label semua rak</button></form>` : ''}
     <div class="card flush">${racks?.length ? `<div class="list">${racks.map((r) => `<div class="list-item" data-rack="${esc(r.code)}"><b class="mono" style="min-width:58px">${esc(r.code)}</b><div class="grow"><div class="small">${cnt[r.code]?.[0] || 0} jenis · ${cnt[r.code]?.[1] || 0} pcs</div>${r.note ? `<div class="xs muted">${esc(r.note)}</div>` : ''}</div><button class="btn btn-sm" data-rq="${esc(r.code)}" aria-label="Cetak label barang di rak ${esc(r.code)}">${icon('print', 16)}<span>Label</span></button></div>`).join('')}</div>` : emptyState('Belum ada rak. Tambahkan kode rak dulu.', 'box')}</div></div>`;
