@@ -1,5 +1,5 @@
 import { rpc, supa } from '../supa.js';
-import { esc, rp, num, todayStr, addDays, fmtDate, chips, on, toastErr, pageHead, emptyState, skeleton, icon, xlsx, statusTag } from '../ui.js';
+import { esc, rp, num, todayStr, addDays, fmtDate, chips, on, toast, toastErr, pageHead, emptyState, skeleton, icon, statusTag } from '../ui.js';
 
 export default {
   tour: [
@@ -59,31 +59,17 @@ export default {
     on(el, 'click', '[data-chips="f"] .chip', (e, b) => { filter = b.dataset.v; paint(); });
     on(el, 'click', '[data-chips="st"] .chip', (e, b) => { storeF = b.dataset.v; try { sessionStorage.setItem('rekap-store', storeF); } catch (_) {} paint(); });
     el.querySelector('#pr').onclick = () => window.print();
-    // Excel seperti rekap kertas: 1 sheet per toko, judul "TOKO TANGGAL"
-    el.querySelector('#xl').onclick = async () => {
-      const X = await xlsx();
-      const wb = X.utils.book_new();
-      const tgl = fmtDate(date, { day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase();
-      const head = ['NO', 'NO RESI', 'KODE', 'KETERANGAN', 'QTT', 'MACALLAN', 'HARGA 5%', 'HARGA BELI (25-30%)', 'HARGA SHOPEE', 'HARGA SELESAI', 'MARGIN', 'STATUS', 'SUMBER'];
-      const groups = new Map();
-      rows.forEach((r) => { const k = r.store_name || 'TANPA TOKO'; if (!groups.has(k)) groups.set(k, new Map()); const g = groups.get(k); if (!g.has(r.order_id)) g.set(r.order_id, []); g.get(r.order_id).push(r); });
-      if (!groups.size) groups.set('REKAP', new Map());
-      for (const [name, ords] of groups) {
-        const aoa = [[name + ' ' + tgl], head]; let n = 0, tb = 0, ts = 0, tm = 0;
-        for (const items of ords.values()) {
-          n++; const o = items[0]; const bad = ['cancel', 'retur'].includes(o.status);
-          items.forEach((i, k) => aoa.push([k === 0 ? n : '', k === 0 ? (o.resi || o.order_no) : '', i.sku || '', i.name, i.qty, Number(i.macallan || 0) * i.qty, Number(i.harga_5 || 0) * i.qty,
-            Number(i.harga_beli || 0) * i.qty, Number(i.harga_jual || 0) * i.qty, k === 0 ? Number(o.harga_selesai || 0) : '', k === 0 ? Number(o.margin || 0) : '', k === 0 ? o.status + (o.paid ? ' (lunas)' : '') : '', i.rack_qty ? 'rak ' + (i.rack || '') + ' + WIN' : 'WIN']));
-          if (!bad) { tb += Number(o.modal_order || 0); ts += Number(o.harga_selesai || 0); }
-          tm += Number(o.margin || 0);
-        }
-        aoa.push([], ['', 'TOTAL ' + n + ' RESI', '', '', '', '', '', tb, '', ts, tm]);
-        const ws = X.utils.aoa_to_sheet(aoa);
-        ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }];
-        ws['!cols'] = [5, 18, 16, 34, 5, 11, 11, 14, 13, 13, 11, 14, 14].map((w) => ({ wch: w }));
-        X.utils.book_append_sheet(wb, ws, name.replace(/[\\/?*[\]:]/g, ' ').slice(0, 31));
-      }
-      X.writeFile(wb, `rekap-${date}.xlsx`);
+    // Excel berwarna: tab RINGKASAN + 1 tab per toko (ringkasan di atas, baris cancel / retur merah)
+    el.querySelector('#xl').onclick = async (e) => {
+      const b = e.currentTarget; b.disabled = true;
+      try {
+        const { buildRekapBook } = await import('../excel-rekap.js');
+        const out = buildRekapBook({ rows, dateLabel: fmtDate(date, { day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase(), printedAt: fmtDate(new Date(), { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }), storeFilter: storeF === 'all' ? null : storeF });
+        const blob = await out.wb.toBlob();
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `rekap-${date}${storeF === 'all' ? '' : '-' + (stores?.find((x) => String(x.id) === storeF)?.name || storeF)}.xlsx`;
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        toast(`Excel siap: ${out.resi} resi, ${out.stores} toko`, 'ok');
+      } catch (err) { toastErr(err); } finally { b.disabled = false; }
     };
     load();
   }
