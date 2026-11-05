@@ -190,14 +190,20 @@ async function logout() {
   }
 }
 
+// menu "Lainnya" di HP: ikon per kategori (seperti menu di aplikasi marketplace)
+const GROUP_STYLE = { '': ['Utama', '#1A1D1B', '#F2B01E'], Penjualan: ['Penjualan', '#8A2E20', '#F6DCD7'], Gudang: ['Gudang', '#17563A', '#DCEFE4'], Keuangan: ['Keuangan', '#6B4A00', '#FBE7B5'], Pengaturan: ['Pengaturan', '#1B4280', '#DDE6F5'], Saya: ['Saya', '#5B3E9A', '#E8E0F5'], 'Super admin': ['Super admin', '#A63A2A', '#F6DCD7'] };
 function openMore() {
   const tabs = new Set(TABS[store.role] || []);
   const items = menuFor(store.role).filter((m) => !tabs.has(m.key));
+  const groups = [];
+  items.forEach((m) => { const g = m.group || ''; let x = groups.find((y) => y.g === g); if (!x) groups.push((x = { g, items: [] })); x.items.push(m); });
   modal({
     title: 'Menu lainnya',
-    body: `<div class="list sheet-menu card flush" style="margin:0 -4px">${items.map((m) => `<a class="list-item" href="#/${m.key}" data-close>${icon(m.icon, 20)}<span class="grow">${esc(m.label)}</span>${icon('chev', 18)}</a>`).join('')}
-      <button class="list-item" data-lo>${icon('logout', 20)}<span class="grow">Keluar</span></button>
-      <button class="list-item" data-ver-m>${icon('refresh', 20)}<span class="grow">Versi aplikasi</span><span class="small muted mono">${esc(versionLabel())}</span></button></div>`,
+    body: `<div class="menu-grid-wrap">${groups.map(({ g, items: list }) => {
+      const [label, ink, bg] = GROUP_STYLE[g] || [g, '#1A1D1B', '#ECEAE4'];
+      return `<section class="menu-cat"><h3>${esc(label)}</h3><div class="menu-grid">${list.map((m) => `<a class="menu-tile" href="#/${m.key}" data-close><span class="mt-ic" style="background:${bg};color:${ink}">${icon(m.icon, 24)}</span><span class="mt-lbl">${esc(m.short || m.label)}</span></a>`).join('')}</div></section>`;
+    }).join('')}
+      <div class="menu-foot"><button class="btn" data-lo>${icon('logout', 18)} Keluar</button><button class="btn btn-ghost" data-ver-m>${icon('refresh', 16)} Versi ${esc(versionLabel())}</button></div></div>`,
     actions: [],
     onOpen: (ov, close) => {
       ov.querySelectorAll('[data-close]').forEach((a) => a.addEventListener('click', () => close(null)));
