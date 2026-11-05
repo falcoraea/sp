@@ -138,7 +138,7 @@ export default {
       const total = (data || []).reduce((a, b) => a + Number(b.value || 0), 0);
       const cnt = (l) => data.filter((d) => d.level === l).length;
       box.innerHTML = `<div class="card-h" style="background:#F9E8E4;flex-wrap:wrap">
-          <div class="row">${icon('shield', 24)}<div><h2 style="font-size:17px;color:#6E2418">Indikasi kecurangan &amp; masalah</h2><div class="small" style="color:#6E2418">Belum ditangani · nilai berisiko <b>${rp(total)}</b></div></div></div>
+          <div class="row">${icon('shield', 24)}<div><h2 class="sec-title" style="color:#6E2418">Indikasi kecurangan &amp; masalah</h2><div class="small" style="color:#6E2418">Belum ditangani · nilai berisiko <b>${rp(total)}</b></div></div></div>
           <div class="row"><span class="tag solid-red">${cnt('tinggi')} tinggi</span><span class="tag solid-yellow">${cnt('sedang')} sedang</span><span class="tag">${cnt('info')} info</span></div></div>
         ${data.length ? `<div class="table-wrap"><table class="tbl" style="min-width:760px"><thead><tr><th>Tingkat</th><th>Kejadian</th><th>Bukti dari sistem</th><th>Terkait</th><th class="right">Nilai</th><th></th></tr></thead><tbody>
           ${data.map((a) => `<tr><td><span class="tag ${LV[a.level][1]}">${LV[a.level][0]}</span></td><td><b>${esc(a.title)}</b><div class="xs muted">${ago(a.created_at)}</div></td>
