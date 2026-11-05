@@ -18,7 +18,6 @@ let booted = false;
 let routeSeq = 0;
 let hashBound = false;
 let beforeBell = null;
-const SA_ROLES = [['owner', 'Semua menu, laporan, harga'], ['admin', 'Pesanan, upload, beli WIN'], ['kepala_gudang', 'Terima, stok, retur, opname'], ['picker', 'Ambil barang dari rak'], ['packing', 'Packing & scan resi'], ['sopir', 'Tugas ambil barang WIN'], ['supervisor', 'Kepala gudang + kinerja, multi gudang'], ['keuangan', 'Kas, laporan, pajak'], ['qc', 'Cek paket sebelum kirim'], ['cs', 'Komplain pembeli'], ['marketing', 'Katalog grosir']];
 
 // ---------- PWA ----------
 if ('serviceWorker' in navigator) {
@@ -65,9 +64,11 @@ async function boot(session) {
     store.profile = profile;
     if (profile.role === 'superadmin') {
       // super admin: pilih mau masuk sebagai jabatan apa (berlaku sampai tab ditutup / ganti jabatan)
+      // super admin punya menu sendiri; "masuk sebagai jabatan" dipilih dari menu itu (berlaku sampai tab ditutup)
       let picked = null; try { picked = sessionStorage.getItem('sa-role'); } catch (_) {}
-      if (!picked || picked !== profile.act_as) picked = await pickActAs();
-      profile.act_as = picked; store.role = picked; store.superadmin = true;
+      if (!picked || (picked !== 'superadmin' && picked !== profile.act_as)) picked = 'superadmin';
+      if (picked === 'superadmin' && profile.act_as && profile.act_as !== 'owner') await rpc('sa_act_as', { p_role: 'superadmin' }).catch(() => {});
+      store.role = picked; store.superadmin = true;
     } else {
       store.role = profile.role; store.superadmin = false;
       let logged = null; try { logged = sessionStorage.getItem('logged-' + profile.id); } catch (_) {}
@@ -86,7 +87,7 @@ async function boot(session) {
     if (!store.superadmin) initPush();
     loadNotifs().catch(() => {});
     if (store.role === 'owner') billBar();
-    if (profile.tour_auto && !profile.tour_done?.main) setTimeout(() => startMainTour(true), 600);
+    if (store.role !== 'superadmin' && profile.tour_auto && !profile.tour_done?.main) setTimeout(() => startMainTour(true), 600);
   } catch (e) {
     toastErr(e);
     root.innerHTML = `<div class="boot"><div class="boot-logo">SG</div><div class="boot-text">Gagal memuat data. Periksa koneksi, lalu muat ulang.</div><button class="btn" onclick="location.reload()">Muat ulang</button></div>`;
@@ -94,29 +95,11 @@ async function boot(session) {
 }
 
 // ---------- super admin ----------
-function pickActAs(current) {
-  return new Promise((resolve) => {
-    root.innerHTML = `<div class="sa-pick"><div class="card stack">
-      <div><span class="tag" style="background:#A63A2A;color:#fff">Super admin</span><h2 style="font-size:22px;margin-top:10px">Masuk sebagai jabatan apa?</h2>
-      <div class="small muted" style="margin-top:4px">Aplikasi akan tampil &amp; bekerja persis seperti jabatan itu. Semua tindakanmu tetap tercatat di Log aktivitas sebagai Super admin.</div></div>
-      <div class="sa-grid">${SA_ROLES.map(([r, d]) => `<button class="sa-role" data-r="${r}" ${r === current ? 'style="border-color:var(--ink)"' : ''}><b>${esc(ROLE_LABEL[r])}</b><span>${esc(d)}</span></button>`).join('')}</div>
-      <button class="btn btn-ghost" data-out>${icon('logout', 18)} Keluar</button></div></div>`;
-    root.querySelector('[data-out]').onclick = () => supa.auth.signOut();
-    root.querySelectorAll('[data-r]').forEach((b) => b.addEventListener('click', async () => {
-      root.querySelectorAll('[data-r]').forEach((x) => { x.disabled = true; });
-      try {
-        await rpc('sa_act_as', { p_role: b.dataset.r });
-        try { sessionStorage.setItem('sa-role', b.dataset.r); } catch (_) {}
-        resolve(b.dataset.r);
-      } catch (e) { toastErr(e); root.querySelectorAll('[data-r]').forEach((x) => { x.disabled = false; }); }
-    }));
-  });
-}
-async function switchActAs() {
-  const r = await modal({ title: 'Ganti jabatan (super admin)', body: `<div class="sa-grid">${SA_ROLES.map(([k, d]) => `<button class="sa-role" data-r="${k}" ${k === store.role ? 'style="border-color:var(--ink)"' : ''}><b>${esc(ROLE_LABEL[k])}</b><span>${esc(d)}</span></button>`).join('')}</div>`,
-    actions: [], onOpen: (ov, close) => ov.querySelectorAll('[data-r]').forEach((b) => b.addEventListener('click', () => close(b.dataset.r))) });
-  if (!r || r === store.role) return;
-  try { await rpc('sa_act_as', { p_role: r }); try { sessionStorage.setItem('sa-role', r); } catch (_) {} location.hash = ''; location.reload(); } catch (e) { toastErr(e); }
+// kembali ke menu super admin (dari "masuk sebagai jabatan"), lalu buka halaman tertentu
+async function backToSA(page = 'superadmin') {
+  try { await rpc('sa_act_as', { p_role: 'superadmin' }); } catch (e) { return toastErr(e); }
+  try { sessionStorage.setItem('sa-role', 'superadmin'); } catch (_) {}
+  location.hash = '#/' + page; location.reload();
 }
 
 // ---------- shell ----------
@@ -152,7 +135,7 @@ function renderShell() {
         <button class="icon-btn bell" data-bell data-tour="bell" aria-label="Notifikasi">${icon('bell')}<span class="badge-dot hidden" data-badge></span></button>
         <button class="tb-user" data-me aria-haspopup="menu" aria-label="Profil saya"><span class="av">${esc(ini(p.full_name))}</span><span class="tb-u-txt"><b>${esc(p.full_name)}</b><small>${esc(ROLE_LABEL[role])}</small></span>${icon('chev', 16)}</button>
       </header>
-      ${store.superadmin ? `<div class="sa-bar">${icon('shield', 16)}<span><b>Mode super admin</b> · sedang sebagai <b>${esc(ROLE_LABEL[role])}</b></span><button class="btn" data-sa>Ganti jabatan</button></div>` : ''}
+      ${store.superadmin && role !== 'superadmin' ? `<div class="sa-bar">${icon('shield', 16)}<span><b>Super admin</b> · sedang masuk sebagai <b>${esc(ROLE_LABEL[role])}</b></span><button class="btn btn-ghost" data-sa-switch2>Ganti jabatan</button><button class="btn" data-sa>Kembali ke super admin</button></div>` : ''}
       <main class="view" id="view" tabindex="-1"></main>
     </div>
     <nav class="tabbar" aria-label="Menu bawah">${tabs}</nav>
@@ -160,7 +143,8 @@ function renderShell() {
 
   root.querySelector('[data-logout]').onclick = logout;
   root.querySelector('[data-bell]').onclick = toggleBell;
-  root.querySelector('[data-sa]')?.addEventListener('click', switchActAs);
+  root.querySelector('[data-sa]')?.addEventListener('click', () => backToSA());
+  root.querySelector('[data-sa-switch2]')?.addEventListener('click', () => backToSA('sa-jabatan'));
   root.querySelectorAll('[data-ver]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); showVersion(); }));
   root.querySelectorAll('[data-me]').forEach((b) => { b.onclick = (e) => toggleMe(e.currentTarget); b.onkeydown = (e) => { if (e.key === 'Enter') toggleMe(b); }; });
   startPaging(root.querySelector('.main'));
@@ -224,10 +208,11 @@ async function showVersion() {
 function meMenuHtml() {
   const p = store.profile, role = store.role;
   const items = [['akun', 'user', 'Profil & ganti password'], ['pengaturan-scanner', 'bt', 'Pengaturan scanner'], ['panduan', 'compass', 'Panduan aplikasi'], ['notifikasi', 'bell', 'Semua notifikasi']];
+  if (role === 'superadmin') items.splice(1, 1, ['log', 'clock', 'Log aktivitas']);
   if (role === 'owner') items.unshift(['tagihan', 'receipt', 'Tagihan aplikasi', billUnpaid ? `<span class="tag red">${billUnpaid} belum dibayar</span>` : '']);
   if (role === 'owner') items.push(['modul', 'lock', 'Menu tambahan'], ['log', 'clock', 'Log aktivitas'], ['pengaturan', 'gear', 'Pengaturan toko'], ['pegawai', 'users', 'Pegawai & jabatan']);
   return `<div class="me-head"><span class="av">${esc(ini(p.full_name))}</span><div style="min-width:0"><b>${esc(p.full_name)}</b><div class="xs muted" style="overflow-wrap:anywhere">${esc(p.email || store.session?.user?.email || '')}</div><span class="tag dark" style="margin-top:6px">${esc(ROLE_LABEL[role])}</span></div></div>
-    <div class="me-list">${store.superadmin ? `<a class="me-item" href="#/superadmin" data-close style="color:#A63A2A">${icon('shield', 18)}<span>Menu super admin</span></a><button class="me-item" data-sa-switch style="color:#A63A2A">${icon('shield', 18)}<span>Ganti jabatan (super admin)</span></button>` : ''}${items.map(([k, ic, l, extra]) => `<a class="me-item" href="#/${k}" data-close>${icon(ic, 18)}<span class="grow">${l}</span>${extra || ''}</a>`).join('')}
+    <div class="me-list">${store.superadmin && role !== 'superadmin' ? `<button class="me-item" data-sa-back style="color:#A63A2A">${icon('shield', 18)}<span>Kembali ke super admin</span></button><button class="me-item" data-sa-switch style="color:#A63A2A">${icon('users', 18)}<span>Ganti jabatan</span></button>` : role === 'superadmin' ? `<a class="me-item" href="#/sa-jabatan" data-close style="color:#A63A2A">${icon('users', 18)}<span>Masuk sebagai jabatan</span></a>` : ''}${items.map(([k, ic, l, extra]) => `<a class="me-item" href="#/${k}" data-close>${icon(ic, 18)}<span class="grow">${l}</span>${extra || ''}</a>`).join('')}
     <button class="me-item" data-ver-me>${icon('refresh', 18)}<span class="grow">Versi aplikasi</span><span class="small muted mono">${esc(versionLabel())}</span></button>
     <button class="me-item danger" data-lo>${icon('logout', 18)}<span>Keluar</span></button></div>`;
 }
@@ -237,7 +222,8 @@ function toggleMe(btn) {
     modal({ title: 'Profil saya', body: `<div class="me-sheet">${meMenuHtml()}</div>`, actions: [], onOpen: (ov, close) => {
       ov.querySelectorAll('[data-close]').forEach((a) => a.addEventListener('click', () => close(null)));
       ov.querySelector('[data-lo]').onclick = () => { close(null); logout(); };
-      ov.querySelector('[data-sa-switch]')?.addEventListener('click', () => { close(null); switchActAs(); });
+      ov.querySelector('[data-sa-switch]')?.addEventListener('click', () => { close(null); backToSA('sa-jabatan'); });
+      ov.querySelector('[data-sa-back]')?.addEventListener('click', () => { close(null); backToSA(); });
       ov.querySelector('[data-ver-me]').addEventListener('click', () => { close(null); showVersion(); });
     } });
     return;
@@ -252,7 +238,8 @@ function toggleMe(btn) {
   panel.addEventListener('click', (e) => {
     e.stopPropagation();
     if (e.target.closest('[data-lo]')) { panel.remove(); logout(); return; }
-    if (e.target.closest('[data-sa-switch]')) { panel.remove(); switchActAs(); return; }
+    if (e.target.closest('[data-sa-switch]')) { panel.remove(); backToSA('sa-jabatan'); return; }
+    if (e.target.closest('[data-sa-back]')) { panel.remove(); backToSA(); return; }
     if (e.target.closest('[data-ver-me]')) { panel.remove(); showVersion(); return; }
     if (e.target.closest('a')) panel.remove();
   });
