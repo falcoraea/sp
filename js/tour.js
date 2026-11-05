@@ -131,6 +131,33 @@ export function mainSteps(role) {
       { sel: sel('packing'), title: 'Packing', body: 'Scan resi, lalu scan tiap barang. Kalau barang tidak cocok, sistem langsung memberi peringatan.' },
       { sel: sel('absen'), title: 'Absen', body: 'Absen masuk dan pulang setiap hari.' },
       bell, help
+    ],
+    keuangan: [
+      { sel: sel('kas'), title: 'Keuangan & kas', body: 'Catat uang masuk & keluar, saldo setiap rekening, dan hutang supplier.' },
+      { sel: sel('laporan'), title: 'Laporan premium', body: 'Laba per toko per bulan, tren, dan barang paling untung.' },
+      { sel: sel('pajak'), title: 'Pajak UMKM', body: 'Omzet bulanan dan perkiraan PPh final 0,5%.' },
+      bell, help, lainnya
+    ],
+    supervisor: [
+      { sel: sel('catat'), title: 'Catat pesanan', body: 'Semua tugas kepala gudang ada di jabatan ini.' },
+      { sel: sel('kinerja'), title: 'Kinerja pegawai', body: 'Pantau jumlah kerja dan kesalahan setiap pegawai gudang.' },
+      { sel: sel('gudang'), title: 'Multi gudang', body: 'Stok per lokasi dan pindahan barang antar gudang.' },
+      bell, help, lainnya
+    ],
+    qc: [
+      { sel: sel('qc'), title: 'Cek QC paket', body: 'Scan resi paket yang sudah dipacking, cocokkan isinya, lalu tandai lolos atau gagal.' },
+      { sel: sel('absen'), title: 'Absen', body: 'Absen masuk dan pulang setiap hari.' },
+      bell, help
+    ],
+    cs: [
+      { sel: sel('komplain'), title: 'Komplain & garansi', body: 'Catat komplain pembeli. Cari resi untuk melihat isi paket dan foto packing sebagai bukti banding.' },
+      { sel: sel('pesanan'), title: 'Pesanan', body: 'Lihat status pesanan untuk menjawab pertanyaan pembeli.' },
+      bell, help
+    ],
+    marketing: [
+      { sel: sel('katalog'), title: 'Katalog grosir', body: 'Atur harga grosir lalu bagikan link katalog atau PDF ke bengkel / reseller.' },
+      { sel: sel('stok'), title: 'Stok & rak', body: 'Lihat stok barang untuk bahan konten jualan.' },
+      bell, help
     ]
   };
   return S[role] || [bell];
