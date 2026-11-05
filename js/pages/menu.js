@@ -12,7 +12,9 @@ const DESC = {
   catat: 'Scan resi & barang', pesanan: 'Daftar pesanan', upload: 'File Shopee & pricelist', retur: 'Retur & cancel', rekap: 'Rekap per toko',
   beli: 'Belanja ke WIN', terima: 'Barang datang', ambil: 'Ambil dari rak', packing: 'Kemas paket', cek: 'Cek kode', stok: 'Stok & rak', barang: 'Master barang',
   harga: 'Rumus harga', laba: 'Laba per barang', gaji: 'Gaji & biaya', pegawai: 'Akun pegawai', log: 'Riwayat aktivitas', pengumuman: 'Info ke pegawai', pengaturan: 'Pengaturan toko',
-  absen: 'Absen harian', 'pengaturan-scanner': 'Scanner & kamera', panduan: 'Cara pakai', akun: 'Profil & password', dashboard: 'Ringkasan', masalah: 'Kecurangan', tugas: 'Tugas sopir', notifikasi: 'Notifikasi', superadmin: 'Alat teknis'
+  absen: 'Absen harian', 'pengaturan-scanner': 'Scanner & kamera', panduan: 'Cara pakai', akun: 'Profil & password', dashboard: 'Ringkasan', masalah: 'Kecurangan', tugas: 'Tugas sopir', notifikasi: 'Notifikasi', superadmin: 'Alat teknis',
+  kas: 'Kas, bank, hutang', laporan: 'Laba per toko', pajak: 'PPh 0,5%', kinerja: 'Nilai pegawai', 'laporan-tg': 'Rekap ke Telegram', modul: 'Buka menu baru',
+  komplain: 'Komplain pembeli', katalog: 'Harga grosir', qc: 'Periksa paket', gudang: 'Stok per cabang', saran: 'Barang perlu dibeli'
 };
 
 export default {
@@ -32,8 +34,8 @@ export default {
       list.forEach((m) => { const g = m.group || ''; let x = groups.find((y) => y.g === g); if (!x) groups.push((x = { g, items: [] })); x.items.push(m); });
       el.querySelector('#mg').innerHTML = groups.length ? groups.map(({ g, items }) => {
         const [label, c1, c2] = GROUP_STYLE[g] || [g, '#6B706C', '#3A403C'];
-        return `<section class="menu-cat"><h3><i style="background:${c1}"></i>${esc(label)}</h3><div class="menu-grid">${items.map((m) => `<a class="menu-tile" href="#/${m.key}">
-          <span class="mt-ic" style="--c1:${c1};--c2:${c2}">${icon(m.icon, 24, 2.1)}${tabs.has(m.key) ? '<span class="mt-pin" title="Ada di menu bawah"></span>' : ''}</span>
+        return `<section class="menu-cat"><h3><i style="background:${c1}"></i>${esc(label)}</h3><div class="menu-grid">${items.map((m) => `<a class="menu-tile ${m.locked ? 'locked' : ''}" href="#/${m.key}">
+          <span class="mt-ic" style="--c1:${c1};--c2:${c2}">${icon(m.icon, 24, 2.1)}${m.locked ? `<span class="mt-lock" title="Terkunci">${icon('lock', 11, 2.6)}</span>` : tabs.has(m.key) ? '<span class="mt-pin" title="Ada di menu bawah"></span>' : ''}</span>
           <span class="mt-lbl">${esc(m.short || m.label)}</span></a>`).join('')}</div></section>`;
       }).join('') : '<div class="muted small" style="text-align:center;padding:24px">Menu tidak ditemukan.</div>';
     };
