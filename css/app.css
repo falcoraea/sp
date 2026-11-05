@@ -710,3 +710,14 @@ details > summary { cursor: pointer; padding: 6px 0; }
 .sup-tab span { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
 .sup-tab.on { background: var(--ink); color: #fff; border-color: var(--ink); }
 .sup-tab.on span { color: var(--accent); }
+/* 2.9 menu "Lainnya" di HP: ikon per kategori */
+.menu-grid-wrap { display: flex; flex-direction: column; gap: 14px; margin: -4px 0 0; }
+.menu-cat h3 { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin: 0 0 8px 2px; }
+.menu-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 6px; }
+.menu-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; text-decoration: none; color: var(--ink); padding: 4px 2px; border-radius: 12px; -webkit-tap-highlight-color: transparent; }
+.menu-tile:active { background: var(--paper); }
+.mt-ic { width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center; }
+.mt-lbl { font-size: 12px; font-weight: 600; text-align: center; line-height: 1.25; max-width: 100%; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.menu-foot { display: flex; gap: 8px; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 12px; }
+.menu-foot .btn { flex: 1; }
+@media (min-width: 420px) { .menu-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
