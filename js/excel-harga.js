@@ -26,9 +26,10 @@ const sheetName = (s, used) => {
 
 // data: { products, stores, rows (rekap_harian), settings, lastUpload, dateLabel, printedAt }
 // date: 'YYYY-MM-DD' (tanggal resi)
-export function buildHargaBook({ products, stores = [], rows = [], settings = {}, lastUpload = null, date, printedAt }) {
+export function buildHargaBook({ products, stores = [], rows = [], settings = {}, suppliers = [], lastUpload = null, date, printedAt }) {
   const s = settings;
-  const kw = String(s.diskon_set_keyword || 'COMPLETE SET').toUpperCase();
+  const SUPS = suppliers.length ? suppliers : [{ code: 'WIN', name: 'WIN', potongan_5_pct: s.potongan_5_pct ?? 5, diskon_beli_pct: s.diskon_beli_pct ?? 25, diskon_set_pct: s.diskon_set_pct ?? 30, set_keyword: s.diskon_set_keyword || 'COMPLETE SET' }];
+  const supOf = (p) => SUPS.find((x) => x.code === (p.supplier || 'WIN')) || SUPS[0];
   const wb = new Book();
   const st = {
     title: wb.style({ bold: true, size: 13, color: 'FFFFFF', fill: PINK, h: 'center', v: 'center' }),
@@ -55,34 +56,38 @@ export function buildHargaBook({ products, stores = [], rows = [], settings = {}
   const head = (ws, r, labels) => { labels.forEach((l, i) => ws.set(r, i + 1, l, st.head)); ws.height(r, 32); };
 
   // ---------------- tab PRICELIST ----------------
-  const pl = [...products].sort((a, b) => String(a.category || '').localeCompare(String(b.category || '')) || String(a.name).localeCompare(String(b.name)));
-  const ws = wb.sheet('PRICELIST', { cols: [6, 20, 44, 24, 14, 14, 18, 15, 11, 9, 18], freezeRow: PL_HEAD });
-  title(ws, 'PRICELIST WIN TERBARU', 11);
-  ws.merge(2, 1, 2, 11);
+  const sord = (p) => SUPS.indexOf(supOf(p));
+  const pl = [...products].sort((a, b) => sord(a) - sord(b) || String(a.category || '').localeCompare(String(b.category || '')) || String(a.name).localeCompare(String(b.name)));
+  const ws = wb.sheet('PRICELIST', { cols: [6, 20, 44, 24, 11, 14, 14, 18, 15, 11, 9, 18], freezeRow: PL_HEAD });
+  title(ws, 'PRICELIST TERBARU · ' + SUPS.map((x) => x.name).join(' & '), 12);
+  ws.merge(2, 1, 2, 12);
   ws.set(2, 1, `Diunduh ${printedAt || ''}${lastUpload ? ` · pricelist terakhir diupload ${lastUpload}` : ''}`, st.sub);
   const cats = new Set(pl.map((p) => String(p.category || '').trim()).filter(Boolean));
-  const nSet = pl.filter((p) => p.price_group === 'set').length;
   const nShp = pl.filter((p) => Number(p.harga_shopee) > 0).length;
+  const shpTxt = (x) => x.shopee_mode === 'rumus' ? `Shopee +${[Number(x.shopee_plus_pct) ? x.shopee_plus_pct + '%' : '', Number(x.shopee_plus_rp) ? 'Rp' + x.shopee_plus_rp : ''].filter(Boolean).join(' +') || '0'}` : x.shopee_mode === 'file' ? 'Shopee ikut file' : 'Shopee manual';
+  const supRow = (x) => [`${x.name} (beli −${x.diskon_beli_pct}%${x.set_keyword ? ' / ' + x.diskon_set_pct + '%' : ''} · ${shpTxt(x)})`, pl.filter((p) => supOf(p) === x).length, st.valN];
+  const supRows = SUPS.slice(0, 2).map(supRow);
+  while (supRows.length < 2) supRows.push(['', null, st.valN]);
   const sum = [
     ['Jumlah barang', pl.length, st.valN, 'Jumlah kategori / bagian', cats.size, st.valN],
-    [`Bagian ${kw} (diskon beli ${s.diskon_set_pct ?? 30}%)`, nSet, st.valN, `Barang biasa (diskon beli ${s.diskon_beli_pct ?? 25}%)`, pl.length - nSet, st.valN],
+    [...supRows[0], ...supRows[1]],
     ['Sudah ada harga Shopee', nShp, st.valN, 'Belum ada harga Shopee', pl.length - nShp, st.valN],
     ['Harga dikunci owner', pl.filter((p) => p.price_locked).length, st.valN, 'Modal kosong (harga beli Rp0)', pl.filter((p) => !Number(p.harga_beli)).length, st.valN],
-    ['Total Macallan (1 pcs tiap barang)', pl.reduce((a, p) => a + Number(p.macallan || 0), 0), st.valRp, 'Potongan harga 5% · est. potongan Shopee', `${s.potongan_5_pct ?? 5}% · ${s.shopee_fee_pct ?? 0}%`, st.valT]
+    ['Total Macallan (1 pcs tiap barang)', pl.reduce((a, p) => a + Number(p.macallan || 0), 0), st.valRp, 'Est. potongan Shopee sebelum dana cair', `${s.shopee_fee_pct ?? 0}%`, st.valT]
   ];
   sum.forEach(([l1, v1, s1, l2, v2, s2], i) => { summary(ws, 3 + i, 2, 3, 4, l1, v1, s1); summary(ws, 3 + i, 5, 7, 8, l2, v2, s2); });
-  head(ws, PL_HEAD, ['NO', 'KODE', 'KETERANGAN', 'KATEGORI', 'MACALLAN', 'HARGA 5%', 'HARGA BELI (25-30%)', 'HARGA SHOPEE', 'DISKON BELI', 'DIKUNCI', 'KODE TANPA STRIP']);
+  head(ws, PL_HEAD, ['NO', 'KODE', 'KETERANGAN', 'KATEGORI', 'SUPPLIER', 'MACALLAN', 'HARGA 5%', 'HARGA BELI', 'HARGA SHOPEE', 'DISKON BELI', 'DIKUNCI', 'KODE TANPA STRIP']);
   const cN = cs({ h: 'center' }), cT = cs({ fmt: '@' }), cTx = cs({}), cR = cs({ fmt: RP }), cRz = cs({ fmt: RP, fill: RED_SOFT }), cP = cs({ fmt: '0%', h: 'center' });
   pl.forEach((p, i) => {
     const r = PL_HEAD + 1 + i;
-    const d = p.diskon_pct ?? (p.price_group === 'set' ? (s.diskon_set_pct ?? 30) : (s.diskon_beli_pct ?? 25));
-    ws.set(r, 1, i + 1, cN); ws.set(r, 2, String(p.sku || ''), cT); ws.set(r, 3, p.name || '', cTx); ws.set(r, 4, p.category || '', cTx);
-    ws.set(r, 5, Number(p.macallan || 0), cR); ws.set(r, 6, Number(p.harga_5 || 0), cR); ws.set(r, 7, Number(p.harga_beli || 0), Number(p.harga_beli) ? cR : cRz);
-    ws.set(r, 8, Number(p.harga_shopee || 0), cR); ws.set(r, 9, Number(d) / 100, cP); ws.set(r, 10, p.price_locked ? 'YA' : '', cN);
-    ws.set(r, 11, normKey(p.sku), st.keyCol);   // dipakai pencarian: kode dengan / tanpa strip dianggap sama
+    const R = supOf(p), d = p.diskon_pct ?? (p.price_group === 'set' ? Number(R.diskon_set_pct) : Number(R.diskon_beli_pct));
+    ws.set(r, 1, i + 1, cN); ws.set(r, 2, String(p.sku || ''), cT); ws.set(r, 3, p.name || '', cTx); ws.set(r, 4, p.category || '', cTx); ws.set(r, 5, R.name, cN);
+    ws.set(r, 6, Number(p.macallan || 0), cR); ws.set(r, 7, Number(p.harga_5 || 0), cR); ws.set(r, 8, Number(p.harga_beli || 0), Number(p.harga_beli) ? cR : cRz);
+    ws.set(r, 9, Number(p.harga_shopee || 0), cR); ws.set(r, 10, Number(d || 0) / 100, cP); ws.set(r, 11, p.price_locked ? 'YA' : '', cN);
+    ws.set(r, 12, normKey(p.sku), st.keyCol);   // dipakai pencarian: kode dengan / tanpa strip dianggap sama
   });
   const plLast = PL_HEAD + Math.max(1, pl.length);
-  ws.autoFilter(PL_HEAD, 1, plLast, 11);
+  ws.autoFilter(PL_HEAD, 1, plLast, 12);
   const PLC = (col) => `PRICELIST!$${col}$${PL_HEAD + 1}:$${col}$${plLast}`;
 
   // ---------------- daftar tanggal (tab tersembunyi) untuk pilihan tanggal di judul tab toko ----------------
@@ -149,12 +154,12 @@ export function buildHargaBook({ products, stores = [], rows = [], settings = {}
       const key = `SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(UPPER(TRIM($C${r}&"")),"-","")," ",""),".",""),"/","")`;
       const qty = `IF($E${r}="",1,$E${r})`;
       const look = (col) => ({ f: `IF($C${r}="","",IF($M${r}=0,0,INDEX(${PLC(col)},$M${r})*${qty}))`, v: '' });
-      sh.set(r, 13, { f: `IF($C${r}="","",IFERROR(MATCH(${key},${PLC('K')},0),IF(LEN(${key})>6,IFERROR(MATCH(LEFT(${key},LEN(${key})-1),${PLC('K')},0),0),0)))`, v: '' });
+      sh.set(r, 13, { f: `IF($C${r}="","",IFERROR(MATCH(${key},${PLC('L')},0),IF(LEN(${key})>6,IFERROR(MATCH(LEFT(${key},LEN(${key})-1),${PLC('L')},0),0),0)))`, v: '' });
       sh.set(r, 1, { f: `IF($B${r}="","",COUNTA($B$${first}:$B${r}))`, v: '' }, grey.n);
       sh.set(r, 2, null, norm.t); sh.set(r, 3, null, norm.t);
       sh.set(r, 4, { f: `IF($C${r}="","",IF($M${r}=0,"KODE TIDAK ADA DI PRICELIST",INDEX(${PLC('C')},$M${r})))`, v: '' }, grey.x);
       sh.set(r, 5, null, norm.n);
-      ['E', 'F', 'G', 'H'].forEach((col, j) => sh.set(r, 6 + j, look(col), grey.r));
+      ['F', 'G', 'H', 'I'].forEach((col, j) => sh.set(r, 6 + j, look(col), grey.r));
       sh.set(r, 10, null, norm.r);
       sh.set(r, 11, { f: `IF($J${r}="","",$J${r}-$H${r})`, v: '' }, grey.r);
       sh.set(r, 12, null, norm.n);
@@ -179,7 +184,7 @@ export function buildHargaBook({ products, stores = [], rows = [], settings = {}
   return { wb, stores: groups.size, products: pl.length, resi: new Set(rows.map((x) => x.order_id)).size, colName };
 }
 
-export async function downloadHargaExcel({ date, products }) {
+export async function downloadHargaExcel({ date, products, suppliers = [] }) {
   const [{ supa, rpc }, { store }, ui] = await Promise.all([import('./supa.js'), import('./store.js'), import('./ui.js')]);
   const [{ data: stores, error: e1 }, { data: lastPl }, rows] = await Promise.all([
     supa.from('stores').select('id, name, active').order('sort').order('name'),
@@ -189,7 +194,7 @@ export async function downloadHargaExcel({ date, products }) {
   if (e1) throw e1;
   const lu = lastPl?.[0];
   const out = buildHargaBook({
-    products, stores: stores || [], rows: rows || [], settings: store.settings || {},
+    products, stores: stores || [], rows: rows || [], settings: store.settings || {}, suppliers,
     lastUpload: lu ? ui.fmtDate(lu.created_at) + (lu.filename ? ` (${lu.filename})` : '') : null,
     date,
     printedAt: ui.fmtDateTime(new Date())
