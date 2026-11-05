@@ -79,53 +79,75 @@ export default {
 };
 
 // ---------- notifikasi Telegram (owner) ----------
-const TG_CATS = [['tagihan', 'Tagihan aplikasi', 'tagihan baru, pengingat jatuh tempo, pembayaran diterima'], ['masalah', 'Masalah & kecurangan', 'barang hilang, kirim tanpa packing, harga janggal, dll.'], ['tugas', 'Tugas', 'daftar ambil, barang WIN datang, upload, dll. (bisa ramai)'], ['info', 'Info & pengumuman', 'info umum dari sistem']];
+// Bot milik pembuat aplikasi (diatur super admin). Owner cukup menekan Hubungkan lalu Start di Telegram.
+const TG_CATS = [['tagihan', 'Tagihan aplikasi', 'tagihan baru, pengingat jatuh tempo, pembayaran diterima', true], ['masalah', 'Masalah & kecurangan', 'barang hilang, kirim tanpa packing, harga janggal, dll.'], ['tugas', 'Tugas', 'daftar ambil, barang WIN datang, upload, dll. (bisa ramai)'], ['info', 'Info & pengumuman', 'info umum dari sistem']];
+const wait = (ms) => new Promise((ok) => setTimeout(ok, ms));
 async function telegramUI(box) {
   let st;
-  try { st = await rpc('tg_status'); } catch (e) { box.innerHTML = `<h2 class="sec-title">${icon('send', 18)} Notifikasi Telegram</h2><div class="alert yellow small">Jalankan <b>supabase/update-2.5.sql</b> dulu. (${esc(e.message)})</div>`; return; }
+  try { st = await rpc('tg_status'); } catch (e) { box.innerHTML = `<h2 class="sec-title">${icon('send', 18)} Notifikasi Telegram</h2><div class="alert yellow small">Jalankan <b>supabase/update-2.6.sql</b> dulu. (${esc(e.message)})</div>`; return; }
   st = st || { prefs: {} };
+  const ready = st.token_set && st.bot;
+  // kode sambung disiapkan dulu supaya tombol berupa link biasa (tidak diblokir browser / langsung membuka aplikasi Telegram)
+  let link = null;
+  if (ready) link = await rpc('tg_link_start', { p_app_url: location.origin + location.pathname }).catch(() => null);
   box.innerHTML = `<h2 class="sec-title">${icon('send', 18)} Notifikasi Telegram</h2>
     <div class="small muted">Notifikasi penting dikirim juga ke Telegram owner (pribadi atau grup), selain lonceng & notifikasi HP.</div>
-    <details ${st.token_set ? '' : 'open'}><summary style="cursor:pointer;font-weight:600">Cara menyiapkan (5 menit, dari HP)</summary>
-      <ol class="small" style="line-height:1.8;margin:8px 0 0;padding-left:20px">
-        <li>Buka Telegram, cari <b>@BotFather</b>, kirim <span class="mono">/newbot</span>, beri nama bot (mis. Gudang Notif). Salin <b>token</b> yang diberikan.</li>
-        <li>Buka bot baru itu lalu tekan <b>Start</b> (wajib, supaya bot boleh mengirim pesan).</li>
-        <li><b>Chat ID pribadi:</b> cari <b>@userinfobot</b>, tekan Start, salin angka <b>Id</b>.<br><b>Untuk grup:</b> masukkan bot ke grup, kirim pesan di grup, lalu masukkan <b>@RawDataBot</b> ke grup: salin angka <span class="mono">"chat": {"id": -100…}</span> (diawali minus), lalu keluarkan @RawDataBot.</li>
-        <li>Tempel token & chat ID di bawah, simpan, lalu tekan <b>Kirim tes</b>.</li></ol></details>
-    <div class="list-item" style="padding:0;border:0"><div class="grow"><b>Kirim ke Telegram</b></div><label class="switch"><input type="checkbox" id="tg-on" ${st.enabled ? 'checked' : ''} aria-label="Kirim ke Telegram"><span></span></label></div>
-    <div class="grid gauto fields-end">
-      <label class="field">Token bot ${st.token_set ? '<span class="tag green">tersimpan</span>' : ''}<input class="input mono" id="tg-token" type="password" autocomplete="off" placeholder="${st.token_set ? 'kosongkan = tetap pakai token lama' : '123456789:AAH…'}"></label>
-      <label class="field">Chat ID (pribadi / grup)<input class="input mono" id="tg-chat" value="${esc(st.chat_id || '')}" placeholder="mis. 123456789 atau -100…"></label>
-    </div>
+    ${!ready ? '<div class="alert yellow small">Bot Telegram belum disiapkan oleh pembuat aplikasi. Hubungi pembuat aplikasi.</div>' : `
+    <div class="tg-status ${st.chat_id ? 'on' : ''}">${icon(st.chat_id ? 'check' : 'send', 18)}<div class="grow"><b>${st.chat_id ? 'Terhubung' : 'Belum terhubung'}</b><div class="small">${st.chat_id ? esc(st.chat_name || 'Chat ID ' + st.chat_id) + ' · lewat bot @' + esc(st.bot) : 'Tekan tombol di bawah, lalu tekan <b>Start / Mulai</b> di Telegram.'}</div></div></div>
+    ${link ? `<div class="row wrap"><a class="btn btn-primary" target="_blank" rel="noopener" href="https://t.me/${esc(link.bot)}?start=${esc(link.code)}" data-tglink="start">${icon('send', 16)} ${st.chat_id ? 'Hubungkan ulang (pribadi)' : 'Hubungkan ke Telegram saya'}</a><a class="btn" target="_blank" rel="noopener" href="https://t.me/${esc(link.bot)}?startgroup=${esc(link.code)}" data-tglink="startgroup">${icon('users', 16)} Hubungkan ke grup</a></div>` : ''}
+    <div class="small" id="tg-link-st"></div>
     <div class="small" style="font-weight:600">Kirim kategori:</div>
-    <div class="grid g2">${TG_CATS.map(([k, l, d]) => `<label class="check" style="align-items:flex-start"><input type="checkbox" data-tgc="${k}" ${st.prefs?.[k] ? 'checked' : ''}><span><b>${l}</b><div class="xs muted">${d}</div></span></label>`).join('')}</div>
+    <div class="grid g2">${TG_CATS.map(([k, l, d, must]) => `<label class="check" style="align-items:flex-start"><input type="checkbox" data-tgc="${k}" ${must || st.prefs?.[k] ? 'checked' : ''} ${must ? 'disabled' : ''}><span><b>${l}</b>${must ? ' <span class="tag">wajib</span>' : ''}<div class="xs muted">${d}</div></span></label>`).join('')}</div>
+    <details><summary class="small" style="cursor:pointer">Isi chat ID manual</summary>
+      <label class="field" style="margin-top:8px">Chat ID (pribadi / grup)<input class="input mono" id="tg-chat" value="${esc(st.chat_id || '')}" placeholder="mis. 123456789 atau -100…"></label></details>
     ${st.net === false ? '<div class="alert yellow small">Pengiriman dari server (pg_net) belum aktif. Aktifkan di Supabase › Database › Extensions › pg_net.</div>' : ''}
-    <div class="row wrap between"><span class="small" id="tg-res"></span><div class="row wrap">${st.token_set ? '<button class="btn btn-ghost btn-sm" id="tg-del" style="color:var(--red)">Hapus token</button>' : ''}<button class="btn" id="tg-test">Kirim tes</button><button class="btn btn-primary" id="tg-save">Simpan Telegram</button></div></div>`;
+    <div class="row wrap between"><span class="small" id="tg-res"></span><div class="row wrap">${st.chat_id ? '<button class="btn btn-ghost btn-sm" id="tg-del" style="color:var(--red)">Putuskan</button><button class="btn" id="tg-test">Kirim tes</button>' : ''}<button class="btn btn-dark" id="tg-save">Simpan</button></div></div>`}`;
+  if (!ready) return;
   const prefs = () => Object.fromEntries(TG_CATS.map(([k]) => [k, box.querySelector(`[data-tgc="${k}"]`).checked]));
-  const save = async (token) => rpc('tg_save', { p_token: token, p_chat: box.querySelector('#tg-chat').value.trim(), p_enabled: box.querySelector('#tg-on').checked, p_prefs: prefs(), p_app_url: location.origin + location.pathname });
+  const appUrl = location.origin + location.pathname;
   box.querySelector('#tg-save').onclick = async (e) => {
     e.target.disabled = true;
-    try { await save(box.querySelector('#tg-token').value.trim() || null); toast('Pengaturan Telegram tersimpan', 'ok'); telegramUI(box); } catch (err) { toastErr(err); } finally { e.target.disabled = false; }
+    try { await rpc('tg_save', { p_chat: box.querySelector('#tg-chat').value.trim(), p_prefs: prefs(), p_app_url: appUrl }); toast('Pengaturan Telegram tersimpan', 'ok'); telegramUI(box); } catch (err) { toastErr(err); } finally { e.target.disabled = false; }
   };
   box.querySelector('#tg-del')?.addEventListener('click', async () => {
-    if (!(await confirmBox('Hapus token bot?', 'Notifikasi Telegram berhenti dikirim.', 'Hapus', true))) return;
-    try { await rpc('tg_save', { p_token: '', p_chat: null, p_enabled: false, p_prefs: prefs() }); telegramUI(box); } catch (err) { toastErr(err); }
+    if (!(await confirmBox('Putuskan Telegram?', 'Notifikasi (termasuk tagihan) berhenti dikirim ke Telegram.', 'Putuskan', true))) return;
+    try { await rpc('tg_save', { p_chat: '', p_prefs: prefs() }); telegramUI(box); } catch (err) { toastErr(err); }
   });
-  box.querySelector('#tg-test').onclick = async (e) => {
+  // Hubungkan: buka bot dengan kode, lalu cek berkala sampai pesan /start <kode> diterima
+  let polling = false;
+  box.querySelectorAll('[data-tglink]').forEach((b) => b.addEventListener('click', async () => {
+    const out = box.querySelector('#tg-link-st');
+    if (polling) return; polling = true;
+    try {
+      out.className = 'small muted';
+      out.innerHTML = b.dataset.tglink === 'startgroup'
+        ? 'Telegram terbuka: pilih grupnya, tambahkan bot, lalu kembali ke sini. Menunggu…'
+        : 'Telegram terbuka: tekan <b>Start / Mulai</b>, lalu kembali ke sini. Menunggu…';
+      for (let i = 0; i < 40; i++) {
+        await wait(i < 3 ? 4000 : 3000);
+        if (!box.isConnected) return;
+        const id = await rpc('tg_link_poll');
+        let r = { done: false };
+        for (let k = 0; k < 5 && !r.done; k++) { await wait(900); r = await rpc('tg_link_result', { p_id: id }); }
+        if (r.linked) { toast('Telegram terhubung: ' + (r.chat_name || r.chat_id), 'ok'); await rpc('tg_save', { p_chat: r.chat_id, p_prefs: prefs(), p_app_url: appUrl }).catch(() => {}); telegramUI(box); return; }
+        if (r.error) { out.className = 'small neg'; out.textContent = 'Gagal: ' + r.error; if (/kedaluwarsa/.test(r.error)) telegramUI(box); return; }
+      }
+      out.className = 'small neg'; out.textContent = 'Belum ada balasan dari Telegram. Pastikan sudah menekan Start, lalu tekan Hubungkan lagi.';
+    } catch (err) { toastErr(err); } finally { polling = false; }
+  }));
+  box.querySelector('#tg-test')?.addEventListener('click', async (e) => {
     const res = box.querySelector('#tg-res');
     e.target.disabled = true; res.textContent = 'Mengirim…'; res.className = 'small muted';
     try {
-      if (box.querySelector('#tg-token').value.trim() || box.querySelector('#tg-chat').value.trim() !== (st.chat_id || '')) await save(box.querySelector('#tg-token').value.trim() || null);
       const id = await rpc('tg_test');
       let r = { done: false };
-      for (let i = 0; i < 6 && !r.done; i++) { await new Promise((ok) => setTimeout(ok, 1200)); r = await rpc('tg_result', { p_id: id }); }
+      for (let i = 0; i < 6 && !r.done; i++) { await wait(1200); r = await rpc('tg_result', { p_id: id }); }
       if (!r.done) { res.textContent = 'Terkirim ke server. Cek Telegram dalam beberapa detik.'; return; }
       let tg = {}; try { tg = JSON.parse(r.content || '{}'); } catch (_) {}
       if (r.status === 200 && tg.ok) { res.textContent = '✓ Berhasil. Cek Telegram.'; res.className = 'small pos'; return; }
       const d = String(tg.description || r.error || 'status ' + r.status);
       res.className = 'small neg';
-      res.textContent = /chat not found/i.test(d) ? 'Gagal: chat ID salah, atau bot belum di-Start / belum dimasukkan ke grup.'
-        : /unauthorized/i.test(d) ? 'Gagal: token bot salah.' : /blocked/i.test(d) ? 'Gagal: bot diblokir. Buka bot lalu tekan Start lagi.' : 'Gagal: ' + d;
+      res.textContent = /chat not found/i.test(d) ? 'Gagal: chat tidak ditemukan. Tekan Hubungkan lagi.' : /blocked|kicked/i.test(d) ? 'Gagal: bot diblokir / dikeluarkan dari grup. Hubungkan lagi.' : 'Gagal: ' + d;
     } catch (err) { res.textContent = ''; toastErr(err); } finally { e.target.disabled = false; }
-  };
+  });
 }
