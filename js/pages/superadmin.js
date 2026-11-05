@@ -5,6 +5,7 @@ import { store } from '../store.js';
 import { esc, num, rp, toast, toastErr, icon, modal, on, parseNum, todayStr, addDays, confirmBox, promptBox } from '../ui.js';
 import { pushPermission, subscribePush, sendTestPush, pushSupported } from '../push.js';
 import { CURRENT, deviceLabel, fetchLatest } from '../version.js';
+import { loadModules, modStatus } from '../modules.js';
 
 // Menu khusus super admin: alat teknis. Tidak terlihat oleh jabatan lain.
 export default {
@@ -19,6 +20,7 @@ export default {
         <div class="small" id="pst"></div></section>
       <section class="card stack" id="billing"><h2 class="sec-title">${icon('receipt', 18)} Tagihan &amp; pembayaran (Mayar)</h2><div class="skeleton" style="height:120px"></div></section>
       <section class="card flush" id="bills"></section>
+      <section class="card flush" id="mods"></section>
       <section class="card stack" id="tgbot"></section>
       <section class="card stack danger-zone"><h2 class="sec-title" style="color:var(--red)">${icon('alert', 18)} Hapus semua data</h2>
         <div class="small">Menghapus <b>semua</b> barang, harga, rak, stok, pesanan, upload, beli WIN, retur, opname, notifikasi, kecurangan, log, absen, gaji, biaya, dan pengumuman.<br>
@@ -78,7 +80,7 @@ export default {
     };
     el.querySelector('#preg').onclick = async () => { try { await subscribePush(); toast('Perangkat terdaftar', 'ok'); loadInfo(); } catch (err) { toastErr(err); } };
     loadInfo();
-    loadBilling = billingUI(el); loadBilling(); tgBotUI(el.querySelector('#tgbot'));
+    loadBilling = billingUI(el); loadBilling(); modsUI(el.querySelector('#mods')); tgBotUI(el.querySelector('#tgbot'));
   }
 };
 
@@ -201,4 +203,33 @@ async function tgBotUI(box) {
     if (!u) return toast('Isi username bot', 'err');
     try { await rpc('sa_tg_bot', { p_token: box.querySelector('#sb-token').value.trim() || null, p_username: u }); toast('Bot tersimpan', 'ok'); tgBotUI(box); } catch (e) { toastErr(e); }
   };
+}
+
+// ---------- menu & jabatan tambahan: harga, masa aktif, buka / kunci manual ----------
+async function modsUI(box) {
+  const mods = Object.values(await loadModules());
+  if (!mods.length) { box.innerHTML = `<div class="card-h"><h2>${icon('lock', 18)} Menu tambahan</h2></div><div class="alert yellow small" style="margin:0 16px 16px">Jalankan <b>supabase/update-2.13.sql</b> dulu.</div>`; return; }
+  box.innerHTML = `<div class="card-h"><h2>${icon('lock', 18)} Menu &amp; jabatan tambahan</h2></div>
+    <div class="small muted" style="padding:0 16px 8px">Atur harga & cara bayar setiap menu. Owner melihat menu bergembok dan bisa membukanya sendiri lewat Mayar. Harga 0 = tidak dijual (hanya bisa dibuka manual di sini).</div>
+    <div class="table-wrap"><table class="tbl" style="min-width:760px"><thead><tr><th>Menu / jabatan</th><th>Status</th><th class="right">Harga</th><th>Bayar</th><th></th></tr></thead><tbody>
+    ${mods.map((m) => { const [st, cls] = modStatus(m); return `<tr data-m="${esc(m.code)}"><td><b>${esc(m.name)}</b><div class="xs muted">${m.kind === 'jabatan' ? 'Jabatan' : 'Menu'} · ${esc(m.code)}</div></td>
+      <td><span class="tag ${cls}">${esc(st)}</span></td>
+      <td><input class="input num" data-price inputmode="numeric" data-money value="${num(m.price)}" style="width:120px;min-height:36px"></td>
+      <td><select class="input" data-period style="min-height:36px;width:auto"><option value="bulanan" ${m.period === 'bulanan' ? 'selected' : ''}>Bulanan</option><option value="sekali" ${m.period === 'sekali' ? 'selected' : ''}>Sekali bayar</option></select></td>
+      <td><div class="row" style="justify-content:flex-end;flex-wrap:nowrap"><button class="btn btn-sm btn-primary" data-save>Simpan</button><button class="btn btn-sm" data-acc>Akses…</button></div></td></tr>`; }).join('')}</tbody></table></div>`;
+  box.querySelectorAll('[data-save]').forEach((b) => b.addEventListener('click', async () => {
+    const tr = b.closest('tr');
+    try { await rpc('sa_module_save', { p: { code: tr.dataset.m, price: parseNum(tr.querySelector('[data-price]').value), period: tr.querySelector('[data-period]').value } }); toast('Tersimpan', 'ok'); } catch (e) { toastErr(e); }
+  }));
+  box.querySelectorAll('[data-acc]').forEach((b) => b.addEventListener('click', async () => {
+    const code = b.closest('tr').dataset.m, m = mods.find((x) => x.code === code);
+    const r = await modal({ title: 'Akses: ' + m.name, body: `<div class="stack"><div class="small">Status sekarang: <b>${esc(modStatus(m)[0])}</b></div>
+        <label class="field">Buka sampai tanggal<input class="input" type="date" id="mu" value="${m.active_until && m.active_until > todayStr() ? m.active_until : addDays(todayStr(), 30)}"></label>
+        <div class="xs muted">Dipakai untuk masa coba gratis, pembayaran di luar Mayar, atau kompensasi. Semua perubahan tercatat di log.</div></div>`,
+      actions: [{ label: 'Kunci', cls: 'btn-ghost', value: 'kunci' }, { label: 'Buka selamanya', value: 'selamanya' }, { label: 'Buka sampai tanggal', cls: 'btn-primary', onClick: (ov) => 'sampai:' + ov.querySelector('#mu').value }] });
+    if (!r) return;
+    const [act, until] = r.split(':');
+    if (act === 'kunci' && !await confirmBox('Kunci ' + m.name + '?', 'Menu ini langsung terkunci untuk owner & pegawai. Data tidak dihapus.', 'Kunci', true)) return;
+    try { await rpc('sa_module_access', { p_code: code, p_action: act, p_until: until || null }); toast('Akses diperbarui', 'ok'); modsUI(box); } catch (e) { toastErr(e); }
+  }));
 }
