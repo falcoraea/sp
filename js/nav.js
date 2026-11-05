@@ -23,6 +23,7 @@ export const PAGES = {
   log:        { label: 'Log aktivitas', short: 'Log', icon: 'clock', roles: ['owner'], group: 'Pengaturan' },
   pengumuman: { label: 'Pengumuman', short: 'Info', icon: 'bell', roles: ['owner'], group: 'Pengaturan' },
   pengaturan: { label: 'Pengaturan', icon: 'gear', roles: ['owner'], group: 'Pengaturan' },
+  tagihan:    { label: 'Tagihan', icon: 'receipt', roles: ['owner'], group: 'Pengaturan' },
   absen:      { label: 'Absen', icon: 'clock', roles: ['admin', 'sopir', 'kepala_gudang', 'picker', 'packing'], group: 'Saya' },
   notifikasi: { label: 'Notifikasi', icon: 'bell', roles: ['*'], group: 'Saya', hidden: true },
   'pengaturan-scanner': { label: 'Pengaturan scanner', short: 'Scanner', icon: 'scan', roles: ['*'], group: 'Saya' },
