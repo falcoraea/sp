@@ -339,6 +339,8 @@ async function billBar() {
   } catch (_) {}
 }
 
+// bar atas HP: garis tipis muncul saat halaman digulir
+addEventListener('scroll', () => document.querySelector('.topbar')?.classList.toggle('scrolled', scrollY > 4), { passive: true });
 const FREE_PAGES = ['akun', 'panduan', 'notifikasi', 'pengaturan-scanner', 'menu', 'superadmin'];
 async function route() {
   const hash = location.hash.replace(/^#\/?/, '');
