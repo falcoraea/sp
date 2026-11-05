@@ -917,3 +917,12 @@ body { touch-action: pan-x pan-y; overscroll-behavior-y: none; }
   .kin-score { font-size: 20px; }
   .ev-pack img, .ev-nophoto { width: 96px; height: 96px; }
 }
+
+/* ===== 2.14: menu super admin sendiri ===== */
+.sa-bar .btn.btn-ghost { background: transparent; color: #fff; border: 1.5px solid rgba(255,255,255,.6); }
+.sa-bar span { margin-right: auto; }
+.sa-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.card.sa-tile { display: flex; gap: 12px; align-items: center; text-decoration: none; color: inherit; transition: border-color .15s, transform .15s; }
+.card.sa-tile:hover { border-color: #A63A2A; transform: translateY(-1px); }
+.sa-ic { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; flex: none; color: #fff; background: linear-gradient(160deg, #E2614C, #8A2E20); box-shadow: 0 6px 14px rgba(138,46,32,.25); }
+@media (min-width: 900px) { .sa-grid { grid-template-columns: repeat(3, 1fr); } }
