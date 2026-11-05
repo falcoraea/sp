@@ -287,8 +287,8 @@ export const pageHead = (title, desc = '', actions = '') =>
 export function chips(name, options, current) {
   return `<div class="chips scroll" data-chips="${name}">${options.map(([v, l]) => `<button class="chip ${v === current ? 'on' : ''}" data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div>`;
 }
-export const ROLE_LABEL = { owner: 'Owner', admin: 'Admin', sopir: 'Sopir', kepala_gudang: 'Kepala Gudang', picker: 'Picker', packing: 'Packing', pending: 'Menunggu', sistem: 'Sistem', superadmin: 'Super admin' };
-export const ROLE_COLOR = { owner: '#1A1D1B', admin: '#5B3E9A', sopir: '#1B4280', kepala_gudang: '#17563A', picker: '#6B4A00', packing: '#8A2E20', sistem: '#6B6F6A', superadmin: '#A63A2A' };
+export const ROLE_LABEL = { owner: 'Owner', admin: 'Admin', sopir: 'Sopir', kepala_gudang: 'Kepala Gudang', picker: 'Picker', packing: 'Packing', keuangan: 'Keuangan', supervisor: 'Supervisor Gudang', qc: 'QC', cs: 'CS Marketplace', marketing: 'Marketing', pending: 'Menunggu', sistem: 'Sistem', superadmin: 'Super admin' };
+export const ROLE_COLOR = { owner: '#1A1D1B', admin: '#5B3E9A', sopir: '#1B4280', kepala_gudang: '#17563A', picker: '#6B4A00', packing: '#8A2E20', keuangan: '#8A6A00', supervisor: '#0F4A40', qc: '#2E5E8C', cs: '#9A3D6B', marketing: '#B5562A', sistem: '#6B6F6A', superadmin: '#A63A2A' };
 export const STATUS_LABEL = {
   baru: ['Baru', ''], menunggu_win: ['Menunggu WIN', 'yellow'], siap_pick: ['Siap diambil', 'blue'], siap_packing: ['Siap packing', 'blue'],
   dikirim: ['Dikirim', 'green'], selesai: ['Selesai', 'green'], cancel: ['Cancel', 'red'], retur: ['Retur', 'red']
