@@ -710,14 +710,52 @@ details > summary { cursor: pointer; padding: 6px 0; }
 .sup-tab span { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
 .sup-tab.on { background: var(--ink); color: #fff; border-color: var(--ink); }
 .sup-tab.on span { color: var(--accent); }
-/* 2.9 menu "Lainnya" di HP: ikon per kategori */
-.menu-grid-wrap { display: flex; flex-direction: column; gap: 14px; margin: -4px 0 0; }
-.menu-cat h3 { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin: 0 0 8px 2px; }
-.menu-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 6px; }
-.menu-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; text-decoration: none; color: var(--ink); padding: 4px 2px; border-radius: 12px; -webkit-tap-highlight-color: transparent; }
-.menu-tile:active { background: var(--paper); }
-.mt-ic { width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center; }
-.mt-lbl { font-size: 12px; font-weight: 600; text-align: center; line-height: 1.25; max-width: 100%; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.menu-foot { display: flex; gap: 8px; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 12px; }
+/* 2.10 halaman "Lainnya": ikon per kategori bergaya 3D */
+.menu-page { max-width: 760px; }
+.menu-search { border-radius: 14px; }
+.menu-cat { background: var(--card); border-radius: 18px; padding: 14px 10px 10px; border: 1px solid var(--line); box-shadow: 0 6px 18px rgba(26,29,27,.06); }
+.menu-cat h3 { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; margin: 0 0 12px 6px; color: var(--ink); }
+.menu-cat h3 i { width: 4px; height: 16px; border-radius: 4px; }
+.menu-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 4px; }
+@media (min-width: 560px) { .menu-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); } }
+.menu-tile { display: flex; flex-direction: column; align-items: center; gap: 7px; text-decoration: none; color: var(--ink); padding: 2px; border-radius: 14px; -webkit-tap-highlight-color: transparent; }
+.mt-ic { position: relative; width: 56px; height: 56px; border-radius: 18px; display: grid; place-items: center; color: #fff;
+  background: linear-gradient(145deg, var(--c1), var(--c2));
+  box-shadow: 0 9px 16px -8px var(--c2), 0 2px 4px rgba(26,29,27,.12), inset 0 2px 0 rgba(255,255,255,.35), inset 0 -3px 0 rgba(0,0,0,.16);
+  transition: transform .12s, box-shadow .12s; }
+.mt-ic::before { content: ''; position: absolute; inset: 3px 6px auto; height: 45%; border-radius: 14px 14px 30px 30px; background: linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,0)); pointer-events: none; }
+.mt-ic svg { position: relative; filter: drop-shadow(0 1px 1px rgba(0,0,0,.28)); }
+.menu-tile:active .mt-ic, .menu-tile:hover .mt-ic { transform: translateY(1px) scale(.97); }
+.mt-pin { position: absolute; top: -3px; right: -3px; width: 11px; height: 11px; border-radius: 99px; background: var(--accent); border: 2px solid #fff; }
+.mt-lbl { font-size: 12px; font-weight: 700; text-align: center; line-height: 1.25; max-width: 100%; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.menu-foot { display: flex; gap: 8px; }
 .menu-foot .btn { flex: 1; }
-@media (min-width: 420px) { .menu-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+
+/* 2.10 bar atas HP: nama & jabatan menonjol, nama menu kecil */
+.tb-id { display: none; }
+@media (max-width: 899px) {
+  .topbar { background: radial-gradient(130% 150% at 0% 0%, #3B443F 0%, #1A1D1B 55%, #121513 100%); padding-bottom: 16px; }
+  .topbar .tb-bill, .topbar .t-sub { display: none; }
+  .tb-id { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .tb-id b { font-size: 17px; font-weight: 800; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .role-pill { flex: none; font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; padding: 3px 9px; border-radius: 99px; color: var(--ink);
+    background: linear-gradient(180deg, #FFD461, #F2B01E); box-shadow: 0 2px 8px rgba(242,176,30,.4), inset 0 1px 0 rgba(255,255,255,.55); }
+  .topbar h1 { font-size: 13px; font-weight: 600; color: #C9CCC8; margin-top: 3px; display: flex; align-items: center; gap: 6px; }
+  .topbar h1::before { content: ''; width: 6px; height: 6px; border-radius: 99px; background: var(--accent); flex: none; box-shadow: 0 0 0 3px rgba(242,176,30,.2); }
+  .tb-logo { width: 46px; height: 46px; border-radius: 15px; font-size: 16px; position: relative; background: linear-gradient(145deg, #FFD461, #E39A08);
+    box-shadow: 0 6px 14px rgba(227,154,8,.38), inset 0 2px 0 rgba(255,255,255,.5), inset 0 -3px 0 rgba(0,0,0,.12); }
+  .tb-logo.has-bill::after { content: ''; position: absolute; top: -3px; right: -3px; width: 13px; height: 13px; border-radius: 99px; background: var(--dot); border: 2px solid #1A1D1B; }
+  .topbar .icon-btn { background: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.06)); box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 3px 8px rgba(0,0,0,.25); }
+
+  /* bar menu bawah melayang dengan ikon timbul */
+  .tabbar { left: 10px; right: 10px; bottom: calc(8px + var(--safe-b)); padding: 8px 4px 7px; border-radius: 24px; border: 1px solid rgba(26,29,27,.06);
+    background: rgba(255,255,255,.97); box-shadow: 0 14px 34px rgba(26,29,27,.2), 0 3px 8px rgba(26,29,27,.08); }
+  .tab { gap: 4px; color: #6B706C; }
+  .tab .ic { padding: 7px; border-radius: 14px; color: #2A2E2B; background: linear-gradient(180deg, #FFFFFF, #ECEAE4);
+    box-shadow: 0 3px 7px rgba(26,29,27,.13), inset 0 1px 0 #fff, inset 0 -2px 0 rgba(26,29,27,.06); transition: transform .15s, box-shadow .15s; }
+  .tab.on .ic { color: var(--ink); background: linear-gradient(180deg, #FFD461, #E39A08); transform: translateY(-4px);
+    box-shadow: 0 8px 14px rgba(227,154,8,.45), inset 0 2px 0 rgba(255,255,255,.55), inset 0 -3px 0 rgba(0,0,0,.12); }
+  .tab .ic .badge-dot { top: -5px; right: -5px; }
+  .view { padding-bottom: calc(var(--tabbar) + 44px + var(--safe-b)); }
+}
+.bill-bar > span:first-of-type { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
