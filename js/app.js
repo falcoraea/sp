@@ -8,6 +8,7 @@ import { runTour, mainSteps } from './tour.js';
 import { APP_NAME } from './config.js';
 import { CURRENT, versionLabel, deviceLabel, watchUpdates, fetchLatest, getLatest, isOutdated, applyUpdate } from './version.js';
 import { setFallbackScan, showScanResult } from './scanner.js';
+import { GROUP_STYLE } from './pages/menu.js';
 import { startPaging } from './paging.js';
 import { initPush, unsubscribePush } from './push.js';
 
@@ -107,11 +108,18 @@ const ini = (n) => (n || 'SG').split(/\s+/).filter(Boolean).slice(0, 2).map((w) 
 function renderShell() {
   const role = store.role, p = store.profile;
   const menu = menuFor(role);
-  let lastGroup = null;
-  const side = menu.map((m) => {
-    const g = m.group !== lastGroup && m.group ? `<div class="side-group">${esc(m.group)}</div>` : '';
-    lastGroup = m.group;
-    return `${g}<a class="side-link ${m.locked ? 'locked' : ''}" href="#/${m.key}" data-nav="${m.key}" data-tour="nav-${m.key}">${icon(m.icon, 18)}<span>${esc(m.label)}</span>${m.locked ? `<span class="lk" title="Terkunci">${icon('lock', 14, 2.2)}</span>` : ''}<span class="cnt hidden" data-cnt="${m.key}"></span></a>`;
+  // menu samping (laptop): < 12 menu = semua terbuka; >= 12 menu = per kategori (buka-tutup dengan panah)
+  const ACC = menu.length >= 12;
+  const link = (m) => `<a class="side-link ${m.locked ? 'locked' : ''}" href="#/${m.key}" data-nav="${m.key}" data-tour="nav-${m.key}" data-q="${esc((m.label + ' ' + (m.short || '') + ' ' + (m.group || '')).toLowerCase())}" title="${esc(m.label)}">${icon(m.icon, 18)}<span class="sl-t">${esc(m.label)}</span>${m.locked ? `<span class="lk" title="Terkunci">${icon('lock', 14, 2.2)}</span>` : ''}<span class="cnt hidden" data-cnt="${m.key}"></span></a>`;
+  const groups = [];
+  menu.forEach((m) => { const g = m.group || ''; let x = groups.find((y) => y.g === g); if (!x) groups.push((x = { g, items: [] })); x.items.push(m); });
+  const side = groups.map(({ g, items }) => {
+    if (!g) return `<div class="side-sec flat">${items.map(link).join('')}</div>`;
+    const c = (GROUP_STYLE[g] || [g, '#6B706C'])[1];
+    return `<div class="side-sec ${ACC ? 'acc' : ''}" data-g="${esc(g)}">
+      ${ACC ? `<button class="side-group sg-btn" data-gt="${esc(g)}" aria-expanded="false"><i style="background:${c}"></i><span class="sl-t">${esc(g)}</span><small>${items.length}</small><span class="sg-chev">${icon('chev', 15, 2.4)}</span></button>`
+            : `<div class="side-group"><i style="background:${c}"></i><span class="sl-t">${esc(g)}</span></div>`}
+      <div class="side-items"><div>${items.map(link).join('')}</div></div></div>`;
   }).join('');
   const tabs = (TABS[role] || []).filter((k) => role === 'owner' || !isLocked(k)).map((k) => {
     const pg = PAGES[k];
@@ -120,8 +128,10 @@ function renderShell() {
 
   root.innerHTML = `<div class="shell">
     <nav class="sidebar" aria-label="Menu utama">
-      <div class="side-brand"><span class="logo">${esc(ini(store.settings.nama_toko || APP_NAME))}</span><div><b>${esc(store.settings.nama_toko || APP_NAME)}</b><span>${esc(ROLE_LABEL[role])} · ${esc(p.full_name)}</span></div></div>
-      ${side}
+      <div class="side-brand"><span class="logo">${esc(ini(store.settings.nama_toko || APP_NAME))}</span><div class="sb-t"><b>${esc(store.settings.nama_toko || APP_NAME)}</b><span>${esc(ROLE_LABEL[role])} · ${esc(p.full_name)}</span></div>
+        <button class="side-mini-btn" data-mini title="Kecilkan menu" aria-label="Kecilkan / lebarkan menu">${icon('chev', 16, 2.4)}</button></div>
+      <label class="side-search" title="Cari menu">${icon('search', 16)}<input id="side-q" placeholder="Cari menu…" autocomplete="off" aria-label="Cari menu"><kbd>/</kbd></label>
+      <div class="side-menu">${side}<div class="side-none hidden">Menu tidak ditemukan</div></div>
       <div class="side-foot"><button class="side-link" data-logout style="background:none;border:0;cursor:pointer;width:100%">${icon('logout', 18)}<span>Keluar</span></button>
         <button class="side-ver" data-ver title="Info versi aplikasi">${icon('refresh', 14)}<span>Versi ${esc(versionLabel())}</span></button></div>
     </nav>
@@ -142,6 +152,7 @@ function renderShell() {
   </div>`;
 
   root.querySelector('[data-logout]').onclick = logout;
+  sideInit();
   root.querySelector('[data-bell]').onclick = toggleBell;
   root.querySelector('[data-sa]')?.addEventListener('click', () => backToSA());
   root.querySelector('[data-sa-switch2]')?.addEventListener('click', () => backToSA('sa-jabatan'));
@@ -341,6 +352,62 @@ async function billBar() {
 
 // bar atas HP: garis tipis muncul saat halaman digulir
 addEventListener('scroll', () => document.querySelector('.topbar')?.classList.toggle('scrolled', scrollY > 4), { passive: true });
+// ---------- menu samping laptop: kategori buka-tutup, cari menu, mode ikon saja ----------
+const LS = { get: (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (_) { return d; } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} } };
+function sideSet(sec, open) {
+  sec.classList.toggle('open', open);
+  sec.querySelector('[data-gt]')?.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+function sideOpenFor(page) {
+  const a = document.querySelector(`.sidebar [data-nav="${page}"]`);
+  const sec = a?.closest('.side-sec.acc');
+  if (sec && !sec.classList.contains('open')) { sideSet(sec, true); const o = LS.get('side-open', []); if (!o.includes(sec.dataset.g)) LS.set('side-open', [...o, sec.dataset.g]); }
+}
+function sideInit() {
+  const sb = document.querySelector('.sidebar'); if (!sb) return;
+  const open = LS.get('side-open', []);
+  sb.querySelectorAll('.side-sec.acc').forEach((x) => sideSet(x, open.includes(x.dataset.g)));
+  document.documentElement.classList.toggle('side-mini', !!LS.get('side-mini', false));
+  sb.addEventListener('click', (e) => {
+    const gt = e.target.closest('[data-gt]');
+    if (gt) {
+      const sec = gt.closest('.side-sec'), on = !sec.classList.contains('open');
+      sideSet(sec, on);
+      const o = LS.get('side-open', []).filter((g) => g !== sec.dataset.g); if (on) o.push(sec.dataset.g); LS.set('side-open', o);
+      return;
+    }
+    if (e.target.closest('[data-mini]')) {
+      const mini = !document.documentElement.classList.contains('side-mini');
+      document.documentElement.classList.toggle('side-mini', mini); LS.set('side-mini', mini);
+      return;
+    }
+    // mode ikon: tekan kotak cari -> menu dilebarkan lagi lalu langsung bisa mengetik
+    if (e.target.closest('.side-search') && document.documentElement.classList.contains('side-mini')) {
+      document.documentElement.classList.remove('side-mini'); LS.set('side-mini', false); setTimeout(() => sb.querySelector('#side-q').focus(), 180);
+    }
+  });
+  const q = sb.querySelector('#side-q');
+  const filter = () => {
+    const v = q.value.trim().toLowerCase();
+    sb.classList.toggle('searching', !!v);
+    let n = 0;
+    sb.querySelectorAll('.side-sec').forEach((sec) => {
+      let k = 0;
+      sec.querySelectorAll('.side-link').forEach((a) => { const hit = !v || a.dataset.q.includes(v); a.classList.toggle('hidden', !hit); if (hit) k++; });
+      sec.classList.toggle('hidden', !!v && !k); n += k;
+    });
+    sb.querySelector('.side-none').classList.toggle('hidden', !v || n > 0);
+  };
+  q.addEventListener('input', filter);
+  q.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { const a = sb.querySelector('.side-link[data-nav]:not(.hidden)'); if (a) { location.hash = a.getAttribute('href'); q.value = ''; filter(); q.blur(); } }
+    if (e.key === 'Escape') { q.value = ''; filter(); q.blur(); }
+  });
+  // tekan "/" di mana saja (bukan saat mengetik) untuk mencari menu
+  if (sideInit.k) return; sideInit.k = true;
+  addEventListener('keydown', (e) => { if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName) && innerWidth >= 900) { e.preventDefault(); if (document.documentElement.classList.contains('side-mini')) { document.documentElement.classList.remove('side-mini'); LS.set('side-mini', false); } document.querySelector('#side-q')?.focus(); } });
+}
+
 const FREE_PAGES = ['akun', 'panduan', 'notifikasi', 'pengaturan-scanner', 'menu', 'superadmin'];
 async function route() {
   const hash = location.hash.replace(/^#\/?/, '');
@@ -350,6 +417,7 @@ async function route() {
   const params = Object.fromEntries(new URLSearchParams(qs || ''));
   document.getElementById('bell-panel')?.remove();
   document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('on', a.dataset.nav === page));
+  sideOpenFor(page);
   document.querySelector('[data-bell]')?.classList.toggle('on', page === 'notifikasi');
   const pg = PAGES[page];
   document.getElementById('t-title').textContent = pg.label;
