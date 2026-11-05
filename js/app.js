@@ -1,7 +1,7 @@
 import { supa, configured, rpc, logEvent, logPage } from './supa.js';
 import { store, loadNotifs, unreadCount, markRead, loadProfiles, onEvt, emit } from './store.js';
 import { PAGES, TABS, HOME, canOpen, menuFor } from './nav.js';
-import { esc, icon, toast, toastErr, ago, ROLE_LABEL, ROLE_COLOR, modal } from './ui.js';
+import { esc, icon, toast, toastErr, ago, ROLE_LABEL, ROLE_COLOR, modal, rp, fmtDate, todayStr, addDays } from './ui.js';
 import { renderLogin, renderPending } from './auth.js';
 import { runTour, mainSteps } from './tour.js';
 import { APP_NAME } from './config.js';
@@ -74,6 +74,7 @@ async function boot(session) {
     watchUpdates();
     if (!store.superadmin) initPush();
     loadNotifs().catch(() => {});
+    if (store.role === 'owner') billBar();
     if (profile.tour_auto && !profile.tour_done?.main) setTimeout(() => startMainTour(true), 600);
   } catch (e) {
     toastErr(e);
@@ -334,6 +335,24 @@ function subscribe() {
 }
 
 // ---------- router ----------
+// bar pengingat tagihan aplikasi (owner): tampil kalau ada tagihan terlambat / jatuh tempo ≤ 7 hari
+let billBarAt = 0;
+async function billBar() {
+  billBarAt = Date.now();
+  try {
+    await rpc('billing_ensure').catch(() => {});
+    const { data, error } = await supa.from('bills').select('amount, due_date').in('status', ['belum', 'menunggu']).order('due_date');
+    document.getElementById('bill-bar')?.remove();
+    if (error || !data?.length || data[0].due_date > addDays(todayStr(), 7)) return;
+    const late = data[0].due_date < todayStr();
+    const bar = document.createElement('a');
+    bar.id = 'bill-bar'; bar.href = '#/tagihan'; bar.className = 'bill-bar' + (late ? ' late' : '');
+    bar.innerHTML = `${icon('receipt', 16)}<span><b>Tagihan ${rp(data.reduce((a, b) => a + Number(b.amount), 0))}</b> · ${late ? 'terlambat sejak' : 'jatuh tempo'} ${fmtDate(data[0].due_date, { day: 'numeric', month: 'short' })}</span><span class="bb-btn">Bayar</span>`;
+    document.querySelector('.topbar')?.after(bar);
+    if (location.hash.startsWith('#/tagihan')) bar.classList.add('hidden');
+  } catch (_) {}
+}
+
 async function route() {
   const hash = location.hash.replace(/^#\/?/, '');
   const [pageRaw, qs] = hash.split('?');
@@ -363,6 +382,8 @@ async function route() {
     current = { page, mod };
     await mod.render(view, { params, go: (h) => (location.hash = h), store });
     logPage(page, pg.label);
+    if (store.role === 'owner' && page !== 'tagihan' && Date.now() - billBarAt > 60e3) billBar();
+    document.getElementById('bill-bar')?.classList.toggle('hidden', page === 'tagihan');
   } catch (e) {
     toastErr(e);
     view.innerHTML = `<div class="card"><b>Halaman gagal dimuat.</b><div class="muted small" style="margin-top:6px">${esc(e.message || e)}</div><button class="btn" style="margin-top:12px" onclick="location.reload()">Muat ulang</button></div>`;
