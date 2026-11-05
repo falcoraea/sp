@@ -10,7 +10,7 @@ export default {
   ],
   async render(el) {
     let tab = 'menunggu';
-    const canProcess = ['owner', 'kepala_gudang'].includes(store.role);
+    const canProcess = ['owner', 'kepala_gudang', 'supervisor'].includes(store.role);
     el.innerHTML = `${pageHead('Retur & cancel', 'Barang cancel yang sudah diambil dan paket retur harus di-scan kembali ke gudang. Yang lewat batas waktu dilaporkan ke owner.')}
       <div class="stack">${canProcess ? `<div class="card" id="scan">${scanBox('sb', 'Scan resi paket retur / no. pesanan')}</div>` : ''}
       ${chips('t', [['menunggu', 'Menunggu di-scan'], ['selesai', 'Sudah diproses']], tab)}<div id="list">${skeleton()}</div></div>`;
