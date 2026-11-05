@@ -2,15 +2,22 @@ import { supa, tempClient, errMsg } from '../supa.js';
 import { store, loadProfiles } from '../store.js';
 import { esc, rp, num, on, modal, toast, toastErr, pageHead, emptyState, skeleton, icon, ROLE_LABEL, parseNum, confirmBox, ago } from '../ui.js';
 import { fetchLatest, isOutdated } from '../version.js';
+import { ROLE_MOD, modOn } from '../modules.js';
 
-const ROLES = ['admin', 'sopir', 'kepala_gudang', 'picker', 'packing'];
+const ROLES = ['admin', 'sopir', 'kepala_gudang', 'picker', 'packing', 'supervisor', 'keuangan', 'qc', 'cs', 'marketing'];
 const DESC = {
   admin: 'Upload file Shopee, pesanan, beli WIN, master barang',
   sopir: 'Tugas ambil barang di pabrik WIN',
   kepala_gudang: 'Terima barang, stok & rak, retur, stok opname',
   picker: 'Ambil barang dari rak sesuai daftar',
-  packing: 'Scan resi & barang, foto paket'
+  packing: 'Scan resi & barang, foto paket',
+  supervisor: 'Semua tugas kepala gudang + kinerja pegawai, multi gudang, saran stok',
+  keuangan: 'Kas & rekening, hutang supplier, laporan premium, pajak',
+  qc: 'Periksa paket sebelum dikirim (lolos / gagal + foto)',
+  cs: 'Komplain & garansi pembeli, lihat pesanan',
+  marketing: 'Katalog harga grosir, lihat stok'
 };
+const locked = (r) => ROLE_MOD[r] && !modOn(ROLE_MOD[r]);
 
 export default {
   tour: [
@@ -20,7 +27,7 @@ export default {
   async render(el) {
     el.innerHTML = `${pageHead('Pegawai & jabatan', 'Setiap pegawai punya akun sendiri, supaya setiap scan tercatat siapa yang melakukannya.', `<button class="btn btn-primary" id="add">${icon('plus', 18)} Tambah pegawai</button>`)}
       <div class="stack"><div id="pending"></div><div class="small muted" id="verhead"></div><div class="card flush" id="list">${skeleton()}</div>
-      <details class="card"><summary style="cursor:pointer;font-weight:700">Hak akses tiap jabatan</summary><div class="list" style="margin-top:8px">${ROLES.map((r) => `<div class="list-item" style="padding:8px 0"><b style="width:130px">${ROLE_LABEL[r]}</b><span class="small muted grow">${DESC[r]}</span></div>`).join('')}
+      <details class="card"><summary style="cursor:pointer;font-weight:700">Hak akses tiap jabatan</summary><div class="list" style="margin-top:8px">${ROLES.map((r) => `<div class="list-item" style="padding:8px 0"><b style="width:130px">${ROLE_LABEL[r]}</b><span class="small muted grow">${DESC[r]}</span>${locked(r) ? `<a class="tag" href="#/modul">${icon('lock', 12)} terkunci</a>` : ''}</div>`).join('')}
         <div class="list-item" style="padding:8px 0"><b style="width:130px">Owner</b><span class="small muted grow">Semua menu, laba, gaji, harga, kecurangan, notifikasi semua jabatan</span></div></div></details></div>`;
     const load = async () => {
       const [{ data, error }, latest] = await Promise.all([supa.from('profiles').select('*').order('role').order('full_name'), fetchLatest()]);
@@ -42,7 +49,8 @@ export default {
     const form = (p = {}) => `<div class="grid g2">
       <label class="field" style="grid-column:1/-1">Nama lengkap<input class="input" id="f-n" value="${esc(p.full_name || '')}"></label>
       ${!p.id ? `<label class="field">Email login<input class="input" id="f-e" type="email" autocomplete="off"></label><label class="field">Password awal (min. 6)<input class="input" id="f-p" type="text" autocomplete="off" value="${Math.random().toString(36).slice(2, 8)}"></label>` : ''}
-      <label class="field" style="grid-column:1/-1">Jabatan<select class="input" id="f-r">${ROLES.map((r) => `<option value="${r}" ${p.role === r ? 'selected' : ''}>${ROLE_LABEL[r]} — ${DESC[r]}</option>`).join('')}</select></label>
+      <label class="field" style="grid-column:1/-1">Jabatan<select class="input" id="f-r">${ROLES.map((r) => `<option value="${r}" ${p.role === r ? 'selected' : ''} ${locked(r) && p.role !== r ? 'disabled' : ''}>${locked(r) ? '🔒 ' : ''}${ROLE_LABEL[r]} — ${DESC[r]}${locked(r) ? ' (terkunci)' : ''}</option>`).join('')}</select>
+        ${ROLES.some(locked) ? '<span class="xs muted">Jabatan bergembok bisa dibuka di <a href="#/modul" data-close-modal>Menu tambahan</a>.</span>' : ''}</label>
       <label class="field">Gaji pokok / bulan<input class="input num" id="f-s" inputmode="numeric" data-money value="${num(p.base_salary || 0)}"></label>
       <label class="field">Uang makan / hari hadir<input class="input num" id="f-m" inputmode="numeric" data-money value="${num(p.meal_allowance || 0)}"></label>
       <label class="field" style="grid-column:1/-1">No. HP<input class="input" id="f-h" value="${esc(p.phone || '')}" inputmode="tel"></label>
