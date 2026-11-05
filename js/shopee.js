@@ -56,17 +56,23 @@ export const TYPES = {
     label: 'Pricelist / harga', desc: 'Pricelist WIN (Macallan) dan/atau Harga Shopee. Kolom harga yang kosong tidak mengubah harga lama.',
     fields: {
       sku: ['Kode', 'Kode Barang', 'Part Number', 'Part No', 'SKU', 'Barcode'], name: ['Nama Barang', 'Nama', 'Keterangan', 'Deskripsi'],
-      macallan: ['Macallan', 'Harga WIN', 'HET', 'Harga'], harga_shopee: ['Harga Shopee', 'Harga Jual Shopee', 'Shopee', 'Harga Jual'], category: ['Kategori', 'Category']
+      macallan: ['Macallan', 'Harga WIN', 'HET', 'Harga', 'Price List', 'Pricelist'], harga_shopee: ['Harga Shopee', 'Harga Jual Shopee', 'Shopee', 'Harga Jual'], category: ['Kategori', 'Category'],
+      warna: ['Warna', 'Color', 'Colour']
     },
     // cukup salah satu kolom harga: Macallan ATAU Harga Shopee
     required: ['sku'], requireAny: [['macallan', 'harga_shopee']],
-    labels: { sku: 'Kode', name: 'Nama barang', macallan: 'Macallan', harga_shopee: 'Harga Shopee', category: 'Kategori' }
+    labels: { sku: 'Kode', name: 'Nama barang', macallan: 'Macallan / harga pricelist', harga_shopee: 'Harga Shopee', category: 'Kategori', warna: 'Warna (digabung ke nama)' }
   }
 };
 
 const norm = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
 export async function readSheet(file) {
+  // PDF pricelist (mis. pricelist STRONG) -> dibaca jadi tabel yang sama seperti Excel
+  if (/\.pdf$/i.test(file.name) || file.type === 'application/pdf') {
+    const { readPdf } = await import('./pdf-read.js');
+    return readPdf(file);
+  }
   const X = await xlsx();
   const buf = await file.arrayBuffer();
   const wb = X.read(buf, { type: 'array', cellDates: false });
@@ -213,23 +219,26 @@ export function build(rows, headerRow, type, map) {
   if (type === 'pricelist') {
     // judul bagian (mis. "***COMPLETE SET BODY HONDA***") diingat untuk baris-baris di bawahnya.
     // Judul dengan tanda * = bagian utama; baris teks tanpa harga lainnya (mis. "HONDA") = sub judul.
-    let section = '';
+    let section = '', noPrice = 0;
     const out = [];
     for (const r of data) {
       const sku = get(r, 'sku'), mac = map.macallan > -1 ? parseNum(get(r, 'macallan')) : 0;
       const shp = map.harga_shopee > -1 ? parseNum(get(r, 'harga_shopee')) : 0;
-      const nm = get(r, 'name');
+      const warna = map.warna > -1 ? get(r, 'warna') : '';
+      const nm = [get(r, 'name'), warna].filter(Boolean).join(' - ');
       // baris barang: ada kode + harga, atau (file harga Shopee) hanya nama + harga Shopee
       if (!((sku && (mac > 0 || shp > 0)) || (!sku && nm && shp > 0 && !(mac > 0)))) {
+        if (sku && !(mac > 0) && !(shp > 0)) noPrice++;
         const text = r.map((c) => String(c ?? '').trim()).filter(Boolean).join(' ');
-        if (text && /\*/.test(text)) section = text.replace(/\*/g, '').replace(/\s+/g, ' ').trim();
+        // judul bagian = baris tanpa kode barang yang asli (kode asli punya angka & tanpa tanda *)
+        if ((!sku || /\*/.test(sku) || !/\d/.test(sku)) && text && /\*/.test(text)) section = text.replace(/\*/g, '').replace(/\s+/g, ' ').trim();
         continue;
       }
       // harga kosong dikirim null = harga lama tidak diubah
       out.push({ sku, name: nm, macallan: mac > 0 ? mac : null, harga_shopee: shp > 0 ? shp : null, category: get(r, 'category'), section: section || null });
     }
     out.forEach((x) => { x._k = (x.sku || ('nama:' + x.name)).toUpperCase(); });
-    return { rows: uniq(out, '_k').map(({ _k, ...x }) => x) };
+    return { rows: uniq(out, '_k').map(({ _k, ...x }) => x), noPrice };
   }
   return {};
 }
