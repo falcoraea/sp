@@ -39,7 +39,13 @@ export const PAGES = {
   absen:      { label: 'Absen', icon: 'clock', roles: ['owner', 'admin', 'sopir', 'kepala_gudang', 'picker', 'packing', 'keuangan', 'qc', 'cs', 'marketing'], group: 'Saya' },
   notifikasi: { label: 'Notifikasi', icon: 'bell', roles: ['*'], group: 'Saya', hidden: true },
   'pengaturan-scanner': { label: 'Pengaturan scanner', short: 'Scanner', icon: 'bt', roles: ['*'], group: 'Saya' },
-  superadmin: { label: 'Super admin', short: 'Super', icon: 'shield', roles: ['*'], group: 'Super admin', sa: true },
+  // ----- menu khusus super admin (pembuat aplikasi) -----
+  superadmin: { label: 'Ringkasan', short: 'Ringkasan', icon: 'home', roles: ['superadmin'], group: 'Super admin', sa: true },
+  'sa-jabatan': { label: 'Masuk sebagai jabatan', short: 'Jabatan', icon: 'users', roles: ['superadmin'], group: 'Super admin', sa: true },
+  'sa-modul': { label: 'Menu & harga', short: 'Menu', icon: 'lock', roles: ['superadmin'], group: 'Super admin', sa: true },
+  'sa-tagihan': { label: 'Tagihan & Mayar', short: 'Tagihan', icon: 'receipt', roles: ['superadmin'], group: 'Super admin', sa: true },
+  'sa-telegram': { label: 'Bot Telegram', short: 'Telegram', icon: 'send', roles: ['superadmin'], group: 'Super admin', sa: true },
+  'sa-alat': { label: 'Alat & data', short: 'Alat', icon: 'gear', roles: ['superadmin'], group: 'Super admin', sa: true },
   panduan:    { label: 'Panduan aplikasi', short: 'Panduan', icon: 'compass', roles: ['*'], group: 'Saya' },
   akun:       { label: 'Akun saya', short: 'Akun', icon: 'user', roles: ['*'], group: 'Saya' },
   menu:       { label: 'Semua menu', short: 'Lainnya', icon: 'grid', roles: ['*'], group: '', hidden: true }
@@ -57,16 +63,20 @@ export const TABS = {
   supervisor: ['catat', 'stok', 'kinerja', 'gudang'],
   qc: ['qc', 'cek', 'absen', 'notifikasi'],
   cs: ['komplain', 'pesanan', 'absen', 'notifikasi'],
-  marketing: ['katalog', 'stok', 'absen', 'notifikasi']
+  marketing: ['katalog', 'stok', 'absen', 'notifikasi'],
+  superadmin: ['superadmin', 'sa-jabatan', 'sa-modul', 'sa-tagihan']
 };
 
 export const HOME = { owner: 'dashboard', admin: 'pesanan', sopir: 'tugas', kepala_gudang: 'catat', picker: 'ambil', packing: 'packing',
-  keuangan: 'kas', supervisor: 'catat', qc: 'qc', cs: 'komplain', marketing: 'katalog' };
+  keuangan: 'kas', supervisor: 'catat', qc: 'qc', cs: 'komplain', marketing: 'katalog', superadmin: 'superadmin' };
 
+const SA_EXTRA = ['log', 'akun', 'notifikasi', 'panduan', 'menu'];
 export function canOpen(page, role) {
   const k = page, p = PAGES[page];
-  if (p?.sa && !store.superadmin) return false;
   if (!p) return false;
+  // menu super admin hanya di mode super admin; saat "masuk sebagai jabatan" menunya persis jabatan itu
+  if (p.sa) return !!store.superadmin && role === 'superadmin';
+  if (role === 'superadmin') return SA_EXTRA.includes(k);
   if (k === 'absen' && role === 'supervisor') return true;
   return p.roles.includes('*') || p.roles.includes(role) || (role === 'supervisor' && (p.roles.includes('kepala_gudang') || p.roles.includes('supervisor')));
 }
@@ -77,5 +87,6 @@ export const isLocked = (page) => !!PAGES[page]?.mod && !modOn(PAGES[page].mod);
 // owner tetap melihat menu yang terkunci (dengan gembok) supaya bisa membukanya; jabatan lain tidak
 export function menuFor(role) {
   return Object.entries(PAGES).filter(([k, p]) => !p.hidden && canOpen(k, role) && (role === 'owner' || !isLocked(k)))
-    .map(([k, p]) => ({ key: k, ...p, locked: isLocked(k) }));
+    .map(([k, p]) => ({ key: k, ...p, locked: isLocked(k) }))
+    .sort((a, b) => (role === 'superadmin' ? (b.sa ? 1 : 0) - (a.sa ? 1 : 0) : 0));
 }
