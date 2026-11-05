@@ -684,3 +684,11 @@ details > summary { cursor: pointer; padding: 6px 0; }
 .sub-title { font-size: 15px; font-weight: 700; margin: 6px 0 -4px; }
 /* isian harga di tabel: rata kanan, lebar sama */
 .tbl td.right > .input.sm { display: block; margin-left: auto; }
+/* 2.5 tagihan */
+.bill-bar { display: flex; align-items: center; gap: 10px; padding: 9px 16px; background: var(--accent-soft); color: var(--accent-ink); font-size: 13.5px; text-decoration: none; border-bottom: 1px solid #F0D58A; }
+.bill-bar.late { background: var(--red-soft); color: var(--red-ink); border-color: #EBC2BA; }
+.bill-bar > span:first-of-type { flex: 1; min-width: 0; }
+.bill-bar .bb-btn { flex: none; background: var(--ink); color: #fff; border-radius: 999px; padding: 4px 12px; font-weight: 700; font-size: 12.5px; }
+.bill-item.open { background: #FFFBF0; }
+.bill-item { align-items: flex-start; }
+.field > .tag, .field .tag { align-self: flex-start; width: auto; }
