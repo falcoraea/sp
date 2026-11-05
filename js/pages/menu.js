@@ -1,6 +1,7 @@
-import { store } from '../store.js';
-import { TABS, menuFor } from '../nav.js';
-import { esc, icon, debounce } from '../ui.js';
+import { store, emit } from '../store.js';
+import { supa } from '../supa.js';
+import { TABS, menuFor, tabsFor, TAB_MAX, PAGES } from '../nav.js';
+import { esc, icon, debounce, modal, toast } from '../ui.js';
 import { versionLabel } from '../version.js';
 
 // Halaman "Lainnya" (HP): semua menu sebagai ikon per kategori, seperti menu di aplikasi marketplace.
@@ -19,10 +20,10 @@ const DESC = {
 
 export default {
   async render(el) {
-    const tabs = new Set(TABS[store.role] || []);
+    let tabs = new Set(tabsFor(store.role, store.profile.tab_prefs));
     const all = menuFor(store.role).filter((m) => m.key !== 'menu');
     el.innerHTML = `<div class="stack menu-page">
-      <input class="input menu-search" id="mq" placeholder="Cari menu…" aria-label="Cari menu" autocomplete="off">
+      <div class="row"><input class="input menu-search grow" id="mq" placeholder="Cari menu…" aria-label="Cari menu" autocomplete="off"><button class="btn tabs-edit" id="mt">${icon('grid', 16)} Atur menu bawah</button></div>
       <div id="mg"></div>
       <div class="menu-foot"><button class="btn" id="m-lo">${icon('logout', 18)} Keluar</button><button class="btn btn-ghost" id="m-ver">${icon('refresh', 16)} Versi ${esc(versionLabel())}</button></div>
     </div>`;
@@ -43,6 +44,44 @@ export default {
     // tombol keluar & versi memakai tombol yang sama dengan menu samping
     el.querySelector('#m-lo').onclick = () => document.querySelector('[data-logout]')?.click();
     el.querySelector('#m-ver').onclick = () => document.querySelector('.side-ver[data-ver]')?.click();
+    el.querySelector('#mt').onclick = async () => { if (await editTabs(all)) { tabs = new Set(tabsFor(store.role, store.profile.tab_prefs)); paint(el.querySelector('#mq').value); } };
     paint();
   }
 };
+
+// pilih menu yang tampil di bar bawah HP (maks 4 + Lainnya), disimpan per orang per jabatan
+async function editTabs(all) {
+  const role = store.role;
+  let sel = [...tabsFor(role, store.profile.tab_prefs)];
+  const draw = (ov) => {
+    ov.querySelector('#ts').innerHTML = `${sel.map((k, i) => `<div class="ts-row"><span class="ts-n">${i + 1}</span><span class="ts-ic">${icon(PAGES[k].icon, 18)}</span><b class="grow">${esc(PAGES[k].short || PAGES[k].label)}</b>
+        <button class="btn btn-sm btn-ghost" data-up="${i}" ${i ? '' : 'disabled'} aria-label="Naikkan">▲</button><button class="btn btn-sm btn-ghost" data-dn="${i}" ${i < sel.length - 1 ? '' : 'disabled'} aria-label="Turunkan">▼</button><button class="btn btn-sm btn-ghost" data-rm="${i}" aria-label="Hapus">${icon('x', 15)}</button></div>`).join('')}
+      ${Array.from({ length: TAB_MAX - sel.length }, (_, i) => `<div class="ts-row empty"><span class="ts-n">${sel.length + i + 1}</span><span class="muted small">Kosong — pilih menu di bawah</span></div>`).join('')}
+      <div class="ts-row fixed"><span class="ts-n">${icon('lock', 12)}</span><span class="ts-ic">${icon('grid', 18)}</span><b class="grow">Lainnya</b><span class="xs muted">selalu ada</span></div>`;
+    ov.querySelector('#tp').innerHTML = all.map((m) => `<button class="ts-pick ${sel.includes(m.key) ? 'on' : ''}" data-add="${m.key}" ${sel.includes(m.key) || sel.length >= TAB_MAX ? 'disabled' : ''}>${icon(m.icon, 18)}<span>${esc(m.short || m.label)}</span></button>`).join('');
+  };
+  const r = await modal({ title: 'Atur menu bawah', body: `<div class="stack">
+      <div class="small muted">Pilih sampai ${TAB_MAX} menu yang paling sering dipakai. Urutan dari kiri ke kanan. Menu <b>Lainnya</b> selalu ada di ujung kanan.</div>
+      <div class="ts-list" id="ts"></div>
+      <div class="sec-h" style="margin:4px 0 0">Pilih menu</div><div class="ts-grid" id="tp"></div></div>`,
+    onOpen: (ov) => {
+      draw(ov);
+      ov.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-add],[data-up],[data-dn],[data-rm]'); if (!b || b.disabled) return;
+        if (b.dataset.add) sel.push(b.dataset.add);
+        else if (b.dataset.rm != null) sel.splice(+b.dataset.rm, 1);
+        else { const i = +(b.dataset.up ?? b.dataset.dn), j = b.dataset.up != null ? i - 1 : i + 1; [sel[i], sel[j]] = [sel[j], sel[i]]; }
+        draw(ov);
+      });
+    },
+    actions: [{ label: 'Bawaan jabatan', cls: 'btn-ghost', value: 'reset' }, { label: 'Batal', value: null }, { label: 'Simpan', cls: 'btn-primary', onClick: () => { if (!sel.length) { toast('Pilih minimal 1 menu', 'err'); return false; } return 'save'; } }] });
+  if (!r) return false;
+  const prefs = { ...(store.profile.tab_prefs || {}) };
+  if (r === 'reset') delete prefs[role]; else prefs[role] = sel;
+  store.profile.tab_prefs = prefs;
+  try { localStorage.setItem('tab-prefs-' + store.profile.id, JSON.stringify(prefs)); } catch (_) {}
+  const { error } = await supa.from('profiles').update({ tab_prefs: prefs }).eq('id', store.profile.id);
+  emit('tabs');
+  toast(error ? 'Tersimpan di HP ini (jalankan update-2.17.sql agar ikut ke HP lain)' : 'Menu bawah diperbarui', error ? '' : 'ok');
+  return true;
+}
