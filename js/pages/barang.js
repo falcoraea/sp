@@ -34,7 +34,7 @@ export default {
       } catch (error) { return toastErr(error); }
       el.querySelector('#list').innerHTML = data.length ? `<div class="table-wrap"><table class="tbl" style="min-width:${seePrice ? 860 : 600}px"><thead><tr><th></th><th>Kode · Barang</th><th>Kategori</th><th>Rak</th><th class="right">Stok</th><th class="right">Min.</th>${seePrice ? '<th class="right">Macallan</th><th class="right">Harga beli</th><th class="right">Harga Shopee</th>' : ''}<th></th></tr></thead><tbody>
         ${data.map((p) => `<tr class="${p.active ? '' : 'bad'}"><td><input type="checkbox" class="check" data-sel="${p.id}" ${sel.has(p.id) ? 'checked' : ''} aria-label="Pilih"></td>
-          <td><b>${esc(p.name)}</b>${p.price_locked ? ' <span class="tag dark">dikunci</span>' : ''}<div class="xs muted mono">${esc(p.sku)}</div></td><td class="small">${esc(p.category || '')}</td><td class="mono">${esc(p.rack_code || '—')}</td>
+          <td><b>${esc(p.name)}</b>${p.supplier && p.supplier !== 'WIN' ? ` <span class="tag blue">${esc(p.supplier)}</span>` : ''}${p.price_locked ? ' <span class="tag dark">dikunci</span>' : ''}<div class="xs muted mono">${esc(p.sku)}</div></td><td class="small">${esc(p.category || '')}</td><td class="mono">${esc(p.rack_code || '—')}</td>
           <td class="num"><b>${p.stock}</b></td><td class="num">${p.min_stock}</td>
           ${seePrice ? `<td class="num">${rp(p.macallan)}</td><td class="num ${!Number(p.harga_beli) ? 'neg' : ''}">${rp(p.harga_beli)}</td><td class="num">${rp(p.harga_shopee)}</td>` : ''}
           <td class="nowrap"><button class="btn btn-sm" data-hist="${p.id}">Riwayat</button>${canEdit ? ` <button class="btn btn-sm" data-edit="${p.id}">Ubah</button>` : ''}</td></tr>`).join('')}
@@ -45,7 +45,8 @@ export default {
     async function edit(p, preset = {}) {
       const isNew = !p;
       const { data: racks } = await supa.from('racks').select('code').order('code');
-      const s = store.settings;
+      const { data: sups } = await supa.from('suppliers').select('*').eq('active', true).order('sort');
+      const SUP = sups?.length ? sups : [{ code: 'WIN', name: 'WIN', potongan_5_pct: store.settings.potongan_5_pct, diskon_beli_pct: store.settings.diskon_beli_pct, shopee_mode: 'file' }];
       const r = await modal({
         title: isNew ? 'Tambah barang' : 'Ubah barang',
         body: `<div class="grid g2">
@@ -54,8 +55,10 @@ export default {
           <label class="field">Kategori<input class="input" id="f-cat" value="${esc(p?.category || '')}" placeholder="mis. Panel, Lampu"></label>
           <label class="field">Rak<input class="input mono" id="f-rack" list="racklist" value="${esc(p?.rack_code || '')}" autocapitalize="characters"><datalist id="racklist">${(racks || []).map((x) => `<option value="${esc(x.code)}">`).join('')}</datalist></label>
           <label class="field">Stok minimum<input class="input num" id="f-min" inputmode="numeric" value="${p?.min_stock ?? 0}"></label>
-          ${isNew && seePrice ? `<label class="field">Macallan (harga WIN)<input class="input num" id="f-mac" inputmode="numeric" data-money value="0"></label>
-            <div class="small muted" style="grid-column:1/-1">Harga 5% & harga beli dihitung otomatis (−${s.potongan_5_pct}% dan −${s.diskon_beli_pct}%).</div>` : ''}
+          ${isNew && seePrice ? `<label class="field">Supplier<select class="input" id="f-sup">${SUP.map((x) => `<option value="${esc(x.code)}">${esc(x.name)}</option>`).join('')}</select></label>
+            <label class="field">Macallan (harga supplier)<input class="input num" id="f-mac" inputmode="numeric" data-money value="0"></label>
+            <div class="small muted" style="grid-column:1/-1">Harga 5%, harga beli & harga Shopee dihitung otomatis dari rumus supplier (diatur di Atur harga).</div>` : ''}
+          ${!isNew ? `<div class="small muted" style="grid-column:1/-1">Supplier: <b>${esc(p.supplier || 'WIN')}</b> (pindah supplier di menu Atur harga)</div>` : ''}
           ${!isNew ? `<label class="check" style="grid-column:1/-1"><input type="checkbox" id="f-act" ${p.active ? 'checked' : ''}> Barang aktif</label>` : ''}
         </div>`,
         actions: [{ label: 'Batal', value: null }, { label: 'Simpan', cls: 'btn-primary', onClick: async (ov) => {
@@ -68,10 +71,12 @@ export default {
           if (isNew) {
             row.sku = v('f-sku'); if (!row.sku) { toast('Kode wajib diisi', 'err'); return false; }
             const mac = parseNum(v('f-mac')) || 0;
-            Object.assign(row, { macallan: mac, harga_5: Math.round(mac * (1 - s.potongan_5_pct / 100)), harga_beli: Math.round(mac * (1 - s.diskon_beli_pct / 100)) });
-            if (s.harga_shopee_mode === 'rumus' && mac > 0) {
-              const v = mac * (1 + Number(s.shopee_plus_pct || 0) / 100) + Number(s.shopee_plus_rp || 0), r = Number(s.shopee_round || 1);
-              row.harga_shopee = r > 1 ? Math.ceil(v / r) * r : Math.round(v);
+            const R = SUP.find((x) => x.code === (v('f-sup') || 'WIN')) || SUP[0];
+            Object.assign(row, { macallan: mac, harga_5: Math.round(mac * (1 - Number(R.potongan_5_pct || 0) / 100)), harga_beli: Math.round(mac * (1 - Number(R.diskon_beli_pct || 0) / 100)) });
+            if (sups?.length) row.supplier = R.code;
+            if (R.shopee_mode === 'rumus' && mac > 0) {
+              const x = mac * (1 + Number(R.shopee_plus_pct || 0) / 100) + Number(R.shopee_plus_rp || 0), k = Number(R.shopee_round || 1);
+              row.harga_shopee = k > 1 ? Math.ceil(x / k) * k : Math.round(x);
             }
             const { data: ins, error } = await supa.from('products').insert(row).select().single();
             if (error) throw error;
