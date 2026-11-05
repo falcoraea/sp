@@ -59,6 +59,6 @@ export default {
     await load();
     // kembali dari halaman Mayar
     if (params.cek) { toast('Mengecek pembayaran…'); setTimeout(() => cek(params.cek, false), 1500); history.replaceState(null, '', '#/tagihan'); }
-    if (store.superadmin) el.querySelector('.stack').insertAdjacentHTML('beforeend', '<div class="alert yellow small">Mode super admin: tagihan diatur di <a href="#/superadmin">Menu super admin › Tagihan</a>.</div>');
+    if (store.superadmin) el.querySelector('.stack').insertAdjacentHTML('beforeend', '<div class="alert yellow small">Mode super admin: tagihan diatur di menu super admin › <b>Tagihan &amp; Mayar</b> (tekan "Kembali ke super admin").</div>');
   }
 };
