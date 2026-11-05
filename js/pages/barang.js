@@ -9,7 +9,7 @@ export default {
     { sel: '#add', title: 'Tambah barang', body: 'Tambah barang baru atau varian baru (mis. memecah “lampu alis + lain-lain” jadi beberapa kode).' }
   ],
   async render(el, { params }) {
-    const canEdit = ['owner', 'admin', 'kepala_gudang'].includes(store.role);
+    const canEdit = ['owner', 'admin', 'kepala_gudang', 'supervisor'].includes(store.role);
     const seePrice = ['owner', 'admin'].includes(store.role);
     let search = params.q || '', sel = new Set(), unkList = [];
     el.innerHTML = `${pageHead('Master barang', 'Kode barcode, nama, rak, dan stok minimum. Harga diatur owner di menu Atur harga.',
