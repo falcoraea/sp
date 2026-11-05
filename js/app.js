@@ -1,6 +1,7 @@
 import { supa, configured, rpc, logEvent, logPage } from './supa.js';
 import { store, loadNotifs, unreadCount, markRead, loadProfiles, onEvt, emit } from './store.js';
-import { PAGES, TABS, HOME, canOpen, menuFor } from './nav.js';
+import { PAGES, TABS, HOME, canOpen, menuFor, isLocked } from './nav.js';
+import { loadModules, modOn, paywall, ROLE_MOD } from './modules.js';
 import { esc, icon, toast, toastErr, ago, ROLE_LABEL, ROLE_COLOR, modal, rp, fmtDate, todayStr, addDays } from './ui.js';
 import { renderLogin, renderPending } from './auth.js';
 import { runTour, mainSteps } from './tour.js';
@@ -17,7 +18,7 @@ let booted = false;
 let routeSeq = 0;
 let hashBound = false;
 let beforeBell = null;
-const SA_ROLES = [['owner', 'Semua menu, laporan, harga'], ['admin', 'Pesanan, upload, beli WIN'], ['kepala_gudang', 'Terima, stok, retur, opname'], ['picker', 'Ambil barang dari rak'], ['packing', 'Packing & scan resi'], ['sopir', 'Tugas ambil barang WIN']];
+const SA_ROLES = [['owner', 'Semua menu, laporan, harga'], ['admin', 'Pesanan, upload, beli WIN'], ['kepala_gudang', 'Terima, stok, retur, opname'], ['picker', 'Ambil barang dari rak'], ['packing', 'Packing & scan resi'], ['sopir', 'Tugas ambil barang WIN'], ['supervisor', 'Kepala gudang + kinerja, multi gudang'], ['keuangan', 'Kas, laporan, pajak'], ['qc', 'Cek paket sebelum kirim'], ['cs', 'Komplain pembeli'], ['marketing', 'Katalog grosir']];
 
 // ---------- PWA ----------
 if ('serviceWorker' in navigator) {
@@ -74,6 +75,7 @@ async function boot(session) {
     }
     const { data: settings } = await supa.from('settings').select('*').eq('id', 1).single();
     store.settings = settings || {};
+    await loadModules().catch(() => {});
     await loadProfiles().catch(() => {});
     renderShell();
     if (!hashBound) { window.addEventListener('hashchange', route); hashBound = true; }
@@ -126,11 +128,11 @@ function renderShell() {
   const side = menu.map((m) => {
     const g = m.group !== lastGroup && m.group ? `<div class="side-group">${esc(m.group)}</div>` : '';
     lastGroup = m.group;
-    return `${g}<a class="side-link" href="#/${m.key}" data-nav="${m.key}" data-tour="nav-${m.key}">${icon(m.icon, 18)}<span>${esc(m.label)}</span><span class="cnt hidden" data-cnt="${m.key}"></span></a>`;
+    return `${g}<a class="side-link ${m.locked ? 'locked' : ''}" href="#/${m.key}" data-nav="${m.key}" data-tour="nav-${m.key}">${icon(m.icon, 18)}<span>${esc(m.label)}</span>${m.locked ? `<span class="lk" title="Terkunci">${icon('lock', 14, 2.2)}</span>` : ''}<span class="cnt hidden" data-cnt="${m.key}"></span></a>`;
   }).join('');
-  const tabs = (TABS[role] || []).map((k) => {
+  const tabs = (TABS[role] || []).filter((k) => role === 'owner' || !isLocked(k)).map((k) => {
     const pg = PAGES[k];
-    return `<a class="tab" href="#/${k}" data-nav="${k}" data-tour="nav-${k}"><span class="ic">${icon(pg.icon, 22)}${k === 'notifikasi' ? '<span class="badge-dot hidden" data-badge></span>' : ''}</span><span class="lbl">${esc(pg.short || pg.label)}</span></a>`;
+    return `<a class="tab" href="#/${k}" data-nav="${k}" data-tour="nav-${k}"><span class="ic">${icon(pg.icon, 22)}${isLocked(k) ? `<span class="tab-lock">${icon('lock', 10, 2.6)}</span>` : ''}${k === 'notifikasi' ? '<span class="badge-dot hidden" data-badge></span>' : ''}</span><span class="lbl">${esc(pg.short || pg.label)}</span></a>`;
   }).join('') + `<a class="tab" href="#/menu" data-nav="menu" data-tour="nav-lainnya"><span class="ic">${icon('grid', 22)}</span><span class="lbl">Lainnya</span></a>`;
 
   root.innerHTML = `<div class="shell">
@@ -171,7 +173,7 @@ function renderShell() {
 }
 
 // scan alat (USB/Bluetooth) di halaman yang BUKAN menu scan: ditolak, dengan petunjuk menu yang benar
-const SCAN_PAGES = ['catat', 'ambil', 'packing', 'terima', 'retur', 'cek'];
+const SCAN_PAGES = ['catat', 'ambil', 'packing', 'terima', 'retur', 'cek', 'qc'];
 function globalScan() {
   const menus = SCAN_PAGES.filter((k) => canOpen(k, store.role)).map((k) => PAGES[k].label);
   return { ok: false, title: 'Halaman ini bukan menu scan', info: 'Scan diabaikan. Buka menu: ' + menus.join(', ') + '.' };
@@ -223,7 +225,7 @@ function meMenuHtml() {
   const p = store.profile, role = store.role;
   const items = [['akun', 'user', 'Profil & ganti password'], ['pengaturan-scanner', 'bt', 'Pengaturan scanner'], ['panduan', 'compass', 'Panduan aplikasi'], ['notifikasi', 'bell', 'Semua notifikasi']];
   if (role === 'owner') items.unshift(['tagihan', 'receipt', 'Tagihan aplikasi', billUnpaid ? `<span class="tag red">${billUnpaid} belum dibayar</span>` : '']);
-  if (role === 'owner') items.push(['log', 'clock', 'Log aktivitas'], ['pengaturan', 'gear', 'Pengaturan toko'], ['pegawai', 'users', 'Pegawai & jabatan']);
+  if (role === 'owner') items.push(['modul', 'lock', 'Menu tambahan'], ['log', 'clock', 'Log aktivitas'], ['pengaturan', 'gear', 'Pengaturan toko'], ['pegawai', 'users', 'Pegawai & jabatan']);
   return `<div class="me-head"><span class="av">${esc(ini(p.full_name))}</span><div style="min-width:0"><b>${esc(p.full_name)}</b><div class="xs muted" style="overflow-wrap:anywhere">${esc(p.email || store.session?.user?.email || '')}</div><span class="tag dark" style="margin-top:6px">${esc(ROLE_LABEL[role])}</span></div></div>
     <div class="me-list">${store.superadmin ? `<a class="me-item" href="#/superadmin" data-close style="color:#A63A2A">${icon('shield', 18)}<span>Menu super admin</span></a><button class="me-item" data-sa-switch style="color:#A63A2A">${icon('shield', 18)}<span>Ganti jabatan (super admin)</span></button>` : ''}${items.map(([k, ic, l, extra]) => `<a class="me-item" href="#/${k}" data-close>${icon(ic, 18)}<span class="grow">${l}</span>${extra || ''}</a>`).join('')}
     <button class="me-item" data-ver-me>${icon('refresh', 18)}<span class="grow">Versi aplikasi</span><span class="small muted mono">${esc(versionLabel())}</span></button>
@@ -274,7 +276,7 @@ export { notifItem };
 
 let bellFilter = 'all';
 function renderBellBody(panel) {
-  const roles = ['admin', 'sopir', 'kepala_gudang', 'picker', 'packing'];
+  const roles = ['admin', 'sopir', 'kepala_gudang', 'picker', 'packing', 'supervisor', 'keuangan', 'qc', 'cs', 'marketing'].filter((r) => !ROLE_MOD[r] || modOn(ROLE_MOD[r]));
   let list = store.notifs;
   if (bellFilter === 'masalah') list = list.filter((n) => n.level === 'masalah');
   else if (bellFilter !== 'all') list = list.filter((n) => n.source_role === bellFilter || n.target_role === bellFilter);
@@ -350,6 +352,7 @@ async function billBar() {
   } catch (_) {}
 }
 
+const FREE_PAGES = ['akun', 'panduan', 'notifikasi', 'pengaturan-scanner', 'menu', 'superadmin'];
 async function route() {
   const hash = location.hash.replace(/^#\/?/, '');
   const [pageRaw, qs] = hash.split('?');
@@ -374,6 +377,16 @@ async function route() {
   view.innerHTML = '<div class="stack"><div class="skeleton" style="height:90px"></div><div class="skeleton" style="height:240px"></div></div>';
   try {
     current.mod?.destroy?.();
+    // jabatan berbayar yang belum / tidak lagi dibuka, atau menu tambahan yang terkunci -> halaman "buka menu"
+    const roleMod = ROLE_MOD[store.role];
+    const lockCode = roleMod && !modOn(roleMod) && !FREE_PAGES.includes(page) ? roleMod : isLocked(page) ? pg.mod : null;
+    if (lockCode) {
+      current = { page, mod: null };
+      paywall(view, lockCode, { roleLock: lockCode === roleMod });
+      logPage(page, pg.label + ' (terkunci)');
+      view.focus({ preventScroll: true }); window.scrollTo(0, 0);
+      return;
+    }
     const mod = (await import(`./pages/${page}.js`)).default;
     if (seq !== routeSeq) return;
     current = { page, mod };
