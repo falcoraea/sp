@@ -29,7 +29,8 @@ export const PAGES = {
   'pengaturan-scanner': { label: 'Pengaturan scanner', short: 'Scanner', icon: 'bt', roles: ['*'], group: 'Saya' },
   superadmin: { label: 'Super admin', short: 'Super', icon: 'shield', roles: ['*'], group: 'Super admin', sa: true },
   panduan:    { label: 'Panduan aplikasi', short: 'Panduan', icon: 'compass', roles: ['*'], group: 'Saya' },
-  akun:       { label: 'Akun saya', short: 'Akun', icon: 'user', roles: ['*'], group: 'Saya' }
+  akun:       { label: 'Akun saya', short: 'Akun', icon: 'user', roles: ['*'], group: 'Saya' },
+  menu:       { label: 'Semua menu', short: 'Lainnya', icon: 'grid', roles: ['*'], group: '', hidden: true }
 };
 
 // menu ikon bawah di HP (maks 4 + "Lainnya")
