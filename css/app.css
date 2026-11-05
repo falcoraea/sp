@@ -759,3 +759,8 @@ details > summary { cursor: pointer; padding: 6px 0; }
   .view { padding-bottom: calc(var(--tabbar) + 44px + var(--safe-b)); }
 }
 .bill-bar > span:first-of-type { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 2.11 tampilan tidak bisa diperbesar / diperkecil (cubit 2 jari, ketuk 2x) */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; touch-action: manipulation; }
+body { touch-action: pan-x pan-y; overscroll-behavior-y: none; }
+/* iPhone memperbesar layar otomatis kalau tulisan di kolom isian < 16px -> di HP dibuat 16px */
+@media (max-width: 899px) { input, select, textarea, .input, .input.sm { font-size: 16px !important; } }
