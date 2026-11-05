@@ -47,7 +47,7 @@ export default {
       } else {
         ok = false; title = 'Kode tidak dikenal'; info = 'Belum ada di master barang, pesanan, atau rak';
         out = `<div class="card stack" style="border:2px solid var(--red)"><span class="tag red">Tidak dikenal</span><div class="mono" style="font-size:18px">${esc(code)}</div>
-          <div class="small">Kode ini belum terdaftar sebagai barang, resi, atau rak.${['owner', 'admin', 'kepala_gudang'].includes(store.role) ? ` <a href="#/barang">Tambahkan di Master barang</a>.` : ''}</div></div>`;
+          <div class="small">Kode ini belum terdaftar sebagai barang, resi, atau rak.${['owner', 'admin', 'kepala_gudang', 'supervisor'].includes(store.role) ? ` <a href="#/barang">Tambahkan di Master barang</a>.` : ''}</div></div>`;
       }
       beep(ok);
       logEvent('cek', 'Cek kode ' + code + ' → ' + title, code);
