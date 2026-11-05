@@ -1,6 +1,6 @@
 import { supa, configured, rpc, logEvent, logPage } from './supa.js';
 import { store, loadNotifs, unreadCount, markRead, loadProfiles, onEvt, emit } from './store.js';
-import { PAGES, TABS, HOME, canOpen, menuFor, isLocked } from './nav.js';
+import { PAGES, TABS, HOME, canOpen, menuFor, isLocked, tabsFor } from './nav.js';
 import { loadModules, modOn, paywall, ROLE_MOD } from './modules.js';
 import { esc, icon, toast, toastErr, ago, ROLE_LABEL, ROLE_COLOR, modal, rp, fmtDate, todayStr, addDays } from './ui.js';
 import { renderLogin, renderPending } from './auth.js';
@@ -77,6 +77,7 @@ async function boot(session) {
     }
     const { data: settings } = await supa.from('settings').select('*').eq('id', 1).single();
     store.settings = settings || {};
+    if (!store.profile.tab_prefs) { try { store.profile.tab_prefs = JSON.parse(localStorage.getItem('tab-prefs-' + store.profile.id) || 'null'); } catch (_) {} }
     await loadModules().catch(() => {});
     await loadProfiles().catch(() => {});
     renderShell();
@@ -104,6 +105,21 @@ async function backToSA(page = 'superadmin') {
 }
 
 // ---------- shell ----------
+// menu bawah HP: pilihan sendiri (Lainnya > Atur menu bawah) atau bawaan jabatan
+function tabsHtml(role) {
+  return tabsFor(role, store.profile.tab_prefs).filter((k) => role === 'owner' || !isLocked(k)).map((k) => {
+    const pg = PAGES[k];
+    return `<a class="tab" href="#/${k}" data-nav="${k}" data-tour="nav-${k}"><span class="ic">${icon(pg.icon, 22)}${isLocked(k) ? `<span class="tab-lock">${icon('lock', 10, 2.6)}</span>` : ''}${k === 'notifikasi' ? '<span class="badge-dot hidden" data-badge></span>' : ''}</span><span class="lbl">${esc(pg.short || pg.label)}</span></a>`;
+  }).join('') + `<a class="tab" href="#/menu" data-nav="menu" data-tour="nav-lainnya"><span class="ic">${icon('grid', 22)}</span><span class="lbl">Lainnya</span></a>`;
+}
+onEvt('tabs', () => {
+  const bar = document.querySelector('.tabbar'); if (!bar) return;
+  bar.innerHTML = tabsHtml(store.role);
+  const page = (location.hash.replace(/^#\//, '').split('?')[0]) || HOME[store.role];
+  bar.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('on', a.dataset.nav === page));
+  paintBadge();
+});
+const GROUP_ICON = { Penjualan: 'bag', Gudang: 'box', Keuangan: 'wallet', Pengaturan: 'gear', Saya: 'user', 'Super admin': 'shield' };
 const ini = (n) => (n || 'SG').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 function renderShell() {
   const role = store.role, p = store.profile;
@@ -116,15 +132,13 @@ function renderShell() {
   const side = groups.map(({ g, items }) => {
     if (!g) return `<div class="side-sec flat">${items.map(link).join('')}</div>`;
     const c = (GROUP_STYLE[g] || [g, '#6B706C'])[1];
+    const gi = `<i class="sg-ic" style="--gc:${c}">${icon(GROUP_ICON[g] || 'grid', 14, 2.2)}</i>`;
     return `<div class="side-sec ${ACC ? 'acc' : ''}" data-g="${esc(g)}">
-      ${ACC ? `<button class="side-group sg-btn" data-gt="${esc(g)}" aria-expanded="false"><i style="background:${c}"></i><span class="sl-t">${esc(g)}</span><small>${items.length}</small><span class="sg-chev">${icon('chev', 15, 2.4)}</span></button>`
-            : `<div class="side-group"><i style="background:${c}"></i><span class="sl-t">${esc(g)}</span></div>`}
+      ${ACC ? `<button class="side-group sg-btn" data-gt="${esc(g)}" aria-expanded="false">${gi}<span class="sl-t">${esc(g)}</span><small>${items.length}</small><span class="sg-chev">${icon('chev', 15, 2.4)}</span></button>`
+            : `<div class="side-group">${gi}<span class="sl-t">${esc(g)}</span></div>`}
       <div class="side-items"><div>${items.map(link).join('')}</div></div></div>`;
   }).join('');
-  const tabs = (TABS[role] || []).filter((k) => role === 'owner' || !isLocked(k)).map((k) => {
-    const pg = PAGES[k];
-    return `<a class="tab" href="#/${k}" data-nav="${k}" data-tour="nav-${k}"><span class="ic">${icon(pg.icon, 22)}${isLocked(k) ? `<span class="tab-lock">${icon('lock', 10, 2.6)}</span>` : ''}${k === 'notifikasi' ? '<span class="badge-dot hidden" data-badge></span>' : ''}</span><span class="lbl">${esc(pg.short || pg.label)}</span></a>`;
-  }).join('') + `<a class="tab" href="#/menu" data-nav="menu" data-tour="nav-lainnya"><span class="ic">${icon('grid', 22)}</span><span class="lbl">Lainnya</span></a>`;
+  const tabs = tabsHtml(role);
 
   root.innerHTML = `<div class="shell">
     <nav class="sidebar" aria-label="Menu utama">
