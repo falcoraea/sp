@@ -90,3 +90,10 @@ export function menuFor(role) {
     .map(([k, p]) => ({ key: k, ...p, locked: isLocked(k) }))
     .sort((a, b) => (role === 'superadmin' ? (b.sa ? 1 : 0) - (a.sa ? 1 : 0) : 0));
 }
+
+// menu bawah HP: pilihan pengguna (maks 4, tersimpan per jabatan) atau bawaan jabatan
+export const TAB_MAX = 4;
+export function tabsFor(role, prefs) {
+  const mine = prefs && Array.isArray(prefs[role]) ? prefs[role].filter((k) => PAGES[k] && !PAGES[k].hidden && k !== 'menu' && canOpen(k, role)).slice(0, TAB_MAX) : null;
+  return mine && mine.length ? mine : (TABS[role] || []);
+}
