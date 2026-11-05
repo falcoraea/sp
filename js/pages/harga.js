@@ -23,7 +23,7 @@ export const shopeeFor = (r, mac) => {
 export default {
   tour: [
     { sel: '#sup', title: 'Pilih supplier', body: 'Harga WIN dan STRONG punya rumus sendiri. Pilih supplier untuk melihat barang & rumusnya.' },
-    { sel: '#rules', title: 'Rumus otomatis', body: 'Atur harga 5%, diskon harga beli, dan harga Shopee (mis. Macallan + 20%). Tekan “Simpan rumus & hitung ulang” supaya semua barang supplier ini dihitung ulang.' },
+    { sel: '#rules', title: 'Rumus otomatis', body: 'Atur diskon harga beli dan harga Shopee (mis. Macallan + 20%). Tekan “Simpan rumus & hitung ulang” supaya semua barang supplier ini dihitung ulang.' },
     { sel: '#tbl', title: 'Ubah harga per barang', body: 'Ketik langsung di tabel. Barang yang diubah manual otomatis dikunci supaya tidak tertimpa upload file berikutnya.' },
     { sel: '#savebar', title: 'Simpan dengan alasan', body: 'Setiap perubahan dicatat di riwayat: siapa, kapan, dan alasannya.' }
   ],
@@ -60,7 +60,6 @@ export default {
       const r = R();
       el.querySelector('#rules').innerHTML = `<div class="row between wrap"><h2 class="sec-title">Rumus ${esc(r.name)} (untuk barang yang tidak dikunci)</h2><span class="xs muted">Terakhir diubah ${fmtDate(r.updated_at)}</span></div>
         <div class="grid gauto fields-end">
-          <label class="field">Harga 5%: Macallan dikurangi (%)<input class="input num" id="r5" value="${num0(r.potongan_5_pct)}" inputmode="decimal"></label>
           <label class="field">Harga beli barang biasa: Macallan dikurangi (%)<input class="input num" id="rb" value="${num0(r.diskon_beli_pct)}" inputmode="decimal"></label>
           <label class="field">Harga beli bagian khusus: Macallan dikurangi (%)<input class="input num" id="rs" value="${num0(r.diskon_set_pct)}" inputmode="decimal"></label>
           <label class="field">Kata kunci judul bagian khusus<input class="input" id="rk" value="${esc(r.set_keyword || '')}" placeholder="kosong = tidak ada bagian khusus"></label>
@@ -84,7 +83,7 @@ export default {
     };
     const num0 = (v) => String(Number(v || 0)).replace('.', ',');
     const rulesIn = () => ({
-      potongan_5_pct: pf(el.querySelector('#r5').value), diskon_beli_pct: pf(el.querySelector('#rb').value), diskon_set_pct: pf(el.querySelector('#rs').value),
+      diskon_beli_pct: pf(el.querySelector('#rb').value), diskon_set_pct: pf(el.querySelector('#rs').value),
       set_keyword: el.querySelector('#rk').value.trim() || null, shopee_mode: el.querySelector('#rm').value,
       shopee_plus_pct: pf(el.querySelector('#rpc').value), shopee_plus_rp: parseNum(el.querySelector('#rp').value), shopee_round: +el.querySelector('#rr').value || 1
     });
@@ -101,7 +100,7 @@ export default {
     on(el, 'change', '#rules select', paintRumus);
     on(el, 'click', '#saveRules', async () => {
       const r = R(), upd = { ...rulesIn(), updated_at: new Date().toISOString() };
-      if (!(await confirmBox(`Simpan rumus ${r.name}?`, `Harga 5%, harga beli${upd.shopee_mode === 'rumus' ? ', dan harga Shopee' : ''} semua barang <b>${esc(r.name)}</b> yang <b>tidak dikunci</b> akan dihitung ulang.`))) return;
+      if (!(await confirmBox(`Simpan rumus ${r.name}?`, `Harga beli${upd.shopee_mode === 'rumus' ? ' dan harga Shopee' : ''} semua barang <b>${esc(r.name)}</b> yang <b>tidak dikunci</b> akan dihitung ulang.`))) return;
       try {
         const { error } = await supa.from('suppliers').update(upd).eq('code', r.code); if (error) throw error;
         Object.assign(r, upd);
@@ -130,13 +129,13 @@ export default {
     const margin = (p) => { const sp = +val(p, 'harga_shopee'), b = +val(p, 'harga_beli'); return sp ? Math.round(sp * (1 - s.shopee_fee_pct / 100) - b) : null; };
     const paint = () => {
       const r = R(), list = visible().slice(0, 1000);
-      const fields = [['macallan', 'Macallan'], ['harga_5', `Harga 5%${Number(r.potongan_5_pct) ? '' : ' (=Macallan)'}`], ['harga_beli', `Harga beli (${[r.diskon_beli_pct, r.set_keyword ? r.diskon_set_pct : null].filter((x) => x != null).map((x) => '−' + num0(x) + '%').join(' / ')})`], ['harga_shopee', 'Harga Shopee']];
+      const fields = [['macallan', 'Macallan'], ['harga_beli', `Harga beli (${[r.diskon_beli_pct, r.set_keyword ? r.diskon_set_pct : null].filter((x) => x != null).map((x) => '−' + num0(x) + '%').join(' / ')})`], ['harga_shopee', 'Harga Shopee']];
       el.querySelector('#tbl').innerHTML = list.length ? `<div class="table-wrap"><table class="tbl" style="min-width:1080px"><thead><tr><th><input type="checkbox" class="check" id="all" aria-label="Pilih semua"></th><th>Kode · Barang</th>${fields.map(([, l]) => `<th class="right">${esc(l)}</th>`).join('')}<th class="right">Est. margin</th><th>Sumber</th></tr></thead><tbody>
         ${list.map((p) => {
           const ch = changed.has(p.id), m = margin(p), pend = p.pending_price;
           return `<tr class="${ch || sel.has(p.id) ? 'hl' : ''}" data-row="${p.id}"><td><input type="checkbox" class="check" data-sel="${p.id}" ${sel.has(p.id) ? 'checked' : ''} aria-label="Pilih"></td>
             <td><b>${esc(p.name)}</b><div class="xs muted mono">${esc(p.sku)}${p.diskon_pct != null ? ` · diskon ${p.diskon_pct}%` : p.price_group === 'set' && r.set_keyword ? ` · <span class="tag yellow">${esc(r.set_keyword)} ${num0(r.diskon_set_pct)}%</span>` : ''}</div></td>
-            ${fields.map(([f]) => `<td class="right"><input class="input sm num ${p.price_locked || ch ? 'locked' : f === 'harga_5' || f === 'harga_beli' || (f === 'harga_shopee' && r.shopee_mode === 'rumus') ? 'calc' : ''}" style="width:104px" data-f="${f}" data-id="${p.id}" data-money value="${num(val(p, f))}" inputmode="numeric" aria-label="${f}"></td>`).join('')}
+            ${fields.map(([f]) => `<td class="right"><input class="input sm num ${p.price_locked || ch ? 'locked' : f === 'harga_beli' || (f === 'harga_shopee' && r.shopee_mode === 'rumus') ? 'calc' : ''}" style="width:104px" data-f="${f}" data-id="${p.id}" data-money value="${num(val(p, f))}" inputmode="numeric" aria-label="${f}"></td>`).join('')}
             <td class="num"><b class="${m == null ? '' : m < 0 ? 'neg' : 'pos'}">${m == null ? '–' : rp(m)}</b></td>
             <td>${pend ? `<button class="tag yellow" style="border:0;cursor:pointer" data-pend="${p.id}">Beda: ${esc(pend.sumber)} ${pend.macallan ? 'Macallan ' + num(pend.macallan) : ''}${pend.harga_shopee ? ' Shopee ' + num(pend.harga_shopee) : ''}</button>`
               : p.price_locked ? '<span class="tag dark">Dikunci owner</span>' : !Number(p.harga_beli) ? '<span class="tag red">Modal kosong</span>' : '<span class="tag">Otomatis</span>'}</td></tr>`;
@@ -154,8 +153,8 @@ export default {
       all = data; changed.clear(); sel.clear(); paintTabs(); paintFilters(); paint(); paintRumus();
     };
     const hist = async () => {
-      const { data } = await supa.from('price_history').select('*, products(name, supplier)').order('created_at', { ascending: false }).limit(25);
-      const L = { macallan: 'Macallan', harga_5: 'Harga 5%', harga_beli: 'Harga beli', harga_shopee: 'Harga Shopee' };
+      const { data } = await supa.from('price_history').select('*, products(name, supplier)').neq('field', 'harga_5').order('created_at', { ascending: false }).limit(25);
+      const L = { macallan: 'Macallan', harga_5: 'Harga 5% (lama)', harga_beli: 'Harga beli', harga_shopee: 'Harga Shopee' };
       el.querySelector('#hist').innerHTML = `<div class="card-h"><h2>Riwayat perubahan harga</h2></div>${data?.length ? `<div class="list">${data.map((h) => `<div class="list-item"><div class="grow small">${h.products?.supplier ? `<span class="tag">${esc(h.products.supplier)}</span> ` : ''}${esc(h.products?.name || '')} · ${L[h.field]} ${num(h.old_value)} → <b>${num(h.new_value)}</b>${h.reason ? ` <span class="muted">(${esc(h.reason)})</span>` : ''}</div>
         <span class="xs muted nowrap">${h.source === 'owner' ? esc(nameOf(h.user_id)) : h.source === 'pricelist' ? 'Pricelist' : h.source === 'shopee' ? 'File Shopee' : 'Rumus'} · ${fmtDate(h.created_at, { day: 'numeric', month: 'short' })}</span></div>`).join('')}</div>` : emptyState('Belum ada perubahan.', 'tag')}`;
     };
