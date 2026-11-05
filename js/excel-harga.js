@@ -58,9 +58,9 @@ export function buildHargaBook({ products, stores = [], rows = [], settings = {}
   // ---------------- tab PRICELIST ----------------
   const sord = (p) => SUPS.indexOf(supOf(p));
   const pl = [...products].sort((a, b) => sord(a) - sord(b) || String(a.category || '').localeCompare(String(b.category || '')) || String(a.name).localeCompare(String(b.name)));
-  const ws = wb.sheet('PRICELIST', { cols: [6, 20, 44, 24, 11, 14, 14, 18, 15, 11, 9, 18], freezeRow: PL_HEAD });
-  title(ws, 'PRICELIST TERBARU · ' + SUPS.map((x) => x.name).join(' & '), 12);
-  ws.merge(2, 1, 2, 12);
+  const ws = wb.sheet('PRICELIST', { cols: [6, 20, 44, 24, 11, 14, 18, 15, 11, 9, 18], freezeRow: PL_HEAD });
+  title(ws, 'PRICELIST TERBARU · ' + SUPS.map((x) => x.name).join(' & '), 11);
+  ws.merge(2, 1, 2, 11);
   ws.set(2, 1, `Diunduh ${printedAt || ''}${lastUpload ? ` · pricelist terakhir diupload ${lastUpload}` : ''}`, st.sub);
   const cats = new Set(pl.map((p) => String(p.category || '').trim()).filter(Boolean));
   const nShp = pl.filter((p) => Number(p.harga_shopee) > 0).length;
@@ -76,18 +76,18 @@ export function buildHargaBook({ products, stores = [], rows = [], settings = {}
     ['Total Macallan (1 pcs tiap barang)', pl.reduce((a, p) => a + Number(p.macallan || 0), 0), st.valRp, 'Est. potongan Shopee sebelum dana cair', `${s.shopee_fee_pct ?? 0}%`, st.valT]
   ];
   sum.forEach(([l1, v1, s1, l2, v2, s2], i) => { summary(ws, 3 + i, 2, 3, 4, l1, v1, s1); summary(ws, 3 + i, 5, 7, 8, l2, v2, s2); });
-  head(ws, PL_HEAD, ['NO', 'KODE', 'KETERANGAN', 'KATEGORI', 'SUPPLIER', 'MACALLAN', 'HARGA 5%', 'HARGA BELI', 'HARGA SHOPEE', 'DISKON BELI', 'DIKUNCI', 'KODE TANPA STRIP']);
+  head(ws, PL_HEAD, ['NO', 'KODE', 'KETERANGAN', 'KATEGORI', 'SUPPLIER', 'MACALLAN', 'HARGA BELI', 'HARGA SHOPEE', 'DISKON BELI', 'DIKUNCI', 'KODE TANPA STRIP']);
   const cN = cs({ h: 'center' }), cT = cs({ fmt: '@' }), cTx = cs({}), cR = cs({ fmt: RP }), cRz = cs({ fmt: RP, fill: RED_SOFT }), cP = cs({ fmt: '0%', h: 'center' });
   pl.forEach((p, i) => {
     const r = PL_HEAD + 1 + i;
     const R = supOf(p), d = p.diskon_pct ?? (p.price_group === 'set' ? Number(R.diskon_set_pct) : Number(R.diskon_beli_pct));
     ws.set(r, 1, i + 1, cN); ws.set(r, 2, String(p.sku || ''), cT); ws.set(r, 3, p.name || '', cTx); ws.set(r, 4, p.category || '', cTx); ws.set(r, 5, R.name, cN);
-    ws.set(r, 6, Number(p.macallan || 0), cR); ws.set(r, 7, Number(p.harga_5 || 0), cR); ws.set(r, 8, Number(p.harga_beli || 0), Number(p.harga_beli) ? cR : cRz);
-    ws.set(r, 9, Number(p.harga_shopee || 0), cR); ws.set(r, 10, Number(d || 0) / 100, cP); ws.set(r, 11, p.price_locked ? 'YA' : '', cN);
-    ws.set(r, 12, normKey(p.sku), st.keyCol);   // dipakai pencarian: kode dengan / tanpa strip dianggap sama
+    ws.set(r, 6, Number(p.macallan || 0), cR); ws.set(r, 7, Number(p.harga_beli || 0), Number(p.harga_beli) ? cR : cRz);
+    ws.set(r, 8, Number(p.harga_shopee || 0), cR); ws.set(r, 9, Number(d || 0) / 100, cP); ws.set(r, 10, p.price_locked ? 'YA' : '', cN);
+    ws.set(r, 11, normKey(p.sku), st.keyCol);   // dipakai pencarian: kode dengan / tanpa strip dianggap sama
   });
   const plLast = PL_HEAD + Math.max(1, pl.length);
-  ws.autoFilter(PL_HEAD, 1, plLast, 12);
+  ws.autoFilter(PL_HEAD, 1, plLast, 11);
   const PLC = (col) => `PRICELIST!$${col}$${PL_HEAD + 1}:$${col}$${plLast}`;
 
   // ---------------- daftar tanggal (tab tersembunyi) untuk pilihan tanggal di judul tab toko ----------------
@@ -110,17 +110,17 @@ export function buildHargaBook({ products, stores = [], rows = [], settings = {}
   });
   if (!groups.size) groups.set('none', { name: 'TOKO', orders: new Map() });
   const used = new Set(['PRICELIST']);
-  const HEAD = ['NO', 'NO RESI', 'KODE', 'KETERANGAN', 'QTT', 'MACALLAN', 'HARGA 5%', 'HARGA BELI (25-30%)', 'HARGA SHOPEE', 'HARGA SELESAI', 'MARGIN', 'STATUS'];
+  const HEAD = ['NO', 'NO RESI', 'KODE', 'KETERANGAN', 'QTT', 'MACALLAN', 'HARGA BELI', 'HARGA SHOPEE', 'HARGA SELESAI', 'MARGIN', 'STATUS'];
   const C = (fill) => ({ n: cs({ h: 'center', ...(fill && { fill }) }), t: cs({ fmt: '@', ...(fill && { fill }) }), x: cs({ ...(fill && { fill }) }), r: cs({ fmt: RP, ...(fill && { fill }) }) });
   const norm = C(null), bad = C(RED_SOFT), grey = C(GREY);
 
   for (const { name, orders } of groups.values()) {
-    const sh = wb.sheet(sheetName(name, used), { cols: [6, 22, 18, 42, 6, 13, 13, 17, 14, 15, 13, 12, { w: 8, hidden: true }], freezeRow: ST_HEAD });
+    const sh = wb.sheet(sheetName(name, used), { cols: [6, 22, 18, 42, 6, 13, 17, 14, 15, 13, 12, { w: 8, hidden: true }], freezeRow: ST_HEAD });
     // judul: NAMA TOKO | tanggal (klik sel tanggal -> panah -> pilih tanggal lain)
     sh.merge(1, 1, 1, 4); sh.set(1, 1, String(name).toUpperCase(), st.titleR);
     for (let c = 2; c <= 4; c++) sh.set(1, c, null, st.titleR);
-    sh.merge(1, 5, 1, 12); sh.set(1, 5, d0, st.titleDate);
-    for (let c = 6; c <= 12; c++) sh.set(1, c, null, st.titleDate);
+    sh.merge(1, 5, 1, 11); sh.set(1, 5, d0, st.titleDate);
+    for (let c = 6; c <= 11; c++) sh.set(1, c, null, st.titleDate);
     sh.height(1, 26);
     sh.listValidation(1, 5, DATE_LIST);
     head(sh, ST_HEAD, HEAD);
@@ -135,14 +135,14 @@ export function buildHargaBook({ products, stores = [], rows = [], settings = {}
       const S = isBad ? bad : norm;
       items.forEach((i, k) => {
         const q = Number(i.qty || 1);
-        const v = [Number(i.macallan || 0) * q, Number(i.harga_5 || 0) * q, Number(i.harga_beli || 0) * q, Number(i.harga_jual || 0) * q];
+        const v = [Number(i.macallan || 0) * q, Number(i.harga_beli || 0) * q, Number(i.harga_jual || 0) * q];
         tot.qty += q; tot.mac += v[0];
-        if (!isBad) { tot.beli += v[2]; tot.shp += v[3]; if (k === 0) tot.sel += Number(o.harga_selesai || 0); }
+        if (!isBad) { tot.beli += v[1]; tot.shp += v[2]; if (k === 0) tot.sel += Number(o.harga_selesai || 0); }
         sh.set(r, 1, k === 0 ? n : null, S.n); sh.set(r, 2, k === 0 ? String(o.resi || o.order_no || '') : null, S.t); sh.set(r, 3, String(i.sku || ''), S.t);
         sh.set(r, 4, i.name || '', S.x); sh.set(r, 5, q, S.n);
         v.forEach((x, j) => sh.set(r, 6 + j, x, S.r));
-        sh.set(r, 10, k === 0 ? Number(o.harga_selesai || 0) : null, S.r); sh.set(r, 11, k === 0 ? Number(o.margin || 0) : null, S.r);
-        sh.set(r, 12, stt, S.n);
+        sh.set(r, 9, k === 0 ? Number(o.harga_selesai || 0) : null, S.r); sh.set(r, 10, k === 0 ? Number(o.margin || 0) : null, S.r);
+        sh.set(r, 11, stt, S.n);
         r++;
       });
     }
@@ -153,31 +153,31 @@ export function buildHargaBook({ products, stores = [], rows = [], settings = {}
       // (barcode dengan 1 angka tambahan di belakang juga dicocokkan, sama seperti di aplikasi)
       const key = `SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(UPPER(TRIM($C${r}&"")),"-","")," ",""),".",""),"/","")`;
       const qty = `IF($E${r}="",1,$E${r})`;
-      const look = (col) => ({ f: `IF($C${r}="","",IF($M${r}=0,0,INDEX(${PLC(col)},$M${r})*${qty}))`, v: '' });
-      sh.set(r, 13, { f: `IF($C${r}="","",IFERROR(MATCH(${key},${PLC('L')},0),IF(LEN(${key})>6,IFERROR(MATCH(LEFT(${key},LEN(${key})-1),${PLC('L')},0),0),0)))`, v: '' });
+      const look = (col) => ({ f: `IF($C${r}="","",IF($L${r}=0,0,INDEX(${PLC(col)},$L${r})*${qty}))`, v: '' });
+      sh.set(r, 12, { f: `IF($C${r}="","",IFERROR(MATCH(${key},${PLC('K')},0),IF(LEN(${key})>6,IFERROR(MATCH(LEFT(${key},LEN(${key})-1),${PLC('K')},0),0),0)))`, v: '' });
       sh.set(r, 1, { f: `IF($B${r}="","",COUNTA($B$${first}:$B${r}))`, v: '' }, grey.n);
       sh.set(r, 2, null, norm.t); sh.set(r, 3, null, norm.t);
-      sh.set(r, 4, { f: `IF($C${r}="","",IF($M${r}=0,"KODE TIDAK ADA DI PRICELIST",INDEX(${PLC('C')},$M${r})))`, v: '' }, grey.x);
+      sh.set(r, 4, { f: `IF($C${r}="","",IF($L${r}=0,"KODE TIDAK ADA DI PRICELIST",INDEX(${PLC('C')},$L${r})))`, v: '' }, grey.x);
       sh.set(r, 5, null, norm.n);
-      ['F', 'G', 'H', 'I'].forEach((col, j) => sh.set(r, 6 + j, look(col), grey.r));
-      sh.set(r, 10, null, norm.r);
-      sh.set(r, 11, { f: `IF($J${r}="","",$J${r}-$H${r})`, v: '' }, grey.r);
-      sh.set(r, 12, null, norm.n);
+      ['F', 'G', 'H'].forEach((col, j) => sh.set(r, 6 + j, look(col), grey.r));
+      sh.set(r, 9, null, norm.r);
+      sh.set(r, 10, { f: `IF($I${r}="","",$I${r}-$G${r})`, v: '' }, grey.r);
+      sh.set(r, 11, null, norm.n);
     }
     const last = r - 1;
     const R = (col) => `$${col}$${first}:$${col}$${last}`;
-    const ok = (col) => `SUMIFS(${R(col)},${R('L')},"<>CANCEL",${R('L')},"<>RETUR")`;
+    const ok = (col) => `SUMIFS(${R(col)},${R('K')},"<>CANCEL",${R('K')},"<>RETUR")`;
     summary(sh, 2, 2, 3, 4, 'Jumlah resi', { f: `COUNTA(${R('B')})`, v: tot.resi }, st.valN);
     summary(sh, 3, 2, 3, 4, 'Total barang (qty)', { f: `SUM(${R('E')})`, v: tot.qty }, st.valN);
     summary(sh, 4, 2, 3, 4, 'Total Macallan', { f: `SUM(${R('F')})`, v: tot.mac }, st.valRp);
-    summary(sh, 5, 2, 3, 4, 'Resi cancel / retur', { f: `COUNTIFS(${R('L')},"CANCEL",${R('B')},"<>")+COUNTIFS(${R('L')},"RETUR",${R('B')},"<>")`, v: tot.bad }, st.valN);
-    summary(sh, 6, 2, 3, 4, 'Resi sudah cair', { f: `COUNTIFS(${R('L')},"LUNAS",${R('B')},"<>")`, v: tot.lunas }, st.valN);
-    summary(sh, 2, 6, 8, 9, 'Total modal (harga beli)', { f: ok('H'), v: tot.beli }, st.valRp);
-    summary(sh, 3, 6, 8, 9, 'Total harga Shopee', { f: ok('I'), v: tot.shp }, st.valRp);
-    summary(sh, 4, 6, 8, 9, 'Total harga selesai (pendapatan)', { f: ok('J'), v: tot.sel }, st.valRp);
-    summary(sh, 5, 6, 8, 9, 'Total margin', { f: `SUM(${R('K')})`, v: tot.mar }, st.valRp);
+    summary(sh, 5, 2, 3, 4, 'Resi cancel / retur', { f: `COUNTIFS(${R('K')},"CANCEL",${R('B')},"<>")+COUNTIFS(${R('K')},"RETUR",${R('B')},"<>")`, v: tot.bad }, st.valN);
+    summary(sh, 6, 2, 3, 4, 'Resi sudah cair', { f: `COUNTIFS(${R('K')},"LUNAS",${R('B')},"<>")`, v: tot.lunas }, st.valN);
+    summary(sh, 2, 6, 8, 9, 'Total modal (harga beli)', { f: ok('G'), v: tot.beli }, st.valRp);
+    summary(sh, 3, 6, 8, 9, 'Total harga Shopee', { f: ok('H'), v: tot.shp }, st.valRp);
+    summary(sh, 4, 6, 8, 9, 'Total harga selesai (pendapatan)', { f: ok('I'), v: tot.sel }, st.valRp);
+    summary(sh, 5, 6, 8, 9, 'Total margin', { f: `SUM(${R('J')})`, v: tot.mar }, st.valRp);
     summary(sh, 6, 6, 8, 9, 'Margin dari pendapatan', { f: 'IFERROR(I5/I4,0)', v: tot.sel ? tot.mar / tot.sel : 0 }, st.valPct);
-    sh.merge(2, 10, 6, 12);
+    sh.merge(2, 10, 6, 11);
     sh.set(2, 10, 'Baris abu-abu: cukup ketik NO RESI, KODE (boleh pakai / tanpa strip), QTT & HARGA SELESAI. Keterangan, harga & margin terisi otomatis dari tab PRICELIST, ringkasan di kiri ikut berubah. Resi berisi beberapa barang: tulis harga selesai di baris pertama. Ganti tanggal: klik tanggal di judul, lalu pilih dari panah.', st.note);
   }
   wb.sheets.push(tg);
