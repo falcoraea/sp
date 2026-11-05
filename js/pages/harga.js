@@ -82,6 +82,9 @@ export default {
       paintRumus();
     };
     const num0 = (v) => String(Number(v || 0)).replace('.', ',');
+    // teks persentase untuk judul kolom, mis. "−25% / −30%" dan "Macallan +20%"
+    const beliTxt = (r) => (!Number(r.diskon_beli_pct) && !r.set_keyword ? '= Macallan' : '−' + num0(r.diskon_beli_pct) + '%' + (r.set_keyword ? ' / −' + num0(r.diskon_set_pct) + '%' : ''));
+    const shopeeTxt = (r) => r.shopee_mode === 'rumus' ? 'Macallan ' + [Number(r.shopee_plus_pct) ? '+' + num0(r.shopee_plus_pct) + '%' : '', Number(r.shopee_plus_rp) ? (r.shopee_plus_rp < 0 ? '−' : '+') + rp(Math.abs(r.shopee_plus_rp)) : ''].filter(Boolean).join(' ') : r.shopee_mode === 'file' ? 'ikut file' : 'manual';
     const rulesIn = () => ({
       diskon_beli_pct: pf(el.querySelector('#rb').value), diskon_set_pct: pf(el.querySelector('#rs').value),
       set_keyword: el.querySelector('#rk').value.trim() || null, shopee_mode: el.querySelector('#rm').value,
@@ -129,7 +132,7 @@ export default {
     const margin = (p) => { const sp = +val(p, 'harga_shopee'), b = +val(p, 'harga_beli'); return sp ? Math.round(sp * (1 - s.shopee_fee_pct / 100) - b) : null; };
     const paint = () => {
       const r = R(), list = visible().slice(0, 1000);
-      const fields = [['macallan', 'Macallan'], ['harga_beli', `Harga beli (${[r.diskon_beli_pct, r.set_keyword ? r.diskon_set_pct : null].filter((x) => x != null).map((x) => '−' + num0(x) + '%').join(' / ')})`], ['harga_shopee', 'Harga Shopee']];
+      const fields = [['macallan', 'Macallan'], ['harga_beli', `Harga beli (${beliTxt(r)})`], ['harga_shopee', `Harga Shopee (${shopeeTxt(r)})`]];
       el.querySelector('#tbl').innerHTML = list.length ? `<div class="table-wrap"><table class="tbl" style="min-width:1080px"><thead><tr><th><input type="checkbox" class="check" id="all" aria-label="Pilih semua"></th><th>Kode · Barang</th>${fields.map(([, l]) => `<th class="right">${esc(l)}</th>`).join('')}<th class="right">Est. margin</th><th>Sumber</th></tr></thead><tbody>
         ${list.map((p) => {
           const ch = changed.has(p.id), m = margin(p), pend = p.pending_price;
@@ -222,13 +225,17 @@ export default {
       } catch (err) { toastErr(err); } finally { e.target.disabled = false; }
     };
     el.querySelector('#xl').onclick = async () => {
+      const opts = [...sups.map((x) => [x.code, `${x.name} saja`, `${num(all.filter((p) => (p.supplier || 'WIN') === x.code).length)} barang · harga beli ${beliTxt(x)} · Shopee ${shopeeTxt(x)}`]),
+        ['__all', `${sups.map((x) => x.name).join(' + ')} (jadi satu)`, `${num(all.length)} barang dalam satu tab PRICELIST`]];
       const d = await modal({ title: 'Unduh Excel pricelist & toko', body: `<div class="stack">
-        <div class="small muted">Tab pertama <b>PRICELIST</b> (harga terbaru WIN & STRONG + ringkasan jumlah barang & kategori). Tab berikutnya satu per toko untuk tanggal di bawah, dengan total modal, harga Shopee, pendapatan & margin di bagian atas. Baris kosong bisa diisi manual: ketik resi & kode, harga terisi otomatis.</div>
-        <label class="field">Tanggal resi<input type="date" class="input" id="xd" value="${todayStr()}" max="${todayStr()}"></label></div>`,
-        actions: [{ label: 'Batal', value: null }, { label: 'Unduh Excel', cls: 'btn-primary', onClick: (ov) => ov.querySelector('#xd').value || todayStr() }] });
+        <div class="field"><span>Supplier</span><div class="stack" style="gap:6px">${opts.map(([v, l, d2]) => `<label class="check" style="align-items:flex-start"><input type="radio" name="xs" value="${esc(v)}" ${v === sup ? 'checked' : ''}><span><b>${esc(l)}</b><div class="xs muted">${esc(d2)}</div></span></label>`).join('')}</div></div>
+        <label class="field">Tanggal resi (untuk tab per toko)<input type="date" class="input" id="xd" value="${todayStr()}" max="${todayStr()}"></label>
+        <div class="small muted">Tab pertama <b>PRICELIST</b> (harga terbaru + ringkasan). Tab berikutnya satu per toko untuk tanggal di atas, dengan total modal, harga Shopee, pendapatan & margin. Baris kosong bisa diisi manual: ketik resi & kode, harga terisi otomatis. Nama file: <span class="mono">pricelist-WIN-tanggal.xlsx</span>.</div></div>`,
+        actions: [{ label: 'Batal', value: null }, { label: 'Unduh Excel', cls: 'btn-primary', onClick: (ov) => ({ date: ov.querySelector('#xd').value || todayStr(), sup: ov.querySelector('[name=xs]:checked')?.value || sup }) }] });
       if (!d) return;
+      const codes = d.sup === '__all' ? sups.map((x) => x.code) : [d.sup];
       const b = el.querySelector('#xl'); b.disabled = true; toast('Menyiapkan Excel…');
-      try { const r = await downloadHargaExcel({ date: d, products: all, suppliers: sups }); toast(`Excel siap: ${num(r.products)} barang, ${r.stores} toko, ${r.resi} resi`, 'ok'); }
+      try { const r = await downloadHargaExcel({ date: d.date, products: all, suppliers: sups, codes }); toast(`Excel siap: ${num(r.products)} barang ${codes.join(' + ')}, ${r.stores} toko, ${r.resi} resi`, 'ok'); }
       catch (err) { toastErr(err); } finally { b.disabled = false; }
     };
     paintTabs(); paintRules(); load(); hist();
