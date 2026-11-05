@@ -1141,3 +1141,45 @@ body { touch-action: pan-x pan-y; overscroll-behavior-y: none; }
   .topbar .icon-btn .badge-dot { border-color: #2A3890; }
   .bill-bar { margin: 10px 16px 0; border-radius: 14px; }
 }
+
+/* =========================================================
+   2.17 — menu samping laptop: setiap kategori dalam bingkai + ikon kategori
+   ========================================================= */
+.side-menu { gap: 8px; }
+.side-sec { background: #202421; border: 1px solid #2C312D; border-radius: 12px; padding: 4px; gap: 2px; }
+.side-sec.flat { background: none; border-color: transparent; padding: 0; }
+.side-sec .side-link { margin: 0; }
+.side-group { padding: 8px 8px 6px; margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #B8BCB8; }
+.sg-btn { margin: 0; padding: 7px 8px; border-radius: 9px; color: #B8BCB8; }
+.sg-ic { width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; flex: none;
+  color: var(--gc); background: color-mix(in srgb, var(--gc) 20%, #202421); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gc) 35%, transparent); }
+.side-sec.acc.open { background: #232724; border-color: #343A35; }
+.side-sec.acc.open .sg-btn { background: transparent; }
+.side-sec.acc .side-items .side-link { margin-left: 19px; padding-left: 12px; }
+.side-sec:not(.acc) .side-link { padding: 9px 10px; }
+.side-sec.acc .side-items > div { padding-bottom: 0; }
+.side-sec.acc.open .side-items > div { padding: 2px 0 4px; }
+@media (min-width: 900px) {
+  .side-mini .side-sec { background: none; border: 0; padding: 0; border-top: 1px solid #2C312D; border-radius: 0; padding-top: 6px; }
+  .side-mini .side-sec.flat { border-top: 0; padding-top: 0; }
+  .side-mini .side-group, .side-mini .sg-btn { display: none; }
+  .side-mini .side-sec.acc .side-items .side-link { margin-left: 0; padding-left: 0; }
+}
+
+/* 2.17 — atur menu bawah HP */
+.tabs-edit { flex: none; }
+@media (min-width: 900px) { .tabs-edit { display: none; } }
+.ts-list { display: flex; flex-direction: column; gap: 6px; }
+.ts-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--line); background: #fff; }
+.ts-row.empty { border-style: dashed; background: #FAFAFC; }
+.ts-row.fixed { background: #F6F7FA; }
+.ts-row .btn-sm { min-height: 30px; padding: 0 8px; }
+.ts-n { width: 22px; height: 22px; border-radius: 99px; background: #EEF0F5; display: grid; place-items: center; font-size: 11px; font-weight: 700; flex: none; color: #3C4254; }
+.ts-ic { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: #E6EAFB; color: #23307A; flex: none; }
+.ts-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.ts-pick { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 4px; border-radius: 12px; border: 1px solid var(--line); background: #fff; font: inherit; font-size: 11px; font-weight: 600; color: #2B3040; cursor: pointer; text-align: center; }
+.ts-pick svg { color: #23307A; }
+.ts-pick:disabled { opacity: .4; cursor: default; }
+.ts-pick.on { border-color: #23307A; background: #E6EAFB; opacity: 1; }
+.side-group i.sg-ic, .sg-btn i.sg-ic { width: 24px; height: 24px; border-radius: 7px; opacity: 1; }
+.side-group .sl-t { flex: 1; }
