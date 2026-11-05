@@ -21,6 +21,7 @@ export default {
       await rpc('billing_ensure').catch(() => {});
       const { data, error } = await supa.from('bills').select('*').order('due_date', { ascending: true }).order('id');
       if (error) { el.querySelector('#sum').innerHTML = `<div class="alert yellow">Menu ini butuh update database. Jalankan <b>supabase/update-2.5.sql</b>. (${esc(error.message)})</div>`; el.querySelector('#openlist').innerHTML = ''; return; }
+      el._bills = data;
       const open = data.filter((b) => ['belum', 'menunggu'].includes(b.status));
       const done = data.filter((b) => !['belum', 'menunggu'].includes(b.status)).reverse();
       const total = open.reduce((a, b) => a + Number(b.amount), 0);
@@ -45,7 +46,11 @@ export default {
     const cek = async (id, quiet) => {
       try {
         const r = await callTagihan({ action: 'cek', bill_id: +id });
-        if (r.status === 'lunas') toast('Pembayaran diterima. Tagihan lunas ✓', 'ok');
+        if (r.status === 'lunas') {
+          toast('Pembayaran diterima. Tagihan lunas ✓', 'ok');
+          // tagihan untuk membuka menu tambahan: muat ulang supaya menu langsung terbuka
+          if ((el._bills || []).find((b) => String(b.id) === String(id))?.module_code) { setTimeout(() => { location.hash = '#/modul'; location.reload(); }, 1400); return; }
+        }
         else if (!quiet) toast('Pembayaran belum diterima. Kalau baru bayar, tunggu 1–2 menit lalu cek lagi.');
       } catch (err) { if (!quiet) toastErr(err); }
       load();
