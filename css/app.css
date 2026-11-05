@@ -692,3 +692,21 @@ details > summary { cursor: pointer; padding: 6px 0; }
 .bill-item.open { background: #FFFBF0; }
 .bill-item { align-items: flex-start; }
 .field > .tag, .field .tag { align-self: flex-start; width: auto; }
+/* 2.6 ikon tagihan di bar atas: kanan di laptop, kiri atas (sebelah logo) di HP */
+.tb-bill { position: relative; display: grid; place-items: center; text-decoration: none; flex: none; }
+.tb-bill .badge-dot { position: absolute; }
+.topbar .icon-btn.tb-bill.on { background: var(--accent); color: var(--ink); }
+@media (max-width: 899px) {
+  .topbar .tb-logo { order: -2; }
+  .topbar .tb-bill { order: -1; }
+}
+.side-brand { cursor: default; }
+.tg-status { display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 10px; background: var(--paper); }
+.tg-status.on { background: var(--green-soft); color: var(--green-ink); }
+/* 2.6 tab supplier di Atur harga */
+.sup-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.sup-tab { text-align: left; border: 1.5px solid var(--line-2); background: #fff; border-radius: var(--radius); padding: 12px 16px; cursor: pointer; font: inherit; color: var(--ink); }
+.sup-tab b { display: block; font-size: 18px; letter-spacing: .02em; }
+.sup-tab span { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.sup-tab.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.sup-tab.on span { color: var(--accent); }
