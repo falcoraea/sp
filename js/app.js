@@ -46,6 +46,15 @@ function teardown() {
   Object.assign(store, { session: null, profile: null, role: null, superadmin: false, notifs: [], reads: new Set() });
 }
 
+// kunci ukuran layar: cubit 2 jari & ketuk 2x tidak memperbesar / memperkecil (iPhone mengabaikan meta viewport)
+(function lockZoom() {
+  const stop = (e) => { if (e.cancelable) e.preventDefault(); };
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach((ev) => document.addEventListener(ev, stop, { passive: false }));
+  document.addEventListener('touchmove', (e) => { if (e.touches.length > 1 || (e.scale && e.scale !== 1)) stop(e); }, { passive: false });
+  // ketuk 2x untuk zoom dimatikan lewat CSS touch-action: manipulation (klik cepat tetap jalan)
+  // ctrl + roda mouse / ctrl +/- di laptop tetap boleh (aksesibilitas browser), hanya sentuhan yang dikunci
+})();
+
 async function boot(session) {
   store.session = session;
   try {
