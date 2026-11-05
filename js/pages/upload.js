@@ -22,8 +22,8 @@ export default {
         ${pesananOff ? `<div class="alert blue small">Upload file <b>Pesanan</b> sedang dimatikan owner (marketplace tidak memakai SKU). Pesanan dicatat kepala gudang di menu <a href="#/catat">Catat pesanan</a> dengan scan resi + scan barang.${store.role === 'owner' ? ' Bisa dinyalakan lagi di Pengaturan.' : ''}</div>` : ''}
         <section><h2 class="sec-title" style="margin-bottom:8px">1. Pilih jenis file</h2><div class="grid gauto" id="types">${ALLOWED.map(card).join('')}</div></section>
         <section class="card"><h2 class="sec-title" style="margin-bottom:10px">2. Upload file</h2>
-          <label class="dropzone" id="drop">${icon('upload', 34, 1.8)}<b>Tarik file .xlsx / .csv ke sini</b><span class="small muted">atau ketuk untuk memilih file</span>
-          <input type="file" id="file" accept=".xlsx,.xls,.csv" class="sr"></label></section>
+          <label class="dropzone" id="drop">${icon('upload', 34, 1.8)}<b>Tarik file .xlsx / .csv / .pdf ke sini</b><span class="small muted">atau ketuk untuk memilih file</span>
+          <input type="file" id="file" accept=".xlsx,.xls,.csv,.pdf,application/pdf" class="sr"></label></section>
         <section id="check"></section>
         <section class="card flush" id="hist"></section>
       </div>`;
@@ -138,9 +138,10 @@ export default {
               <span class="xs muted">${esc(R.name)}: harga beli Macallan −${num(R.diskon_beli_pct)}%${kw ? ` (bagian ${esc(kw)} −${num(R.diskon_set_pct)}%)` : ''} · harga Shopee ${esc(shopeeTxt)}</span></div>`;
             stats += withMac.length ? (kw ? `<div class="stat ${setN ? 'yellow' : 'gray'}"><b>${num(setN)}</b><span>barang bagian ${esc(kw)} · diskon beli ${num(R.diskon_set_pct)}%</span></div>` : '') + `<div class="stat gray"><b>${num(withMac.length - setN)}</b><span>barang ${esc(R.name)} · diskon beli ${num(R.diskon_beli_pct)}%</span></div>` : '';
             stats += `<div class="stat ${withShp ? 'green' : 'gray'}"><b>${num(withShp)}</b><span>harga Shopee dari file</span></div>`;
+            if (data.noPrice) stats += `<div class="stat gray"><b>${num(data.noPrice)}</b><span>baris tanpa harga (mis. isi complete set) dilewati</span></div>`;
             extra = `<div class="small" style="line-height:1.7"><b>Yang terjadi setelah disimpan</b><br>
               • Kolom harga yang <b>kosong tidak mengubah</b> harga lama.<br>
-              ${withMac.length ? `• ${num(withMac.length)} barang masuk supplier <b>${esc(R.name)}</b>: Macallan, harga 5% & harga beli diperbarui${R.shopee_mode === 'rumus' ? `, harga Shopee = ${esc(shopeeTxt)}` : ''} (barang baru ditambahkan ke master). Barang yang sebelumnya di supplier lain ikut pindah ke ${esc(R.name)}.<br>` : '• File ini tidak punya harga Macallan → harga modal tidak diubah.<br>'}
+              ${withMac.length ? `• ${num(withMac.length)} barang masuk supplier <b>${esc(R.name)}</b>: Macallan & harga beli diperbarui${R.shopee_mode === 'rumus' ? `, harga Shopee = ${esc(shopeeTxt)}` : ''} (barang baru ditambahkan ke master). Barang yang sebelumnya di supplier lain ikut pindah ke ${esc(R.name)}.<br>` : '• File ini tidak punya harga Macallan → harga modal tidak diubah.<br>'}
               ${withShp ? `• ${num(withShp)} barang: Harga Shopee dari file${shpOnly.some((r) => !r.sku) ? ' (dicocokkan lewat kode / nama barang)' : ''}${R.shopee_mode !== 'file' ? ` <span class="tag yellow">${esc(R.name)} memakai ${R.shopee_mode === 'rumus' ? 'rumus' : 'isi manual'}: harga di file hanya diberi tanda “Beda dengan file baru”</span>` : ''}.<br>` : ''}
               ${shpOnly.length ? `• Kode yang belum ada di master tidak dibuat (modalnya belum diketahui), nanti dilaporkan.<br>` : ''}
               ${secs.length ? `<b>Bagian yang terbaca (${secs.length})</b><br>${secs.slice(0, 20).map((x) => `• ${esc(x)}${kw && x.toUpperCase().includes(kw) ? ` <span class="tag yellow">${num(R.diskon_set_pct)}%</span>` : ''}`).join('<br>')}${secs.length > 20 ? '<br>…' : ''}<br>` : ''}
