@@ -379,7 +379,38 @@ async function billBar() {
 }
 
 // bar atas HP: garis tipis muncul saat halaman digulir
-addEventListener('scroll', () => document.querySelector('.topbar')?.classList.toggle('scrolled', scrollY > 4), { passive: true });
+addEventListener('scroll', () => { if (document.documentElement.classList.contains('no-scroll')) return; document.querySelector('.topbar')?.classList.toggle('scrolled', scrollY > 4); }, { passive: true });
+
+// 2.25: saat pop up apa pun terbuka (modal, notifikasi lonceng, menu akun) halaman di belakangnya dikunci, tidak ikut tergeser
+const POPUP_SEL = '.overlay, #bell-panel, #me-panel';
+const popupScrollLock = () => document.documentElement.classList.toggle('no-scroll', !!document.querySelector(POPUP_SEL) && !document.querySelector('.tour-block'));
+new MutationObserver(popupScrollLock).observe(document.body, { childList: true, subtree: true });
+// HP (iPhone juga): geseran jari di luar bagian pop up yang bisa digulir diabaikan
+addEventListener('touchmove', (e) => {
+  if (!document.documentElement.classList.contains('no-scroll')) return;
+  let el = e.target;
+  while (el && el !== document.body) {
+    if (el.scrollHeight > el.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(el).overflowY)) return;
+    el = el.parentElement;
+  }
+  e.preventDefault();
+}, { passive: false });
+
+// 2.25: tanda gulir (scroll) sendiri di HP: berjalan di antara header dan menu bawah, tidak menutupi keduanya
+const sInd = document.createElement('div'); sInd.className = 'scroll-ind'; sInd.innerHTML = '<i></i>'; document.body.appendChild(sInd);
+let sIndT = 0;
+function paintScrollInd() {
+  if (!matchMedia('(max-width: 899px)').matches) return;
+  const top = Math.max(0, document.querySelector('.topbar')?.getBoundingClientRect().bottom || 0);
+  const tb = document.querySelector('.tabbar'), bot = tb && getComputedStyle(tb).display !== 'none' ? innerHeight - tb.getBoundingClientRect().top : 0;
+  const H = document.documentElement.scrollHeight, V = innerHeight, track = V - top - bot - 12;
+  if (H <= V + 4 || track < 40) { sInd.classList.remove('on'); return; }
+  const th = Math.max(36, track * V / H), y = (scrollY / (H - V)) * (track - th);
+  sInd.style.top = top + 6 + 'px'; sInd.style.height = track + 'px';
+  sInd.firstChild.style.height = th + 'px'; sInd.firstChild.style.transform = `translateY(${Math.max(0, Math.min(track - th, y))}px)`;
+  sInd.classList.add('on'); clearTimeout(sIndT); sIndT = setTimeout(() => sInd.classList.remove('on'), 900);
+}
+addEventListener('scroll', paintScrollInd, { passive: true });
 // 2.21.1: matikan menu tekan-lama browser (Open in new tab, Copy link, Download, Share) supaya terasa seperti aplikasi asli.
 // Kolom isian tetap bisa tekan-lama untuk salin / tempel.
 const editable = (t) => t?.closest?.('input, textarea, select, [contenteditable="true"], .allow-menu, .mono');
