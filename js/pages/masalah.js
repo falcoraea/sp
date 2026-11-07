@@ -48,7 +48,7 @@ export default {
         actions: [{ label: 'Batal', value: null }, { label: 'Simpan', cls: 'btn-primary', onClick: (ov) => ov.querySelector('#rn').value.trim() || 'Ditangani' }]
       });
       if (!note) return;
-      const { error } = await supa.from('anomalies').update({ resolved: true, resolved_note: note, resolved_at: new Date().toISOString(), resolved_by: store.profile.id }).eq('id', b.dataset.resolve);
+      const { error } = await supa.from('anomalies').update({ resolved: true, resolved_note: note, resolved_at: new Date().toISOString(), resolved_by: store.profile.id }).eq('id', b.dataset.resolve); dispatchEvent(new Event('masalah-changed'));
       if (error) return toastErr(error);
       toast('Tersimpan', 'ok'); load();
     });
