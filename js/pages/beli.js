@@ -43,8 +43,9 @@ async function renderNeed(box, afterCreate) {
     ${unknown.length ? `<div class="alert yellow"><b>${unknown.length} baris pesanan memakai kode yang belum ada di master barang</b>, jadi modalnya belum tercatat:
       <div class="mono xs" style="margin-top:6px">${[...new Set(unknown.map((u) => (u.sku || '') + ' — ' + u.name))].slice(0, 10).map(esc).join('<br>')}</div>
       <a class="btn btn-sm" style="margin-top:8px" href="#/barang">Tambah di master barang</a></div>` : ''}
+    <input class="input need-q" id="nq" placeholder="Cari nama / kode barang" aria-label="Cari barang" autocomplete="off">
     <div class="card flush" id="need"><div class="table-wrap"><table class="tbl" style="min-width:720px"><thead><tr><th></th><th>Barang</th><th class="right">Butuh</th><th class="right">Beli</th><th class="right">Harga beli / pcs</th><th class="right">Subtotal</th></tr></thead><tbody>
-      ${list.map((g, i) => `<tr data-row="${i}"><td><input type="checkbox" class="check" data-ck checked aria-label="Pilih"></td>
+      ${list.map((g, i) => `<tr data-row="${i}" data-q="${esc((g.p.name + ' ' + g.p.sku).toLowerCase())}"><td><input type="checkbox" class="check" data-ck checked aria-label="Pilih"></td>
         <td><b>${esc(g.p.name)}</b><div class="xs muted mono">${esc(g.p.sku)} · stok ${g.p.stock} · untuk ${g.orders.length} pesanan${g.rack ? ` · ${g.rack} sudah diambil dari rak (beli untuk isi ulang)` : ''}</div></td>
         <td class="num">${g.need}</td><td class="right"><input class="input sm num" style="width:80px" data-qty value="${g.need}" inputmode="numeric"></td>
         <td class="right"><input class="input sm num" style="width:110px" data-cost data-money value="${num(g.p.harga_beli)}" inputmode="numeric"></td><td class="num" data-sub></td></tr>`).join('')}
@@ -57,6 +58,11 @@ async function renderNeed(box, afterCreate) {
       </div>
       <button class="btn btn-primary btn-lg" id="mk">Simpan & kirim tugas ke sopir</button>
     </div></div>`;
+  // cari nama / kode di daftar "Perlu dibeli" (barang yang disembunyikan tetap ikut kalau dicentang)
+  box.querySelector('#nq')?.addEventListener('input', (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    box.querySelectorAll('#need [data-row]').forEach((tr) => { tr.style.display = !q || tr.dataset.q.includes(q) ? '' : 'none'; });
+  });
   const recalc = () => {
     let tot = 0;
     box.querySelectorAll('[data-row]').forEach((tr) => {
@@ -109,7 +115,7 @@ export async function openPO(id, after) {
   const r = await modal({
     title: p.code, wide: true,
     body: `<div class="stack"><div class="row wrap">${poTag(p.status)}<span class="small muted">No. order WIN <b class="mono">${esc(p.win_order_no || '–')}</b></span></div>
-      <div class="table-wrap card flush" style="border:1px solid var(--line)"><table class="tbl"><thead><tr><th>Barang</th><th class="right">Beli</th><th class="right">Diterima</th><th class="right">Untuk pesanan</th><th class="right">Harga</th></tr></thead><tbody>
+      <div class="table-wrap card flush" style="border:1px solid var(--line)"><table class="tbl po-tbl"><colgroup><col class="c-name"><col><col><col><col class="c-rp"></colgroup><thead><tr><th>Barang</th><th class="right">Beli</th><th class="right">Terima</th><th class="right" title="Untuk pesanan">Pesanan</th><th class="right">Harga</th></tr></thead><tbody>
       ${p.po_items.map((i) => `<tr class="${p.status === 'selesai' && i.received_qty < i.qty ? 'bad' : ''}"><td>${esc(i.products.name)}<div class="xs muted mono">${esc(i.products.sku)}</div></td><td class="num">${i.qty}</td><td class="num">${i.received_qty}</td><td class="num">${i.for_orders}</td><td class="num">${rp(i.unit_cost)}</td></tr>`).join('')}
       </tbody></table></div>
       <div class="small muted">Dibuat ${fmtDateTime(p.created_at)} oleh ${esc(store.profilesById[p.created_by]?.full_name || '–')} · Berangkat ${fmtDateTime(p.departed_at)} · Diambil ${fmtDateTime(p.picked_at)} · Sampai ${fmtDateTime(p.arrived_at)} · Selesai ${fmtDateTime(p.finished_at)}</div>
