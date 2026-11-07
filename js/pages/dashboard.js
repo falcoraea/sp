@@ -1,5 +1,7 @@
 import { supa, rpc } from '../supa.js';
 import { store } from '../store.js';
+import { renderShortcuts, greet, amtToggle } from '../shortcuts.js';
+import staffDash from './dash-staff.js';
 import { esc, rp, num, pct, todayStr, addDays, monthStart, longToday, icon, chips, on, toast, toastErr, ago, fmtDate, modal, downloadXlsx, parseNum } from '../ui.js';
 
 const PERIODS = [['today', 'Hari ini'], ['yesterday', 'Kemarin'], ['7', '7 hari'], ['month', 'Bulan ini'], ['30', '30 hari'], ['custom', 'Pilih tanggal…']];
@@ -53,17 +55,22 @@ export default {
     { sel: '#moving', title: 'Fast & slow moving', body: 'Barang paling laku dan barang yang lambat / tidak laku, berdasarkan jumlah transaksi atau omzet. Kriterianya bisa diatur lewat tombol Atur kriteria.' },
     { sel: '#flow', title: 'Kepatuhan alur scan', body: 'Persentase langkah yang dijalankan dengan benar. Angka rendah = ada langkah yang sering dilewati.' }
   ],
-  async render(el) {
+  async render(el, ctx) {
+    if (store.role !== 'owner') return staffDash.render(el, ctx);
     let period = sessionStorage.getItem('dash-period') || 'today';
     let compare = sessionStorage.getItem('dash-compare') === '1';
     el.innerHTML = `<div class="stack" style="gap:16px">
+      <section class="dash-hero" id="hero">
+      <div class="dh-top">${greet()}<button class="dh-eye" data-eye></button></div>
       <div class="row between wrap"><div class="muted small" id="rlabel">${esc(longToday())}</div>
         ${chips('period', PERIODS, period).replace(/<\/div>$/, `<label class="cmp-toggle" title="Bandingkan dengan periode sebelumnya"><span class="switch" style="display:inline-block"><input type="checkbox" id="cmp" ${compare ? 'checked' : ''}><span></span></span><b>Bandingkan</b></label></div>`)}</div>
       <form class="card row wrap ${period === 'custom' ? '' : 'hidden'}" id="custom"><label class="field" style="flex:1 1 140px">Dari tanggal<input type="date" class="input" id="cf" value="${custom ? custom[0] : addDays(todayStr(), -6)}" max="${todayStr()}"></label>
         <label class="field" style="flex:1 1 140px">Sampai tanggal<input type="date" class="input" id="ct" value="${custom ? custom[1] : todayStr()}" max="${todayStr()}"></label>
         <button class="btn btn-primary" style="align-self:flex-end">Terapkan</button></form>
       <div id="kpi"></div>
+      </section>
       <section class="card flush danger" id="fraud"></section>
+      <section class="card sc-card" id="shortcuts"></section>
       <section class="card flush" id="moving"></section>
       <div class="grid gauto-lg">
         <section class="card" id="breakdown"></section>
@@ -257,6 +264,7 @@ export default {
         .then((v) => { if (v === 'xl') downloadXlsx(`${k === 'fast' ? 'fast' : 'slow'}-moving-${basis}-${todayStr()}.xlsx`, list.map((r, i) => ({ No: i + 1, Kode: r.sku, Barang: r.name, Rak: r.rack_code || '', Transaksi: r.trx, Qty: r.qty, Omzet: Number(r.omzet), Stok: r.stock, ...(k === 'slow' ? { 'Nilai stok': Number(r.nilai_stok) } : {}), 'Terakhir laku': r.last_sold ? fmtDate(r.last_sold) : 'belum pernah' })), title.slice(0, 30)); });
     });
 
+    amtToggle(el.querySelector('#hero')); renderShortcuts(el.querySelector('#shortcuts'));
     load(); loadFraud(); loadChart(); loadFiles(); loadMoving();
   }
 };
