@@ -1367,3 +1367,12 @@ a, button { -webkit-tap-highlight-color: transparent; }
 #open.bill-alert .card-h h2 { color: inherit; }
 @keyframes billBorder { 0%,100% { border-color: #D92D20; } 50% { border-color: #F5B301; } }
 @media (prefers-reduced-motion: reduce) { .card.kpi.bill-alert, #open.bill-alert, #open.bill-alert .card-h { animation-duration: 2.4s; } }
+
+/* 2.22 — pengingat tagihan di bawah header: berkedip merah ↔ kuning di semua halaman, HP & desktop.
+   Tombol "Bayar" berkedip berlawanan (kuning saat bar merah, merah saat bar kuning) supaya tetap terlihat. */
+@keyframes billBlinkInv { 0%,100% { background: #FFD43B; color: #5A1A12; box-shadow: 0 0 0 0 rgba(255,212,59,.6); } 50% { background: #D92D20; color: #fff; box-shadow: 0 0 0 4px rgba(217,45,32,.25); } }
+.bill-bar, body[data-page] .bill-bar { animation: billBlink 1.2s ease-in-out infinite; border-color: transparent; }
+.bill-bar b, body[data-page] .bill-bar b { color: inherit; }
+.bill-bar .bb-btn, body[data-page] .bill-bar .bb-btn { animation: billBlinkInv 1.2s ease-in-out infinite; font-weight: 800; }
+.topbar .icon-btn.tb-bill.has-bill { animation: billBlink 1.2s ease-in-out infinite; }
+.mod-stop { color: var(--red-ink, #A63A2A); }
