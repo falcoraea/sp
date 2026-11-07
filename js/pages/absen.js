@@ -1,20 +1,22 @@
 import { supa, rpc } from '../supa.js';
 import { store } from '../store.js';
-import { esc, todayStr, monthStart, fmtDate, fmtTime, longToday, toast, toastErr, emptyState, photoField, bindPhoto, modal, icon, photoUrl, ROLE_LABEL, skeleton, num } from '../ui.js';
-import { modOn } from '../modules.js';
+import { esc, todayStr, monthStart, fmtDate, fmtTime, longToday, toast, toastErr, emptyState, photoField, bindPhoto, modal, icon, num } from '../ui.js';
+import { modOn, lockBox } from '../modules.js';
 
-// Absen harian. Dengan menu tambahan "Absen selfie + lokasi": selfie & GPS wajib, jarak dari gudang dicatat,
-// absen di luar area ditandai dan owner diberi tahu.
+// Absen harian berdasarkan LOKASI KANTOR (latitude, longitude, radius meter).
+// Owner: mengatur titik kantor & aturan. Pegawai: absen masuk / pulang (GPS wajib kalau titik kantor sudah diatur).
+// Tambahan "Absen selfie wajib": selfie wajib saat absen.
 const getPos = () => new Promise((resolve, reject) => {
   if (!navigator.geolocation) return reject(new Error('HP / browser ini tidak mendukung lokasi GPS'));
-  navigator.geolocation.getCurrentPosition((p) => resolve(p.coords), (e) => reject(new Error(e.code === 1 ? 'Akses lokasi ditolak. Izinkan lokasi untuk aplikasi ini di pengaturan browser / HP, lalu coba lagi.' : 'Lokasi belum didapat. Pastikan GPS menyala lalu coba lagi.')), { enableHighAccuracy: true, timeout: 20000, maximumAge: 30000 });
+  navigator.geolocation.getCurrentPosition((p) => resolve(p.coords), (e) => reject(new Error(e.code === 1 ? 'Akses lokasi ditolak. Izinkan lokasi untuk aplikasi ini di pengaturan HP, lalu coba lagi.' : 'Lokasi belum didapat. Pastikan GPS menyala lalu coba lagi.')), { enableHighAccuracy: true, timeout: 20000, maximumAge: 15000 });
 });
 const mapLink = (lat, lng) => `https://www.google.com/maps?q=${lat},${lng}`;
 
 export default {
   async render(el) {
-    const geo = modOn('absen_lokasi');
-    if (store.role === 'owner') return rekap(el, geo, true);
+    if (store.role === 'owner') return officeSettings(el);
+    const selfie = modOn('absen_lokasi');
+    const office = store.settings.office_lat != null && store.settings.office_lng != null;
     const load = async () => {
       const { data } = await supa.from('attendance').select('*').eq('user_id', store.profile.id).gte('work_date', monthStart()).order('work_date', { ascending: false });
       const today = (data || []).find((a) => a.work_date === todayStr());
@@ -22,87 +24,73 @@ export default {
         <div class="hero"><div class="label">${esc(longToday())}</div>
           <div class="big">${today ? (today.check_out ? 'Sudah pulang' : 'Sudah masuk') : 'Belum absen'}</div>
           <div class="small" style="color:#C9CCC8">${today ? `Masuk ${fmtTime(today.check_in)}${today.check_out ? ' · pulang ' + fmtTime(today.check_out) : ''}` : 'Jam dicatat dari server, bukan dari HP.'}</div></div>
-        ${geo ? `<div class="alert blue small">${icon('camera', 16)} Absen wajib <b>selfie</b> dan <b>lokasi GPS</b>. Absen di luar area gudang akan ditandai.</div>` : ''}
+        ${office ? `<div class="alert blue small">${icon('compass', 16)} Absen hanya bisa di <b>lokasi kantor</b> (radius ${num(store.settings.office_radius)} m). Nyalakan GPS.${selfie ? ' Selfie wajib.' : ''}</div>`
+          : `<div class="alert yellow small">Lokasi kantor belum diatur owner, jadi lokasi tidak dicek.</div>`}
         ${!today ? `<button class="btn btn-primary btn-lg" id="in">${icon('clock', 20)} Absen masuk</button>` : !today.check_out ? `<button class="btn btn-dark btn-lg" id="out">${icon('logout', 20)} Absen pulang</button>` : ''}
         <div class="card flush"><div class="card-h"><h2>Bulan ini</h2><b>${(data || []).length} hari hadir</b></div>
-          ${data?.length ? `<div class="list">${data.map((a) => `<div class="list-item"><span class="grow">${fmtDate(a.work_date, { weekday: 'short', day: 'numeric', month: 'short' })}${a.outside ? ' <span class="tag red">di luar lokasi</span>' : ''}</span><span class="small">${fmtTime(a.check_in)} – ${a.check_out ? fmtTime(a.check_out) : '…'}</span></div>`).join('')}</div>` : emptyState('Belum ada absen bulan ini.', 'clock')}</div>
-        <div id="rk"></div></div>`;
+          ${data?.length ? `<div class="list">${data.map((a) => `<div class="list-item"><span class="grow">${fmtDate(a.work_date, { weekday: 'short', day: 'numeric', month: 'short' })}${a.outside ? ' <span class="tag red">di luar lokasi</span>' : ''}</span><span class="small">${fmtTime(a.check_in)} – ${a.check_out ? fmtTime(a.check_out) : '…'}</span></div>`).join('')}</div>` : emptyState('Belum ada absen bulan ini.', 'clock')}</div></div>`;
       const go = async (kind) => {
-        let get, pos = null;
+        let get = () => null, pos = null;
         const ok = await modal({ title: kind === 'masuk' ? 'Absen masuk' : 'Absen pulang', body: `<div class="stack">
-            ${geo ? `<div class="small" id="gp">${icon('compass', 16)} Mengambil lokasi…</div>` : ''}
-            <p class="muted" style="margin:0">${geo ? 'Ambil selfie di tempat kerja (wajib).' : 'Foto selfie di tempat kerja (opsional).'}</p>${photoField('sf', 'Ketuk untuk selfie')}</div>`,
+            ${office ? `<div class="small" id="gp">${icon('compass', 16)} Mengambil lokasi…</div>` : ''}
+            ${selfie ? `<p class="muted" style="margin:0">Ambil selfie di tempat kerja (wajib).</p>${photoField('sf', 'Ketuk untuk selfie')}` : '<p class="muted" style="margin:0">Tekan "Absen sekarang".</p>'}</div>`,
           actions: [{ label: 'Batal', value: false }, { label: 'Absen sekarang', cls: 'btn-primary', onClick: () => {
-            if (geo && !get()) { toast('Selfie wajib', 'err'); return false; }
-            if (geo && !pos) { toast('Lokasi belum didapat. Tunggu sebentar / nyalakan GPS.', 'err'); return false; }
+            if (selfie && !get()) { toast('Selfie wajib', 'err'); return false; }
+            if (office && !pos) { toast('Lokasi belum didapat. Tunggu sebentar / nyalakan GPS.', 'err'); return false; }
             return true;
           } }],
           onOpen: (ov) => {
-            get = bindPhoto(ov, 'sf', 'absen');
-            if (geo) getPos().then((c) => { pos = c; ov.querySelector('#gp').innerHTML = `${icon('check', 16)} Lokasi didapat (akurasi ±${Math.round(c.accuracy)} m)`; })
+            if (selfie) get = bindPhoto(ov, 'sf', 'absen');
+            if (office) getPos().then((c) => { pos = c; const g = ov.querySelector('#gp'); if (g) g.innerHTML = `${icon('check', 16)} Lokasi didapat (akurasi ±${Math.round(c.accuracy)} m)`; })
               .catch((e) => { const g = ov.querySelector('#gp'); if (g) g.innerHTML = `<span style="color:var(--red)">${esc(e.message)}</span>`; });
           } });
         if (!ok) return;
         try {
           const r = await rpc('absen', { p_kind: kind, p_lat: pos?.latitude ?? null, p_lng: pos?.longitude ?? null, p_acc: pos?.accuracy ?? null, p_photo: get() });
-          toast(`Absen ${kind} tercatat${r?.dist != null ? ` · ±${num(r.dist)} m dari gudang` : ''}${r?.outside ? ' (di luar lokasi)' : ''}`, r?.outside ? 'err' : 'ok');
-        } catch (e) {
-          // database lama (sebelum 2.13): absen biasa
-          if (!/absen\(|function|PGRST202/i.test(e.message || '') || geo) return toastErr(e);
-          const { error } = kind === 'masuk' ? await supa.from('attendance').insert({ user_id: store.profile.id, photo: get() })
-            : await supa.from('attendance').update({ check_out: new Date().toISOString() }).eq('id', today.id);
-          if (error) return toastErr(error);
-          toast(`Absen ${kind} tercatat`, 'ok');
-        }
+          toast(`Absen ${kind} tercatat${r?.dist != null ? ` · ±${num(r.dist)} m dari kantor` : ''}${r?.outside ? ' (di luar lokasi)' : ''}`, r?.outside ? 'err' : 'ok');
+        } catch (e) { return toastErr(e); }
         load();
       };
       el.querySelector('#in')?.addEventListener('click', () => go('masuk'));
       el.querySelector('#out')?.addEventListener('click', () => go('pulang'));
-      if (store.role === 'supervisor') rekap(el.querySelector('#rk'), geo, false);
     };
     load();
   }
 };
 
-// rekap absen semua pegawai (owner / supervisor) + lokasi gudang
-async function rekap(box, geo, owner) {
-  let date = todayStr();
-  box.innerHTML = `<div class="stack">
-    ${owner ? `<div class="page-head"><div><h2 style="font-size:22px">Absen pegawai</h2><div class="desc">Siapa yang sudah masuk / pulang hari ini${geo ? ', lengkap dengan selfie & jarak dari gudang' : ''}.</div></div></div>` : '<h3 class="sec-h">Absen semua pegawai</h3>'}
-    ${owner && !geo ? `<a class="alert small" href="#/modul" style="display:block">${icon('lock', 15)} Ingin absen wajib selfie + lokasi GPS? Buka <b>Absen selfie + lokasi</b> di Menu tambahan.</a>` : ''}
-    <div class="row"><input class="input" type="date" id="ad" value="${date}" style="max-width:200px"></div>
-    <section class="card flush"><div class="card-h"><h2>Daftar hadir</h2><b id="an"></b></div><div id="al">${skeleton(2)}</div></section>
-    ${owner && geo ? `<section class="card stack" id="loc"><h2 class="sec-title">${icon('compass', 18)} Lokasi gudang</h2>
-      <div class="small muted" id="lc">${store.settings.office_lat ? `Titik: <a href="${mapLink(store.settings.office_lat, store.settings.office_lng)}" target="_blank" rel="noopener">${store.settings.office_lat}, ${store.settings.office_lng}</a>` : 'Belum diatur — jarak absen belum bisa dihitung.'}</div>
-      <label class="field" style="max-width:240px">Radius area kerja (meter)<input class="input num" id="lr" type="number" min="30" value="${store.settings.office_radius || 150}"></label>
-      <div class="row wrap"><button class="btn btn-primary" id="lh">${icon('compass', 16)} Pakai lokasi saya sekarang</button><button class="btn" id="ls">Simpan radius</button></div>
-      <div class="xs muted">Tekan "Pakai lokasi saya sekarang" saat kamu berada di gudang. GPS HP biasanya meleset 10–50 m, jadi radius 100–200 m disarankan.</div></section>` : ''}</div>`;
-  const load = async () => {
-    let rows;
-    try { rows = await rpc('absen_rekap', { p_date: date }); } catch (e) { box.querySelector('#al').innerHTML = `<div class="alert yellow small" style="margin:12px">${esc(e.message)}</div>`; return; }
-    const urls = await Promise.all(rows.map((r) => (r.photo ? photoUrl(r.photo) : null)));
-    box.querySelector('#an').textContent = `${rows.filter((r) => r.check_in).length} / ${rows.length} hadir`;
-    box.querySelector('#al').innerHTML = rows.length ? `<div class="list no-page">${rows.map((r, i) => `<div class="list-item">
-      ${urls[i] ? `<a href="${esc(urls[i])}" target="_blank" rel="noopener"><img class="av-photo" src="${esc(urls[i])}" alt="Selfie ${esc(r.name)}"></a>` : `<span class="av-photo none">${icon('user', 18)}</span>`}
-      <div class="grow" style="min-width:0"><b>${esc(r.name)}</b> <span class="xs muted">${esc(ROLE_LABEL[r.role] || r.role)}</span>${r.outside ? ' <span class="tag red">di luar lokasi</span>' : ''}
-        <div class="xs muted">${r.in_dist != null ? `masuk ±${num(r.in_dist)} m` : ''}${r.out_dist != null ? ` · pulang ±${num(r.out_dist)} m` : ''}${r.in_lat ? ` · <a href="${mapLink(r.in_lat, r.in_lng)}" target="_blank" rel="noopener">peta</a>` : ''}</div></div>
-      <span class="small" style="text-align:right">${r.check_in ? `${fmtTime(r.check_in)} – ${r.check_out ? fmtTime(r.check_out) : '…'}` : '<span class="tag">belum absen</span>'}</span></div>`).join('')}</div>` : emptyState('Belum ada pegawai.', 'users');
-  };
-  box.querySelector('#ad').addEventListener('change', (e) => { date = e.target.value; load(); });
-  box.querySelector('#lh')?.addEventListener('click', async (e) => {
+// owner: titik lokasi kantor + radius + aturan
+function officeSettings(el) {
+  const s = store.settings;
+  el.innerHTML = `<div class="stack" style="max-width:760px">
+    <div class="page-head"><div><h2 style="font-size:22px">Lokasi kantor untuk absen</h2><div class="desc">Pegawai hanya bisa absen kalau berada di dalam radius dari titik kantor.</div></div></div>
+    <section class="card stack" id="loc">
+      <div class="grid g2">
+        <label class="field">Latitude<input class="input num" id="la" inputmode="decimal" placeholder="-6.200000" value="${s.office_lat ?? ''}"></label>
+        <label class="field">Longitude<input class="input num" id="lo" inputmode="decimal" placeholder="106.816666" value="${s.office_lng ?? ''}"></label>
+        <label class="field">Radius area kerja (meter)<input class="input num" id="lr" type="number" min="20" value="${s.office_radius || 150}"></label>
+        <label class="field">Kalau di luar radius<select class="input" id="ls"><option value="1" ${s.office_strict !== false ? 'selected' : ''}>Tolak absen</option><option value="0" ${s.office_strict === false ? 'selected' : ''}>Tetap boleh, tapi ditandai & owner diberi tahu</option></select></label>
+      </div>
+      <div class="row wrap"><button class="btn" id="lh">${icon('compass', 16)} Pakai lokasi saya sekarang</button><a class="btn" id="lm" target="_blank" rel="noopener">${icon('eye', 16)} Lihat di peta</a><button class="btn btn-primary" id="sv">Simpan</button></div>
+      <div class="xs muted">Cara mengisi: buka Google Maps › tekan lama titik kantor › angka yang muncul (mis. <span class="mono">-6.2000, 106.8166</span>) = latitude, longitude. Atau tekan "Pakai lokasi saya sekarang" saat berada di kantor. GPS HP biasanya meleset 10–50 m, jadi radius 100–200 m disarankan. Kosongkan latitude & longitude untuk mematikan cek lokasi.</div>
+    </section>
+    ${modOn('rekap_absen') ? `<a class="card dh-absen" href="#/rekap-absen">${icon('calendar', 18)}<span class="grow"><b>Rekap absensi</b><span class="xs muted" style="display:block">Hadir, telat, pulang awal, di luar lokasi per pegawai</span></span>${icon('chev', 16)}</a>` : lockBox('rekap_absen')}
+  </div>`;
+  const v = (id) => el.querySelector('#' + id);
+  const mapUpd = () => { const a = parseFloat(v('la').value.replace(',', '.')), b = parseFloat(v('lo').value.replace(',', '.')); v('lm').href = isFinite(a) && isFinite(b) ? mapLink(a, b) : 'https://www.google.com/maps'; };
+  // tempel "lat, lng" sekaligus dari Google Maps
+  v('la').addEventListener('input', () => { const m = v('la').value.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/); if (m) { v('la').value = m[1]; v('lo').value = m[2]; } mapUpd(); });
+  v('lo').addEventListener('input', mapUpd); mapUpd();
+  v('lh').onclick = async (e) => {
     const b = e.currentTarget; b.disabled = true;
-    try {
-      const c = await getPos();
-      await rpc('office_save', { p_lat: +c.latitude.toFixed(6), p_lng: +c.longitude.toFixed(6), p_radius: +box.querySelector('#lr').value || 150 });
-      Object.assign(store.settings, { office_lat: +c.latitude.toFixed(6), office_lng: +c.longitude.toFixed(6), office_radius: +box.querySelector('#lr').value || 150 });
-      box.querySelector('#lc').innerHTML = `Titik: <a href="${mapLink(store.settings.office_lat, store.settings.office_lng)}" target="_blank" rel="noopener">${store.settings.office_lat}, ${store.settings.office_lng}</a> (akurasi ±${Math.round(c.accuracy)} m)`;
-      toast('Lokasi gudang tersimpan', 'ok');
-    } catch (err) { toastErr(err); }
+    try { const c = await getPos(); v('la').value = c.latitude.toFixed(6); v('lo').value = c.longitude.toFixed(6); mapUpd(); toast(`Lokasi didapat (akurasi ±${Math.round(c.accuracy)} m). Tekan Simpan.`, 'ok'); } catch (err) { toastErr(err); }
     b.disabled = false;
-  });
-  box.querySelector('#ls')?.addEventListener('click', async () => {
-    if (!store.settings.office_lat) return toast('Atur titik lokasi dulu', 'err');
-    try { await rpc('office_save', { p_lat: store.settings.office_lat, p_lng: store.settings.office_lng, p_radius: +box.querySelector('#lr').value || 150 }); store.settings.office_radius = +box.querySelector('#lr').value; toast('Radius tersimpan', 'ok'); } catch (err) { toastErr(err); }
-  });
-  load();
+  };
+  v('sv').onclick = async () => {
+    const la2 = v('la').value.trim() ? parseFloat(v('la').value.replace(',', '.')) : null, lo2 = v('lo').value.trim() ? parseFloat(v('lo').value.replace(',', '.')) : null;
+    try {
+      await rpc('office_save', { p_lat: la2, p_lng: lo2, p_radius: +v('lr').value || 150, p_strict: v('ls').value === '1' });
+      Object.assign(store.settings, { office_lat: la2, office_lng: lo2, office_radius: +v('lr').value || 150, office_strict: v('ls').value === '1' });
+      toast('Lokasi kantor tersimpan', 'ok');
+    } catch (err) { toastErr(err); }
+  };
 }
