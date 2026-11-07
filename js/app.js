@@ -359,7 +359,7 @@ async function billBar() {
     const late = data[0].due_date < todayStr();
     const bar = document.createElement('a');
     bar.id = 'bill-bar'; bar.href = '#/tagihan'; bar.className = 'bill-bar' + (late ? ' late' : '');
-    bar.innerHTML = `${icon('receipt', 16)}<span><b>Tagihan ${rp(data.reduce((a, b) => a + Number(b.amount), 0))}</b> · ${late ? 'terlambat sejak' : 'jatuh tempo'} ${fmtDate(data[0].due_date, { day: 'numeric', month: 'short' })}</span><span class="bb-btn blink">Bayar</span>`;
+    bar.innerHTML = `${icon('receipt', 16)}<span><b>Tagihan ${rp(data.reduce((a, b) => a + Number(b.amount), 0))}</b> · ${late ? 'terlambat sejak' : 'jatuh tempo'} ${fmtDate(data[0].due_date, { day: 'numeric', month: 'short' })}</span><span class="bb-btn">Bayar</span>`;
     document.querySelector('.topbar')?.after(bar);
     if (location.hash.startsWith('#/tagihan')) bar.classList.add('hidden');
   } catch (_) {}
