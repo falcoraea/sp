@@ -48,6 +48,9 @@ function delta(cur, prev, goodUp = true, money = true) {
 }
 const LV = { tinggi: ['Tinggi', 'solid-red'], sedang: ['Sedang', 'solid-yellow'], info: ['Info', ''] };
 
+// judul bagian dengan kotak ikon berwarna
+const secH = (ic, title, tone = 'navy', sub = null, bare = false) => `<div class="sec-h2 ${bare ? 'bare' : ''}"><i class="si si-${tone}">${icon(ic, 18, 2.2)}</i><div><h2 class="sec-title">${title}</h2>${sub ? `<div class="xs muted">${esc(sub)}</div>` : ''}</div></div>`;
+
 export default {
   tour: [
     { sel: '[data-chips="period"]', title: 'Pilih periode', body: 'Lihat angka hari ini, kemarin, 7 hari, atau bulan ini.' },
@@ -119,7 +122,7 @@ export default {
         const ln = (label, cur, prev, cls = '', goodUp = true) => `<div class="line-row ${cls}"><span>${label}</span><span class="lr-v">${ps ? `<span class="prev">${rp(prev)}</span>` : ''}<span>${rp(cur)}</span>${ps ? delta(cur, prev, goodUp) : ''}</span></div>`;
         const f = (o) => o && { omzet: o.omzet, pot: -(o.omzet - o.dana_shopee), modal: -o.modal, pk: o.profit_kotor, pack: -o.packing, rugi: -o.rugi, gaji: -o.gaji, op: -o.operasional, lb: o.laba_bersih };
         const a = f(s), b = f(ps) || {};
-        el.querySelector('#breakdown').innerHTML = `<div class="row between"><h2 class="sec-title" style="margin-bottom:10px">Dari omzet ke laba bersih</h2>${ps ? '<span class="xs muted">sebelumnya · sekarang</span>' : ''}</div>
+        el.querySelector('#breakdown').innerHTML = `<div class="row between">${secH('wallet', 'Dari omzet ke laba bersih', 'navy')}${ps ? '<span class="xs muted">sebelumnya · sekarang</span>' : ''}</div>
           ${ln('Omzet penjualan', a.omzet, b.omzet)}
           ${ln('Potongan Shopee (selisih ke dana cair / estimasi)', a.pot, b.pot)}
           ${ln('Modal barang (WIN)', a.modal, b.modal)}
@@ -132,10 +135,10 @@ export default {
         const k = s.kepatuhan || {};
         const bar = (label, v) => `<div style="margin-bottom:12px"><div class="line-row"><span>${label}</span><b>${pct(v)}</b></div>
           <div class="progress"><div style="width:${v ?? 0}%;background:${v == null ? 'var(--line)' : v >= 95 ? 'var(--green)' : v >= 80 ? 'var(--accent)' : 'var(--red)'}"></div></div></div>`;
-        el.querySelector('#flow').innerHTML = `<h2 class="sec-title" style="margin-bottom:12px">Kepatuhan alur scan</h2>
+        el.querySelector('#flow').innerHTML = `${secH('check', 'Kepatuhan alur scan', 'green')}
           ${bar('Packing scan resi + barang', k.packing_scan)}${bar('Barang WIN diterima lengkap', k.terima_lengkap)}
           ${bar('Retur di-scan kembali', k.retur_scan)}${bar('Foto paket diambil', k.foto_paket)}
-          <div class="muted xs">“–” berarti belum ada data di periode ini.</div>`;
+`;
       } catch (e) { toastErr(e); el.querySelector('#kpi').innerHTML = '<div class="alert red">Gagal memuat ringkasan.</div>'; }
     };
 
@@ -168,8 +171,8 @@ export default {
         const all = [...rows, ...(prev || [])].map((r) => Math.abs(Number(r.laba_bersih)));
         const max = Math.max(1, ...all);
         const sum = (l) => l.reduce((a, r) => a + Number(r.laba_bersih || 0), 0);
-        box.innerHTML = `<h2 class="sec-title">Laba bersih per hari · ${fmtDate(from, { day: 'numeric', month: 'short' })} – ${fmtDate(to, { day: 'numeric', month: 'short' })}</h2>
-          <div class="muted xs" style="margin-bottom:10px">Merah = rugi di hari itu${prev ? ` · <span class="lg-prev"></span> abu muda = ${n} hari sebelumnya (${fmtDate(addDays(from, -n), { day: 'numeric', month: 'short' })} – ${fmtDate(addDays(from, -1), { day: 'numeric', month: 'short' })}) · total ${rp(sum(rows))} vs ${rp(sum(prev))}` : ''}</div>
+        box.innerHTML = `${secH('chart', 'Laba bersih per hari', 'blue', fmtDate(from, { day: 'numeric', month: 'short' }) + ' – ' + fmtDate(to, { day: 'numeric', month: 'short' }))}
+          <div class="muted xs" style="margin-bottom:10px">${prev ? `<span class="lg-prev"></span> abu muda = ${n} hari sebelumnya (${fmtDate(addDays(from, -n), { day: 'numeric', month: 'short' })} – ${fmtDate(addDays(from, -1), { day: 'numeric', month: 'short' })}) · total ${rp(sum(rows))} vs ${rp(sum(prev))}` : ''}</div>
           <div class="bars ${prev ? 'cmp' : ''}">${rows.map((r, i) => {
             const pv = prev && prev[i];
             return `<div class="b" title="${fmtDate(r.d)}: ${rp(r.laba_bersih)}${pv ? ' · sebelumnya ' + fmtDate(pv.d) + ': ' + rp(pv.laba_bersih) : ''}"><div class="bb">${pv ? `<i class="pv ${Number(pv.laba_bersih) < 0 ? 'neg' : ''}" style="height:${Math.max(2, Math.abs(Number(pv.laba_bersih)) / max * 100)}%"></i>` : ''}<i class="${i === rows.length - 1 ? 'today' : ''} ${Number(r.laba_bersih) < 0 ? 'neg' : ''}" style="height:${Math.max(2, Math.abs(Number(r.laba_bersih)) / max * 100)}%"></i></div><span>${String(r.d).slice(8)}</span></div>`;
@@ -189,7 +192,7 @@ export default {
         const cls = days >= warnDays ? 'neg' : days >= 1 ? 'warn-t' : 'pos';
         return `<div class="line-row"><span>${l}</span><span class="${cls}">${days === 0 ? 'hari ini' : days + ' hari lalu'} · ${esc(store.profilesById[u.user_id]?.full_name || '')}</span></div>`;
       };
-      box.innerHTML = `<h2 class="sec-title" style="margin-bottom:10px">Status file Shopee</h2>
+      box.innerHTML = `${secH('file', 'Status file Shopee', 'yellow')}
         ${row('pesanan', 'Pesanan', 2)}${row('pembatalan', 'Pembatalan', 3)}${row('pengembalian', 'Pengembalian / retur', 4)}${row('penghasilan', 'Penghasilan (dana cair)', 5)}${row('pricelist', 'Pricelist WIN', 30)}
         <a href="#/upload" class="btn btn-primary" style="margin-top:14px">Buka upload file Shopee</a>`;
     };
@@ -205,26 +208,32 @@ export default {
       const op = k === 'fast' ? '≥' : '≤';
       return basis === 'trx' ? `${op} ${num(c.trx)} transaksi dalam ${c.days} hari terakhir` : `omzet ${op} ${rp(c.omzet)} dalam ${c.days} hari terakhir`;
     };
-    const fastRow = (r, i) => `<div class="list-item mv-row"><span class="mv-rank">${i + 1}</span><div class="grow" style="min-width:0"><b class="mv-name">${esc(r.name)}</b><div class="xs muted">${num(r.qty)} pcs terjual · stok ${num(r.stock)}${r.rack_code ? ' · rak ' + esc(r.rack_code) : ''}</div></div>
-      <div class="right"><div>${metric(r)}</div><div class="xs muted">${sub(r)}</div></div></div>`;
-    const slowRow = (r) => `<div class="list-item mv-row"><div class="grow" style="min-width:0"><b class="mv-name">${esc(r.name)}</b><div class="xs muted">${esc(lastSold(r))} · stok ${num(r.stock)}${r.rack_code ? ' · rak ' + esc(r.rack_code) : ''}</div></div>
-      <div class="right"><div>${metric(r)}</div><div class="xs muted">${rp(r.nilai_stok)} tertahan</div></div></div>`;
+    // baris barang: peringkat (emas/perak/perunggu), nama, info, angka + bar perbandingan
+    const val = (r) => Number(basis === 'trx' ? r.trx : r.omzet) || 0;
+    const fastRow = (r, i, max) => `<div class="mv-row"><span class="mv-rank r${Math.min(i + 1, 4)}">${i + 1}</span>
+      <div class="grow" style="min-width:0"><div class="mv-line"><b class="mv-name">${esc(r.name)}</b><span class="mv-val">${metric(r)}</span></div>
+        <div class="mv-bar"><i style="width:${Math.max(4, val(r) / (max || 1) * 100)}%"></i></div>
+        <div class="mv-meta"><span>${num(r.qty)} pcs terjual</span><span class="mv-chip">stok ${num(r.stock)}</span>${r.rack_code ? `<span class="mv-chip">rak ${esc(r.rack_code)}</span>` : ''}</div></div></div>`;
+    const slowRow = (r) => `<div class="mv-row"><span class="mv-rank slow">${icon(r.last_sold ? 'clock' : 'alert', 14, 2.4)}</span>
+      <div class="grow" style="min-width:0"><div class="mv-line"><b class="mv-name">${esc(r.name)}</b><span class="mv-val neg">${rp(r.nilai_stok)}</span></div>
+        <div class="mv-meta"><span class="${r.last_sold ? '' : 'mv-never'}">${esc(lastSold(r))}</span><span class="mv-chip">stok ${num(r.stock)}</span>${r.rack_code ? `<span class="mv-chip">rak ${esc(r.rack_code)}</span>` : ''}</div></div></div>`;
     const loadMoving = async () => {
       const box = el.querySelector('#moving');
       if (!mv) box.innerHTML = '<div class="skeleton" style="height:180px;margin:16px"></div>';
       try { mv = await rpc('moving_report', { p_basis: basis }); }
       catch (e) { box.innerHTML = `<div class="alert yellow" style="margin:16px">Laporan fast &amp; slow moving belum aktif. Jalankan <b>supabase/update-1.11.sql</b> di Supabase › SQL Editor.</div>`; return; }
-      const k = mv.count || {};
-      box.innerHTML = `<div class="card-h mv-head"><div><h2>Fast &amp; slow moving</h2><div class="small muted">Tidak ikut filter tanggal di atas. Rentang waktunya diatur di kriteria.</div></div>
-          <div class="row wrap">${chips('basis', [['trx', 'Berdasarkan transaksi'], ['omzet', 'Berdasarkan omzet']], basis)}<button class="btn btn-sm" id="mv-set">${icon('gear', 16)} Atur kriteria</button></div></div>
+      const k = mv.count || {}, fmax = mv.fast.length ? val(mv.fast[0]) : 1;
+      box.innerHTML = `<div class="card-h mv-head">${secH('chart', 'Fast &amp; slow moving', 'navy', null, true)}
+          <div class="row wrap mv-tools"><div class="seg" data-chips="basis">${[['trx', 'Transaksi'], ['omzet', 'Omzet']].map(([v, l]) => `<button class="chip ${v === basis ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div>
+            <button class="btn btn-sm" id="mv-set">${icon('gear', 16)} Kriteria</button></div></div>
         <div class="mv-grid">
-          <div class="mv-col"><div class="mv-title fast">${icon('chart', 18)}<div><b>Fast moving · ${num(k.fast)} barang</b><div class="xs">${esc(crit('fast'))}</div></div></div>
-            ${mv.fast.length ? `<div class="list no-page">${mv.fast.slice(0, 10).map(fastRow).join('')}</div>` : `<div class="empty small">Belum ada barang yang memenuhi kriteria fast moving.</div>`}
-            ${mv.fast.length > 10 ? `<button class="btn btn-ghost btn-block" data-all="fast">Lihat semua ${num(mv.fast.length)} barang</button>` : ''}</div>
-          <div class="mv-col"><div class="mv-title slow">${icon('clock', 18)}<div><b>Slow moving · ${num(k.slow)} barang</b><div class="xs">${esc(crit('slow'))} · hanya barang yang masih ada stok</div></div></div>
-            ${k.slow ? `<div class="mv-kpi"><span>Nilai stok tertahan <b>${rp(k.slow_nilai)}</b></span><span>Tidak laku sama sekali <b>${num(k.slow_tidak_laku)}</b></span></div>` : ''}
-            ${mv.slow.length ? `<div class="list no-page">${mv.slow.slice(0, 10).map(slowRow).join('')}</div>` : `<div class="empty small">Tidak ada barang slow moving. 👍</div>`}
-            ${mv.slow.length > 10 ? `<button class="btn btn-ghost btn-block" data-all="slow">Lihat semua ${num(mv.slow.length)} barang</button>` : ''}</div>
+          <div class="mv-col fast"><div class="mv-title">${icon('chart', 20, 2.2)}<div class="grow"><b>Fast moving</b><div class="xs">${esc(crit('fast'))}</div></div><span class="mv-count">${num(k.fast)}</span></div>
+            ${mv.fast.length ? `<div class="mv-list">${mv.fast.slice(0, 10).map((r, i) => fastRow(r, i, fmax)).join('')}</div>` : `<div class="empty small">Belum ada barang fast moving.</div>`}
+            ${mv.fast.length > 10 ? `<button class="btn btn-ghost btn-block mv-more" data-all="fast">Lihat semua ${num(mv.fast.length)} barang ${icon('chev', 15)}</button>` : ''}</div>
+          <div class="mv-col slow"><div class="mv-title">${icon('clock', 20, 2.2)}<div class="grow"><b>Slow moving</b><div class="xs">${esc(crit('slow'))}</div></div><span class="mv-count">${num(k.slow)}</span></div>
+            ${k.slow ? `<div class="mv-kpi"><div><span>Stok tertahan</span><b>${rp(k.slow_nilai)}</b></div><div><span>Tidak laku sama sekali</span><b>${num(k.slow_tidak_laku)} barang</b></div></div>` : ''}
+            ${mv.slow.length ? `<div class="mv-list">${mv.slow.slice(0, 10).map(slowRow).join('')}</div>` : `<div class="empty small">Tidak ada barang slow moving. 👍</div>`}
+            ${mv.slow.length > 10 ? `<button class="btn btn-ghost btn-block mv-more" data-all="slow">Lihat semua ${num(mv.slow.length)} barang ${icon('chev', 15)}</button>` : ''}</div>
         </div>`;
     };
     on(el, 'click', '[data-chips="basis"] .chip', (e, b) => { basis = b.dataset.v; try { localStorage.setItem('mv-basis', basis); } catch (_) {} loadMoving(); });
