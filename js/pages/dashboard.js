@@ -1,6 +1,6 @@
 import { supa, rpc } from '../supa.js';
 import { store } from '../store.js';
-import { renderShortcuts, greet, amtToggle } from '../shortcuts.js';
+import { renderShortcuts, greet, amtToggle, heroFit } from '../shortcuts.js';
 import staffDash from './dash-staff.js';
 import { esc, rp, num, pct, todayStr, addDays, monthStart, longToday, icon, chips, on, toast, toastErr, ago, fmtDate, modal, downloadXlsx, parseNum } from '../ui.js';
 
@@ -264,7 +264,7 @@ export default {
         .then((v) => { if (v === 'xl') downloadXlsx(`${k === 'fast' ? 'fast' : 'slow'}-moving-${basis}-${todayStr()}.xlsx`, list.map((r, i) => ({ No: i + 1, Kode: r.sku, Barang: r.name, Rak: r.rack_code || '', Transaksi: r.trx, Qty: r.qty, Omzet: Number(r.omzet), Stok: r.stock, ...(k === 'slow' ? { 'Nilai stok': Number(r.nilai_stok) } : {}), 'Terakhir laku': r.last_sold ? fmtDate(r.last_sold) : 'belum pernah' })), title.slice(0, 30)); });
     });
 
-    amtToggle(el.querySelector('#hero')); renderShortcuts(el.querySelector('#shortcuts'));
+    amtToggle(el.querySelector('#hero')); heroFit(el.querySelector('#hero'), '#kpi', 64); renderShortcuts(el.querySelector('#shortcuts'));
     load(); loadFraud(); loadChart(); loadFiles(); loadMoving();
   }
 };
