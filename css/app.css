@@ -1352,3 +1352,8 @@ body { touch-action: pan-x pan-y; overscroll-behavior-y: none; }
 .integ-opts { gap: 8px 18px; }
 .nt-act { gap: 8px; } .nt-act .grow { flex: 1; justify-content: center; }
 @media (max-width: 899px) { .prov-grid { grid-template-columns: 1fr; } }
+
+/* 2.21.1 — tanpa menu tekan-lama & seleksi teks pada tombol / link / gambar (seperti aplikasi asli) */
+a, button, img, svg, .btn, .chip, .tab, .mt, .list-item, nav, .topbar, .tabbar { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-user-drag: none; }
+input, textarea, select, [contenteditable="true"], .mono, .allow-menu, .allow-menu * { -webkit-touch-callout: default; -webkit-user-select: text; user-select: text; }
+a, button { -webkit-tap-highlight-color: transparent; }
