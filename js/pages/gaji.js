@@ -1,5 +1,6 @@
 import { supa, rpc } from '../supa.js';
 import { store } from '../store.js';
+import { modOn, lockBox } from '../modules.js';
 import { esc, rp, num, todayStr, monthStart, fmtDate, chips, on, modal, toast, toastErr, pageHead, emptyState, skeleton, icon, ROLE_LABEL, parseNum, confirmBox } from '../ui.js';
 
 export default {
@@ -8,10 +9,14 @@ export default {
     { sel: '#ptbl', title: 'Bonus & potongan', body: 'Isi bonus (mis. packing tanpa salah kirim) dan potongan (kasbon). Tandai sudah dibayar setelah transfer.' }
   ],
   async render(el) {
-    let tab = 'gaji', period = monthStart();
+    let tab = modOn('gaji') ? 'gaji' : 'ops', period = monthStart();
     el.innerHTML = `${pageHead('Gaji & operasional', 'Gaji dan biaya operasional otomatis mengurangi laba bersih di dashboard.')}
-      <div class="stack">${chips('t', [['gaji', 'Penggajian'], ['ops', 'Biaya operasional'], ['absen', 'Rekap absen']], tab)}<div id="body"></div></div>`;
-    const show = () => ({ gaji, ops, absen }[tab])();
+      <div class="stack">${chips('t', [['gaji', (modOn('gaji') ? '' : '🔒 ') + 'Penggajian'], ['ops', 'Biaya operasional'], ['absen', (modOn('rekap_absen') ? '' : '🔒 ') + 'Rekap absen']], tab)}<div id="body"></div></div>`;
+    const show = () => {
+      if (tab === 'gaji' && !modOn('gaji')) { el.querySelector('#body').innerHTML = lockBox('gaji', 'Selama terkunci, gaji pegawai tidak dihitung dan tidak mengurangi laba bersih di dashboard.'); return; }
+      if (tab === 'absen') { if (!modOn('rekap_absen')) { el.querySelector('#body').innerHTML = lockBox('rekap_absen'); return; } location.hash = '#/rekap-absen'; return; }
+      ({ gaji, ops }[tab])();
+    };
     on(el, 'click', '[data-chips="t"] .chip', (e, b) => { tab = b.dataset.v; b.parentElement.querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', c === b)); show(); });
 
     async function gaji() {
@@ -84,18 +89,6 @@ export default {
       load();
     }
 
-    async function absen() {
-      const box = el.querySelector('#body');
-      const ms = monthStart();
-      const [{ data: att }, { data: staff }] = await Promise.all([
-        supa.from('attendance').select('user_id, work_date, check_in, check_out').gte('work_date', ms),
-        supa.from('profiles').select('id, full_name, role').eq('active', true).not('role', 'in', '(owner,pending)')
-      ]);
-      const today = todayStr();
-      box.innerHTML = `<div class="card flush"><div class="card-h"><h2>Absen bulan ini</h2><span class="small muted">Hadir hari ini: ${(att || []).filter((a) => a.work_date === today).length} / ${(staff || []).length}</span></div>
-        ${staff?.length ? `<div class="list">${staff.map((s) => { const mine = (att || []).filter((a) => a.user_id === s.id); const t = mine.find((a) => a.work_date === today);
-          return `<div class="list-item"><div class="grow"><b>${esc(s.full_name)}</b><div class="xs muted">${ROLE_LABEL[s.role]}</div></div><span class="small">${mine.length} hari</span>${t ? `<span class="tag green">Masuk ${new Date(t.check_in).toTimeString().slice(0, 5)}</span>` : '<span class="tag red">Belum absen</span>'}</div>`; }).join('')}</div>` : emptyState('Belum ada pegawai.', 'users')}</div>`;
-    }
     show();
   }
 };
