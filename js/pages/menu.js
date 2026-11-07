@@ -25,7 +25,7 @@ export default {
     el.innerHTML = `<div class="stack menu-page">
       <div class="row"><input class="input menu-search grow" id="mq" placeholder="Cari menu…" aria-label="Cari menu" autocomplete="off"><button class="btn tabs-edit" id="mt">${icon('grid', 16)} Atur menu bawah</button></div>
       <div id="mg"></div>
-      <div class="menu-foot"><button class="btn" id="m-lo">${icon('logout', 18)} Keluar</button><button class="btn btn-ghost" id="m-ver">${icon('refresh', 16)} Versi ${esc(versionLabel())}</button></div>
+      <div class="menu-foot"><button class="btn btn-logout" id="m-lo">${icon('logout', 18)} Keluar</button><button class="btn btn-ghost" id="m-ver">${icon('refresh', 16)} Versi ${esc(versionLabel())}</button></div>
     </div>`;
     const paint = (q = '') => {
       q = q.trim().toLowerCase();
