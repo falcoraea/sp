@@ -2,6 +2,7 @@ import { supa, rpc } from '../supa.js';
 import { store } from '../store.js';
 import { renderShortcuts, greet, amtToggle, heroFit } from '../shortcuts.js';
 import staffDash from './dash-staff.js';
+import { modOn } from '../modules.js';
 import { esc, rp, num, pct, todayStr, addDays, monthStart, longToday, icon, chips, on, toast, toastErr, ago, fmtDate, modal, downloadXlsx, parseNum } from '../ui.js';
 
 const PERIODS = [['today', 'Hari ini'], ['yesterday', 'Kemarin'], ['7', '7 hari'], ['month', 'Bulan ini'], ['30', '30 hari'], ['custom', 'Pilih tanggal…']];
@@ -125,7 +126,7 @@ export default {
           ${ln('Profit kotor', a.pk, b.pk, 'total')}
           ${ln('Bahan packing', a.pack, b.pack)}
           ${ln('Rugi hilang, rusak &amp; retur', a.rugi, b.rugi, 'neg-l')}
-          ${ln('Gaji pegawai (porsi periode ini)', a.gaji, b.gaji)}
+          ${ln(modOn('gaji') ? 'Gaji pegawai (porsi periode ini)' : 'Gaji pegawai <span class="tag">menu Penggajian terkunci</span>', a.gaji, b.gaji)}
           ${ln('Operasional', a.op, b.op)}
           ${ln('Laba bersih', a.lb, b.lb, 'total lb')}`;
         const k = s.kepatuhan || {};
