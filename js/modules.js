@@ -8,7 +8,7 @@ import { callTagihan, returnUrl } from './billing.js';
 export const ROLE_MOD = { keuangan: 'role_keuangan', supervisor: 'role_supervisor', qc: 'role_qc', cs: 'role_cs', marketing: 'role_marketing' };
 export const MOD_ICON = {
   kas: 'wallet', laporan: 'chart', kinerja: 'users', saran: 'cart', komplain: 'alert', gudang: 'box', tg_laporan: 'send',
-  pajak: 'receipt', katalog: 'tag', absen_lokasi: 'camera', role_keuangan: 'wallet', role_supervisor: 'shield', role_qc: 'check', role_cs: 'bell', role_marketing: 'tag'
+  pajak: 'receipt', katalog: 'tag', absen_lokasi: 'camera', absensi: 'clock', gaji: 'wallet', rekap_absen: 'calendar', integrasi: 'link', role_keuangan: 'wallet', role_supervisor: 'shield', role_qc: 'check', role_cs: 'bell', role_marketing: 'tag'
 };
 
 store.modules = {};
@@ -82,3 +82,12 @@ export function paywall(el, code, { roleLock = false } = {}) {
     </div></div>`;
   el.querySelector('[data-buy]')?.addEventListener('click', (e) => buyModule(code, e.currentTarget));
 }
+
+// kotak "terkunci" di dalam halaman (untuk bagian halaman yang terkunci, mis. Penggajian di menu Gaji)
+export function lockBox(code, note = '') {
+  const m = store.modules[code], owner = store.role === 'owner';
+  return `<div class="card lock-box"><span class="mod-ic">${icon(MOD_ICON[code] || 'lock', 22, 2)}<span class="pw-lock">${icon('lock', 11, 2.6)}</span></span>
+    <div class="grow"><b>${esc(m?.name || 'Menu ini')} terkunci</b><div class="small muted">${esc(note || m?.description || '')}</div>
+    ${owner && Number(m?.price) > 0 ? `<button class="btn btn-primary btn-sm" data-lockbuy="${esc(code)}" style="margin-top:8px">${icon('lock', 15)} Buka · ${esc(priceTxt(m))}</button>` : '<div class="xs muted" style="margin-top:6px">Minta owner membuka di Menu tambahan.</div>'}</div></div>`;
+}
+document.addEventListener('click', (e) => { const b = e.target.closest('[data-lockbuy]'); if (b) buyModule(b.dataset.lockbuy, b); });
