@@ -1183,3 +1183,100 @@ body { touch-action: pan-x pan-y; overscroll-behavior-y: none; }
 .ts-pick.on { border-color: #23307A; background: #E6EAFB; opacity: 1; }
 .side-group i.sg-ic, .sg-btn i.sg-ic { width: 24px; height: 24px; border-radius: 7px; opacity: 1; }
 .side-group .sl-t { flex: 1; }
+
+/* =========================================================
+   2.18 — Dashboard semua jabatan, menu utama, loading
+   ========================================================= */
+/* layar pembuka: muncul pelan setelah 0,35 dtk — kalau aplikasi cepat siap, tidak pernah terlihat */
+.splash { position: fixed; inset: 0; background: radial-gradient(120% 90% at 50% 0%, #3546A8 0%, #23307A 45%, #141B4D 100%); color: #fff; z-index: 50;
+  opacity: 0; animation: sp-in .35s ease .35s forwards; }
+.splash .boot-text { color: #C9D0F2; font-size: 13px; }
+@keyframes sp-in { to { opacity: 1; } }
+.sp-logo { position: relative; width: 76px; height: 76px; display: grid; place-items: center; }
+.sp-logo span { width: 64px; height: 64px; border-radius: 20px; display: grid; place-items: center; font-weight: 800; font-size: 22px; color: #1A2461;
+  background: linear-gradient(150deg, #FFE08A, #F2B01E 60%, #D89200); box-shadow: 0 10px 30px rgba(242,176,30,.35); animation: sp-pop 1.4s ease-in-out infinite; }
+.sp-logo i { position: absolute; inset: -6px; border-radius: 26px; border: 2px solid rgba(255,214,107,.55); animation: sp-ring 1.4s ease-out infinite; }
+@keyframes sp-pop { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+@keyframes sp-ring { 0% { transform: scale(.9); opacity: .9; } 100% { transform: scale(1.35); opacity: 0; } }
+.sp-name { font-weight: 800; font-size: 20px; letter-spacing: -.01em; }
+.sp-bar { width: 140px; height: 4px; border-radius: 9px; background: rgba(255,255,255,.15); overflow: hidden; }
+.sp-bar b { display: block; width: 40%; height: 100%; border-radius: 9px; background: #FFD66B; animation: sp-slide 1.1s ease-in-out infinite; }
+@keyframes sp-slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(260%); } }
+/* garis loading data di atas (hanya kalau memuat > 0,3 dtk) */
+#netbar { position: fixed; left: 0; right: 0; top: 0; height: 3px; z-index: 200; pointer-events: none; opacity: 0; transition: opacity .2s; overflow: hidden; }
+#netbar.on { opacity: 1; }
+#netbar i { display: block; height: 100%; width: 35%; background: linear-gradient(90deg, transparent, #FFD66B, #F2B01E); border-radius: 0 3px 3px 0; animation: nb 1s ease-in-out infinite; }
+@keyframes nb { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }
+@media (prefers-reduced-motion: reduce) { .sp-logo span, .sp-logo i, .sp-bar b, #netbar i { animation-duration: 3s; } }
+
+/* menu utama (pintas) */
+.sc-card { padding: 14px 10px 12px; }
+.sc-head { display: flex; align-items: center; justify-content: space-between; padding: 0 6px 12px; }
+.sc-head h2 { font-size: 16px; font-weight: 800; margin: 0; }
+.sc-edit { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; font: inherit; font-weight: 700; font-size: 13.5px; color: #23307A; cursor: pointer; padding: 6px 8px; border-radius: 8px; }
+.sc-edit:hover { background: #EEF1FC; }
+.sc-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px 4px; }
+@media (min-width: 900px) { .sc-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+  .sc-grid .mt-ic { width: 52px; height: 52px; border-radius: 16px; color: var(--c2); background: color-mix(in srgb, var(--c1) 13%, #fff); border: 1px solid color-mix(in srgb, var(--c1) 20%, #fff); box-shadow: none; }
+  .sc-grid .mt-ic::before { display: none; } .sc-grid .mt-ic svg { filter: none; color: var(--c2); }
+  .sc-grid .mt-lbl { font-size: 12.5px; } }
+
+/* sapaan & kartu utama */
+.dh-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.dh-hi { font-size: 18px; line-height: 1.25; } .dh-hi b { font-weight: 800; } .dh-w { font-weight: 500; }
+.dh-d { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.dh-role { font-size: 11px; font-weight: 700; letter-spacing: .04em; padding: 3px 10px; border-radius: 99px; background: #EEF0F5; color: #3C4254; white-space: nowrap; }
+.dh-eye { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; border: 1px solid var(--line); background: #fff; color: inherit; cursor: pointer; flex: none; }
+.amt-hidden .kpi .value, .amt-hidden .dh-val, .amt-hidden .dl span, .amt-hidden .dl-prev { filter: blur(8px); user-select: none; }
+.dh-main { display: flex; flex-direction: column; gap: 4px; }
+.dh-lbl { font-size: 13px; font-weight: 600; color: var(--muted); }
+.dh-val { font-size: 34px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; color: #1C2030; }
+.dh-sub { font-size: 12.5px; color: var(--muted); }
+.dh-cta { margin-top: 10px; align-self: flex-start; }
+.dh-absen { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; padding: 12px 14px; }
+.dh-absen > svg:first-child { color: #B26A00; }
+.dh-absen.ok > svg:first-child { color: var(--green); }
+.dh-stat { text-decoration: none; color: inherit; }
+.dh-stat.green .value { color: var(--green); } .dh-stat.red .value { color: var(--red); } .dh-stat.yellow .value { color: #A06A00; }
+.dash-hero { display: flex; flex-direction: column; gap: 14px; }
+
+@media (max-width: 899px) {
+  /* header menyatu dengan bagian atas dashboard; saat digulir kembali seperti biasa */
+  body[data-page="dashboard"] .topbar { border-radius: 0; box-shadow: none; background: linear-gradient(180deg, #2C3B98 0%, #26348B 100%); transition: border-radius .2s, box-shadow .2s; }
+  body[data-page="dashboard"] .topbar.scrolled { border-radius: 0 0 24px 24px; box-shadow: 0 12px 28px -14px rgba(24,32,90,.75);
+    background: radial-gradient(90% 120% at 100% 0%, rgba(255,214,107,.22) 0%, rgba(255,214,107,0) 42%), radial-gradient(120% 150% at 0% 0%, #4256C2 0%, #2A3890 42%, #18205A 100%); }
+  body[data-page="dashboard"] .bill-bar { position: relative; z-index: 2; }
+  .dash-hero { position: relative; isolation: isolate; margin: -14px -16px 0; padding: 4px 16px 0; color: #fff; gap: 12px; }
+  .dash-hero::before { content: ''; position: absolute; z-index: -1; left: 0; right: 0; top: 0; height: var(--hero-h, 190px); border-radius: 0 0 30px 30px;
+    background: radial-gradient(70% 90% at 100% 0%, rgba(255,214,107,.18), rgba(255,214,107,0) 60%), linear-gradient(180deg, #26348B 0%, #1F2B77 70%, #1B2566 100%);
+    box-shadow: 0 16px 30px -18px rgba(24,32,90,.7); }
+  body[data-page="dashboard"] .bill-bar { margin: 0; border-radius: 0; border: 0; background: #26348B; color: #FFE08A; padding: 6px 16px 2px; }
+  body[data-page="dashboard"] .bill-bar b { color: #fff; }
+  body[data-page="dashboard"] .bill-bar .btn { background: #FFD66B; border-color: #FFD66B; color: #1A2461; }
+  .dash-hero:not(:has(.dh-main)) .dh-d { display: none; }
+  .dash-hero .cmp-toggle { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.22); color: #fff; }
+  .dash-hero .dh-d { color: #C9D0F2; }
+  .dash-hero .dh-hi { color: #fff; }
+  .dash-hero .dh-eye { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.2); color: #fff; }
+  .dash-hero .dh-role { background: rgba(255,255,255,.14); color: #FFD66B; border: 1px solid rgba(255,214,107,.4); }
+  .dash-hero #rlabel { color: #C9D0F2 !important; }
+  .dash-hero .cmp-lbl { color: #FFD66B; }
+  .dash-hero .chip { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.22); color: #fff; }
+  .dash-hero .chip.on { background: #fff; border-color: #fff; color: #1F2B77; }
+  .dash-hero .cmp-toggle { color: #fff; }
+  .dash-hero .cmp-toggle .switch span { background: rgba(255,255,255,.25); }
+  .dash-hero #custom { color: var(--m-text); }
+  .dash-hero .card { color: var(--m-text); box-shadow: 0 10px 28px -12px rgba(16,24,40,.28); border-color: transparent; }
+  .dash-hero .kpi.dark { background: #fff; color: var(--m-text); border-left: 4px solid #F2B01E; }
+  .dash-hero .kpi.dark .label, .dash-hero .kpi.dark .sub { color: var(--m-muted) !important; }
+  .dash-hero .kpi.dark .value { color: #1F2B77; font-size: 22px; }
+  #hero:has(.dh-main) { --hero-h: 150px; }
+  .dh-main { padding: 16px; border-radius: 20px; }
+  .dh-cta { align-self: stretch; }
+  .sc-card { border-radius: 20px; }
+}
+@media (min-width: 900px) {
+  .dash-hero .dh-top { display: none; }
+  .dash-hero:has(.dh-main) .dh-top { display: flex; }
+  .dh-main { max-width: 520px; }
+}
