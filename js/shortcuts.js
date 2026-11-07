@@ -10,13 +10,14 @@ export function renderShortcuts(box) {
   box.innerHTML = `<div class="sc-head"><h2>Menu utama</h2><button class="sc-edit" data-sc-edit>${icon('sliders', 16)} Atur</button></div>
     <div class="menu-grid sc-grid">${keys.map((k) => {
       const p = PAGES[k], [, c1, c2] = GROUP_STYLE[p.group || ''] || ['', '#6B706C', '#3A403C'], lk = isLocked(k);
-      return `<a class="menu-tile ${lk ? 'locked' : ''}" href="#/${k}"><span class="mt-ic" style="--c1:${c1};--c2:${c2}">${icon(p.icon, 23, 1.9)}${lk ? `<span class="mt-lock">${icon('lock', 11, 2.6)}</span>` : ''}</span><span class="mt-lbl">${esc(p.short || p.label)}</span></a>`;
+      return `<a class="menu-tile ${lk ? 'locked' : ''}" href="#/${k}"><span class="mt-ic" style="--c1:${c1};--c2:${c2}">${icon(p.icon, 23, 1.9)}${k === 'masalah' ? '<span class="mt-badge hidden" data-cnt="masalah"></span>' : ''}${lk ? `<span class="mt-lock">${icon('lock', 11, 2.6)}</span>` : ''}</span><span class="mt-lbl">${esc(p.short || p.label)}</span></a>`;
     }).join('')}</div>`;
   box.querySelector('[data-sc-edit]').onclick = async () => {
     const all = menuFor(role).filter((m) => m.key !== 'dashboard' && m.key !== 'menu');
     if (await editPicks({ key: 'dash:' + role, max: SHORT_MAX, title: 'Atur menu utama', all, current: keys,
       intro: `Pilih sampai ${SHORT_MAX} menu pintas yang tampil di Dashboard. Urutan dari kiri atas ke kanan bawah.` })) renderShortcuts(box);
   };
+  dispatchEvent(new Event('masalah-paint'));
 }
 
 // sapaan di bagian atas Dashboard
