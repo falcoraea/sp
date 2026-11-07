@@ -2,7 +2,7 @@ import { supa, configured, rpc, logEvent, logPage } from './supa.js';
 import { store, loadNotifs, unreadCount, markRead, loadProfiles, onEvt, emit } from './store.js';
 import { PAGES, TABS, HOME, canOpen, menuFor, isLocked, tabsFor } from './nav.js';
 import { loadModules, modOn, paywall, ROLE_MOD } from './modules.js';
-import { esc, icon, toast, toastErr, ago, ROLE_LABEL, ROLE_COLOR, modal, rp, fmtDate, todayStr, addDays } from './ui.js';
+import { esc, icon, iconSolid, toast, toastErr, ago, ROLE_LABEL, ROLE_COLOR, modal, rp, fmtDate, todayStr, addDays } from './ui.js';
 import { renderLogin, renderPending } from './auth.js';
 import { runTour, mainSteps } from './tour.js';
 import { APP_NAME } from './config.js';
@@ -108,8 +108,8 @@ async function backToSA(page = 'superadmin') {
 function tabsHtml(role) {
   return tabsFor(role, store.profile.tab_prefs).filter((k) => role === 'owner' || !isLocked(k)).map((k) => {
     const pg = PAGES[k];
-    return `<a class="tab" href="#/${k}" data-nav="${k}" data-tour="nav-${k}"><span class="ic">${icon(pg.icon, 22)}${isLocked(k) ? `<span class="tab-lock">${icon('lock', 10, 2.6)}</span>` : ''}${k === 'notifikasi' ? '<span class="badge-dot hidden" data-badge></span>' : ''}</span><span class="lbl">${esc(pg.short || pg.label)}</span></a>`;
-  }).join('') + `<a class="tab" href="#/menu" data-nav="menu" data-tour="nav-lainnya"><span class="ic">${icon('grid', 22)}</span><span class="lbl">Lainnya</span></a>`;
+    return `<a class="tab" href="#/${k}" data-nav="${k}" data-tour="nav-${k}"><span class="ic">${icon(pg.icon, 22)}<span class="ic-fill">${iconSolid(pg.icon, 22)}</span>${k === 'masalah' ? '<span class="badge-dot hidden" data-mbadge></span>' : ''}${isLocked(k) ? `<span class="tab-lock">${icon('lock', 10, 2.6)}</span>` : ''}${k === 'notifikasi' ? '<span class="badge-dot hidden" data-badge></span>' : ''}</span><span class="lbl">${esc(pg.short || pg.label)}</span></a>`;
+  }).join('') + `<a class="tab" href="#/menu" data-nav="menu" data-tour="nav-lainnya"><span class="ic">${icon('grid', 22)}<span class="ic-fill">${iconSolid('grid', 22)}</span></span><span class="lbl">Lainnya</span></a>`;
 }
 onEvt('tabs', () => {
   const bar = document.querySelector('.tabbar'); if (!bar) return;
@@ -187,12 +187,27 @@ function globalScan() {
   return { ok: false, title: 'Halaman ini bukan menu scan', info: 'Scan diabaikan. Buka menu: ' + menus.join(', ') + '.' };
 }
 
+// 2.23: jumlah masalah yang BELUM ditangani (owner) -> badge + gema di menu Masalah (menu bawah, menu samping, Lainnya, menu pintas)
+store.masalahN = 0;
+let masalahAt = 0;
+export async function refreshMasalah(force = false) {
+  if (store.role !== 'owner' || (!force && Date.now() - masalahAt < 30000)) return paintMasalah();
+  masalahAt = Date.now();
+  try { const { count, error } = await supa.from('anomalies').select('id', { count: 'exact', head: true }).eq('resolved', false); if (!error) store.masalahN = count || 0; } catch (_) {}
+  paintMasalah();
+}
+function paintMasalah() {
+  const n = store.role === 'owner' ? store.masalahN || 0 : 0, t = n > 99 ? '99+' : String(n);
+  document.querySelectorAll('[data-cnt="masalah"], [data-mbadge]').forEach((c) => { c.textContent = t; c.classList.toggle('hidden', !n); });
+  document.querySelectorAll('[data-nav="masalah"], .menu-tile[href="#/masalah"]').forEach((a) => a.classList.toggle('has-masalah', n > 0));
+}
+addEventListener('masalah-changed', () => refreshMasalah(true));
+addEventListener('masalah-paint', () => paintMasalah());
+
 function paintBadge() {
   const n = unreadCount();
   document.querySelectorAll('[data-badge]').forEach((b) => { b.textContent = n > 99 ? '99+' : n; b.classList.toggle('hidden', !n); });
-  const pending = store.notifs.filter((x) => !store.reads.has(x.id) && x.level === 'masalah').length;
-  const c = document.querySelector('[data-cnt="masalah"]');
-  if (c) { c.textContent = pending; c.classList.toggle('hidden', !pending || store.role !== 'owner'); }
+  paintMasalah();
   const bp = document.getElementById('bell-panel');
   if (bp) renderBellBody(bp);
   if (current.page === 'notifikasi' && current.mod?.refresh) current.mod.refresh();
@@ -471,6 +486,7 @@ async function route() {
     await mod.render(view, { params, go: (h) => (location.hash = h), store });
     logPage(page, pg.label);
     if (store.role === 'owner' && page !== 'tagihan' && Date.now() - billBarAt > 60e3) billBar();
+    refreshMasalah(page === 'masalah' || page === 'dashboard');
     document.getElementById('bill-bar')?.classList.toggle('hidden', page === 'tagihan');
   } catch (e) {
     toastErr(e);
