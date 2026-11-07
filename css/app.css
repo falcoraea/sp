@@ -1305,3 +1305,36 @@ body { touch-action: pan-x pan-y; overscroll-behavior-y: none; }
   .dash-hero .kpi.dark .sub { color: #9FD6B8 !important; }
   .dash-hero .kpi.dark .value { color: #fff; font-size: 24px; }
 }
+
+/* =========================================================
+   2.20 — warna header = warna status bar HP (tanpa sorotan), semua baris filter rata kiri-kanan
+   ========================================================= */
+@media (max-width: 899px) {
+  .topbar, body[data-page="dashboard"] .topbar.scrolled {
+    background: linear-gradient(180deg, #26348B 0%, #24318A 60%, #202C7E 100%); }
+  body[data-page="dashboard"] .topbar:not(.scrolled) { background: #26348B; }
+  .tb-logo.has-bill::after, .topbar .icon-btn .badge-dot { border-color: #26348B; }
+
+  /* filter / tab / chip: setiap baris memenuhi lebar layar (rata kiri & kanan) */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chips > .chip, .chips > .cmp-toggle, .chips > label.chip { flex: 1 1 auto; justify-content: center; text-align: center; }
+  .chips > .cmp-toggle { justify-content: center; }
+  .row.wrap > .chips { flex: 1 1 100%; }
+  .mv-head { flex-direction: column; align-items: stretch; gap: 10px; }
+  .mv-head .row.wrap { width: 100%; }
+  .mv-head .row.wrap > * { flex: 1 1 auto; justify-content: center; }
+  .sup-tabs { display: flex; } .sup-tabs > * { flex: 1 1 0; }
+  /* tombol di kepala halaman: mengisi baris, tidak saling menumpuk */
+  .page-head .actions { flex-wrap: wrap; width: 100%; }
+  .page-head .actions > * { flex: 1 1 auto; min-width: 0; white-space: nowrap; justify-content: center; }
+  /* tombol bandingkan di dashboard owner: aktif = emas, mati = abu transparan */
+  .dash-hero .cmp-toggle .switch span { background: rgba(255,255,255,.22); }
+  .dash-hero .cmp-toggle .switch input:checked + span { background: #FFD66B; }
+  .dash-hero .cmp-toggle .switch input:checked + span::after { background: #1A2461; }
+  .dash-hero .cmp-toggle:has(input:checked) { background: rgba(255,214,107,.16); border-color: rgba(255,214,107,.6); color: #FFD66B; }
+  .dash-hero #rlabel { color: #E3E7FA !important; line-height: 1.45; }
+  .dash-hero .cmp-lbl { display: block; color: #FFD66B; font-weight: 600; margin-top: 2px; }
+}
+@media (max-width: 899px) {
+  .dash-hero .cmp-lbl { background: rgba(255,214,107,.14) !important; color: #FFE08A !important; border: 1px solid rgba(255,214,107,.35); border-radius: 8px; padding: 3px 8px; display: inline-block; margin-top: 6px; font-size: 11.5px; }
+}
