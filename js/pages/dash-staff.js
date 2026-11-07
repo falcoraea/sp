@@ -95,6 +95,7 @@ export default {
     heroFit(el.querySelector('#hero'), '#main', 70);
     // absen hari ini
     (async () => {
+      if (!modOn('absensi')) return;
       if (!['admin', 'sopir', 'kepala_gudang', 'picker', 'packing', 'keuangan', 'qc', 'cs', 'marketing', 'supervisor'].includes(role)) return;
       const { data } = await supa.from('attendance').select('check_in, check_out').eq('user_id', me()).eq('work_date', todayStr()).maybeSingle();
       el.querySelector('#absen').innerHTML = data
