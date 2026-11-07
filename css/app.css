@@ -1368,11 +1368,9 @@ a, button { -webkit-tap-highlight-color: transparent; }
 @keyframes billBorder { 0%,100% { border-color: #D92D20; } 50% { border-color: #F5B301; } }
 @media (prefers-reduced-motion: reduce) { .card.kpi.bill-alert, #open.bill-alert, #open.bill-alert .card-h { animation-duration: 2.4s; } }
 
-/* 2.22 — pengingat tagihan di bawah header: berkedip merah ↔ kuning di semua halaman, HP & desktop.
-   Tombol "Bayar" berkedip berlawanan (kuning saat bar merah, merah saat bar kuning) supaya tetap terlihat. */
-@keyframes billBlinkInv { 0%,100% { background: #FFD43B; color: #5A1A12; box-shadow: 0 0 0 0 rgba(255,212,59,.6); } 50% { background: #D92D20; color: #fff; box-shadow: 0 0 0 4px rgba(217,45,32,.25); } }
-.bill-bar, body[data-page] .bill-bar { animation: billBlink 1.2s ease-in-out infinite; border-color: transparent; }
-.bill-bar b, body[data-page] .bill-bar b { color: inherit; }
-.bill-bar .bb-btn, body[data-page] .bill-bar .bb-btn { animation: billBlinkInv 1.2s ease-in-out infinite; font-weight: 800; }
-.topbar .icon-btn.tb-bill.has-bill { animation: billBlink 1.2s ease-in-out infinite; }
+/* 2.22.1 — bar pengingat tagihan kembali seperti semula; hanya tombol "Bayar" yang bergetar + bergema (HP & desktop sama) */
+@keyframes bbShake { 0%,62%,100% { transform: translateX(0) rotate(0); } 66% { transform: translateX(-3px) rotate(-4deg); } 70% { transform: translateX(3px) rotate(4deg); } 74% { transform: translateX(-3px) rotate(-3deg); } 78% { transform: translateX(2px) rotate(2deg); } 82% { transform: translateX(-1px) rotate(-1deg); } 86% { transform: translateX(0) rotate(0); } }
+@keyframes bbEcho { 0% { box-shadow: 0 0 0 0 rgba(217,45,32,.55), 0 0 0 0 rgba(217,45,32,.35); } 70% { box-shadow: 0 0 0 9px rgba(217,45,32,0), 0 0 0 16px rgba(217,45,32,0); } 100% { box-shadow: 0 0 0 0 rgba(217,45,32,0), 0 0 0 0 rgba(217,45,32,0); } }
+.bill-bar .bb-btn { position: relative; display: inline-block; animation: bbShake 2.4s ease-in-out infinite, bbEcho 1.6s ease-out infinite; will-change: transform; }
+@media (prefers-reduced-motion: reduce) { .bill-bar .bb-btn { animation: bbEcho 2.4s ease-out infinite; } }
 .mod-stop { color: var(--red-ink, #A63A2A); }
