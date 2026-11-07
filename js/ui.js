@@ -141,6 +141,20 @@ const P = {
   install: '<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 8v7m-3-3 3 3 3-3"/>',
   refresh: '<path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/>'
 };
+// versi ikon "terisi" (untuk menu bawah yang aktif): bentuk utama diisi putih, detail di dalamnya biru
+// [indeks bentuk yang diisi, indeks detail]; ikon yang tidak terdaftar: bentuk pertama diisi
+const SOLID = {
+  home: [[0, 1], []], shield: [[0], [1]], tag: [[0], [1]], grid: [[0], []], calendar: [[1], []], box: [[0], [1]], bag: [[0], [1]],
+  clock: [[0], [1]], wallet: [[0], [1]], receipt: [[0], [1]], user: [[0, 1], []], users: [[0, 1], []], truck: [[0, 1, 2], []],
+  bell: [[0], []], inbox: [[1], [0]], alert: [[0], [1]], file: [[0], [1]], camera: [[0], [1]], send: [[0], [1]], gear: [[1], [0]],
+  cart: [[0, 1], []], chart: [[], []], barcode: [[], []], scan: [[], []], check: [[], []], upload: [[], []], list: [[], []], link: [[], []], search: [[], []]
+};
+export function iconSolid(name, size = 22, sw = 2) {
+  const parts = (P[name] || '').match(/<[^>]+\/>/g) || [];
+  const [fill, det] = SOLID[name] || [[0], []];
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${parts.map((p, i) =>
+    fill.includes(i) ? p.replace(/^<(\w+)/, '<$1 fill="#fff"') : det.includes(i) ? p.replace(/^<(\w+)/, '<$1 stroke="var(--solid-in, #26348B)"') : p).join('')}</svg>`;
+}
 export function icon(name, size = 20, sw = 2) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>`;
 }
@@ -285,7 +299,8 @@ export async function downloadXlsx(filename, rows, sheet = 'Data') {
 export const skeleton = (n = 4) => `<div class="stack">${Array.from({ length: n }, () => '<div class="skeleton" style="height:64px"></div>').join('')}</div>`;
 export const emptyState = (text, ic = 'box') => `<div class="empty">${icon(ic, 36, 1.6)}<div>${esc(text)}</div></div>`;
 export const pageHead = (title, desc = '', actions = '') =>
-  `<div class="page-head"><div><h2 style="font-size:22px">${esc(title)}</h2>${desc ? `<div class="desc">${desc}</div>` : ''}</div>${actions ? `<div class="actions">${actions}</div>` : ''}</div>`;
+  // 2.23: keterangan panjang di bawah judul dihilangkan (tampilan lebih bersih); parameter desc diabaikan
+  `<div class="page-head"><div><h2 style="font-size:22px">${esc(title)}</h2></div>${actions ? `<div class="actions">${actions}</div>` : ''}</div>`;
 export function chips(name, options, current) {
   return `<div class="chips scroll" data-chips="${name}">${options.map(([v, l]) => `<button class="chip ${v === current ? 'on' : ''}" data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div>`;
 }
