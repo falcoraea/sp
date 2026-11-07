@@ -9,10 +9,9 @@ export default {
   async render(el) {
     let f = 'all';
     const isOwner = store.role === 'owner';
-    const opts = [['all', 'Semua'], ['unread', 'Belum dibaca'], ['masalah', 'Masalah'], ['tugas', 'Tugas'], ...(isOwner ? ['admin', 'sopir', 'kepala_gudang', 'picker', 'packing'].map((r) => [r, ROLE_LABEL[r]]) : [])];
+    const opts = [['all', 'Semua'], ['unread', 'Belum dibaca'], ['masalah', 'Masalah'], ['tugas', 'Tugas'], ...(isOwner ? ['admin', 'sopir', 'kepala_gudang', 'picker', 'packing', 'supervisor', 'keuangan', 'qc', 'cs', 'marketing'].map((r) => [r, ROLE_LABEL[r]]) : [])];
     el.innerHTML = `<div class="stack">
-      <div class="row between wrap"><div class="small muted">${isOwner ? 'Owner menerima notifikasi dari <b>semua jabatan</b>.' : 'Tugas & info untuk jabatan ' + esc(ROLE_LABEL[store.role]) + '.'}</div>
-        <div class="row"><button class="btn btn-sm" id="rf">${icon('refresh', 16)}</button><button class="btn btn-sm" id="ra">Tandai semua dibaca</button></div></div>
+      <div class="row nt-act"><button class="btn" id="rf" aria-label="Muat ulang">${icon('refresh', 16)}</button><button class="btn grow" id="ra">${icon('check', 16)} Tandai semua dibaca</button></div>
       <section class="card stack" id="push"></section>
       <div id="ch"></div><div class="card flush" id="list"></div></div>`;
     // notifikasi HP otomatis aktif; kartu ini hanya muncul kalau ada yang perlu dibereskan (atau untuk super admin)
@@ -24,10 +23,9 @@ export default {
       if (iosNeedsHome) msg = 'Di iPhone, notifikasi baru bisa muncul setelah aplikasi dipasang: buka di <b>Safari</b> › ketuk <b>Bagikan</b> (kotak panah ke atas) › <b>Tambah ke Layar Utama</b>, lalu buka aplikasi dari ikon itu. Butuh iOS 16.4 ke atas.';
       else if (perm === 'denied') msg = 'Notifikasi HP diblokir di perangkat ini, jadi tugas &amp; masalah tidak muncul saat aplikasi ditutup. Buka <b>Setelan HP › Aplikasi › Stok Gudang › Notifikasi</b> › izinkan, lalu buka ulang aplikasi.';
       else if (perm === 'default' && pushSupported()) msg = 'Notifikasi HP sedang meminta izin. Pilih <b>Izinkan</b> saat ditanya.';
-      if (!msg && !store.superadmin) { box.classList.add('hidden'); return; }
+      if (!msg) { box.classList.add('hidden'); return; }
       box.classList.remove('hidden');
-      box.innerHTML = `${msg ? `<div class="alert yellow small" style="margin:0">${msg}</div>` : `<div class="row between wrap"><span class="small"><b>Notifikasi HP aktif</b> di perangkat ini.</span><span class="tag green">Aktif</span></div>`}
-        ${store.superadmin ? '<div class="small muted">Tes notifikasi ada di menu <a href="#/superadmin">Super admin</a>.</div>' : ''}`;
+      box.innerHTML = `<div class="alert yellow small" style="margin:0">${msg}</div>`;
       box.querySelector('#ptest')?.addEventListener('click', async (e) => { e.target.disabled = true; try { await subscribePush(); await sendTestPush(); toast('Tes dikirim. Tutup / kecilkan aplikasi, notifikasi muncul dalam beberapa detik.', 'ok'); } catch (err) { toastErr(err); } setTimeout(() => { e.target.disabled = false; }, 4000); });
     };
     const paint = () => {
