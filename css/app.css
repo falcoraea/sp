@@ -1338,3 +1338,17 @@ body { touch-action: pan-x pan-y; overscroll-behavior-y: none; }
 @media (max-width: 899px) {
   .dash-hero .cmp-lbl { background: rgba(255,214,107,.14) !important; color: #FFE08A !important; border: 1px solid rgba(255,214,107,.35); border-radius: 8px; padding: 3px 8px; display: inline-block; margin-top: 6px; font-size: 11.5px; }
 }
+
+/* 2.21 — kotak terkunci di dalam halaman, integrasi marketplace, notifikasi */
+.lock-box { display: flex; gap: 14px; align-items: flex-start; }
+.lock-box .mod-ic { background: linear-gradient(150deg, #4A524D, #1A1D1B); }
+.prov-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.prov { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: #fff; font: inherit; text-align: left; cursor: pointer; color: inherit; }
+.prov .grow { display: flex; flex-direction: column; min-width: 0; }
+.prov.on { border-color: #23307A; box-shadow: 0 0 0 3px rgba(35,48,122,.12); }
+.prov-ic { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; color: #fff; font-weight: 800; flex: none; }
+.prov-ic.sm { width: 26px; height: 26px; border-radius: 8px; font-size: 13px; display: inline-grid; vertical-align: middle; margin-right: 6px; }
+.integ-steps { margin: 0; padding-left: 20px; line-height: 1.6; }
+.integ-opts { gap: 8px 18px; }
+.nt-act { gap: 8px; } .nt-act .grow { flex: 1; justify-content: center; }
+@media (max-width: 899px) { .prov-grid { grid-template-columns: 1fr; } }
