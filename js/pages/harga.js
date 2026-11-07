@@ -42,7 +42,7 @@ export default {
       <div class="stack">
       <div class="sup-tabs" id="sup"></div>
       <section class="card stack" id="rules"></section>
-      <div class="row wrap between"><div id="filters"></div><input class="input" id="q" placeholder="Cari nama / kode" style="max-width:280px" aria-label="Cari"></div>
+      <div class="row wrap between"><div id="filters"></div><input class="input h-search" id="q" placeholder="Cari nama / kode" aria-label="Cari"></div>
       <div class="row wrap hidden" id="bulk"><span class="small"><b id="bn">0</b> dipilih:</span><button class="btn btn-sm" data-bulk="disk">Set diskon beli %</button><button class="btn btn-sm" data-bulk="lock">Kunci</button><button class="btn btn-sm" data-bulk="unlock">Buka kunci</button><button class="btn btn-sm" data-bulk="move">Pindah supplier</button></div>
       <div class="card flush" id="tbl">${skeleton()}</div>
       <div class="card dark stack hidden" id="savebar"><b><span id="cn">0</span> barang diubah</b><div class="small" style="color:#E4E2DB">Harga baru berlaku untuk pesanan mulai sekarang. Laporan hari sebelumnya tidak ikut berubah.</div>
