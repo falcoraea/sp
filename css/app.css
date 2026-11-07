@@ -1535,3 +1535,32 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .bell-panel .chips { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; }
 .bell-panel .chips::-webkit-scrollbar { display: none; }
 .bell-panel .chips .chip { flex: none !important; }
+
+/* =====================================================================
+   2.25 — menu tengah biru (beda jelas aktif / tidak), kunci gulir saat pop up,
+   tanda gulir di antara header & menu bawah
+   ===================================================================== */
+@media (max-width: 899px) {
+  /* tidak aktif: lingkaran biru muda transparan, ikon garis putih */
+  .tabbar > .tab:nth-child(3) .ic { background: linear-gradient(145deg, #4A5BC4 0%, #33429F 100%); color: rgba(255,255,255,.9); border: 4px solid #26348B;
+    box-shadow: 0 10px 20px -8px rgba(10,16,60,.7), inset 0 1px 0 rgba(255,255,255,.22); --solid-in: #fff; }
+  .tabbar > .tab:nth-child(3) .lbl { color: rgba(226,231,255,.66); font-weight: 600; }
+  /* aktif: lingkaran putih menyala, ikon biru terisi, cincin cahaya */
+  .tabbar > .tab:nth-child(3).on .ic { background: #fff; color: #26348B; border-color: #26348B; --solid-in: #fff;
+    box-shadow: 0 0 0 4px rgba(255,255,255,.22), 0 12px 24px -8px rgba(10,16,60,.75), 0 0 22px rgba(160,180,255,.55); }
+  .tabbar > .tab:nth-child(3) .ic-fill svg { stroke: #26348B; }
+  .tabbar > .tab:nth-child(3) .ic-fill svg [fill] { fill: #26348B; }
+  .tabbar > .tab:nth-child(3).on .lbl { color: #fff; font-weight: 700; }
+
+  /* tanda gulir bawaan disembunyikan, diganti tanda gulir di antara header & menu bawah */
+  html { scrollbar-width: none; }
+  html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; width: 0; }
+  .scroll-ind { position: fixed; right: 2px; width: 4px; z-index: 15; pointer-events: none; opacity: 0; transition: opacity .35s; }
+  .scroll-ind.on { opacity: 1; transition: opacity .1s; }
+  .scroll-ind i { display: block; width: 100%; border-radius: 99px; background: rgba(38,52,139,.45); }
+}
+@media (min-width: 900px) { .scroll-ind { display: none; } }
+
+/* pop up terbuka: halaman belakang tidak ikut bergeser */
+html.no-scroll { overflow: hidden; overscroll-behavior: none; }
+.overlay, .modal, .bell-panel .bp-body, .me-panel { overscroll-behavior: contain; }
