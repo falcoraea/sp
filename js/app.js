@@ -365,6 +365,11 @@ async function billBar() {
 
 // bar atas HP: garis tipis muncul saat halaman digulir
 addEventListener('scroll', () => document.querySelector('.topbar')?.classList.toggle('scrolled', scrollY > 4), { passive: true });
+// 2.21.1: matikan menu tekan-lama browser (Open in new tab, Copy link, Download, Share) supaya terasa seperti aplikasi asli.
+// Kolom isian tetap bisa tekan-lama untuk salin / tempel.
+const editable = (t) => t?.closest?.('input, textarea, select, [contenteditable="true"], .allow-menu, .mono');
+addEventListener('contextmenu', (e) => { if (!editable(e.target)) e.preventDefault(); });
+addEventListener('dragstart', (e) => { if (e.target?.closest?.('a, img')) e.preventDefault(); });
 // ---------- menu samping laptop: kategori buka-tutup, cari menu, mode ikon saja ----------
 const LS = { get: (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (_) { return d; } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} } };
 function sideSet(sec, open) {
