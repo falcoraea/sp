@@ -312,19 +312,17 @@ function renderBellBody(panel) {
 
 function toggleBell() {
   document.getElementById('me-panel')?.remove();
-  // HP: lonceng membuka halaman notifikasi; ditekan lagi = kembali ke halaman terakhir
-  if (window.matchMedia('(max-width: 899px)').matches) {
-    if (current.page === 'notifikasi') location.hash = beforeBell || '#/' + HOME[store.role];
-    else { beforeBell = location.hash || '#/' + HOME[store.role]; location.hash = '#/notifikasi'; }
-    return;
-  }
+  // 2.24: HP & desktop sama — lonceng membuka pop up notifikasi yang muncul dari lonceng
   const ex = document.getElementById('bell-panel');
   if (ex) { ex.remove(); return; }
   const panel = document.createElement('div');
   panel.id = 'bell-panel'; panel.className = 'bell-panel';
   panel.innerHTML = `<div class="bp-head"><b>Notifikasi</b><button class="btn btn-ghost btn-sm" data-readall style="color:var(--blue)">Tandai semua dibaca</button></div><div class="bp-body"></div>
     <a href="#/notifikasi" class="btn btn-ghost" style="border-top:1px solid var(--line);border-radius:0">Lihat semua notifikasi</a>`;
-  document.querySelector('.topbar').appendChild(panel);
+  const bell = document.querySelector('[data-bell]').getBoundingClientRect();
+  panel.style.setProperty('--bp-top', Math.round(bell.bottom + 10) + 'px');
+  panel.style.setProperty('--bp-ox', Math.max(20, Math.round(innerWidth - bell.left - bell.width / 2)) + 'px');
+  document.body.appendChild(panel);
   renderBellBody(panel);
   panel.addEventListener('click', (e) => {
     e.stopPropagation();
