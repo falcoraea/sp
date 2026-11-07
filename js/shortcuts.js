@@ -37,3 +37,11 @@ export function amtToggle(root) {
   b.onclick = () => { const v = !root.classList.contains('amt-hidden'); root.classList.toggle('amt-hidden', v); try { localStorage.setItem('hide-amt', v ? '1' : '0'); } catch (_) {} paint(); };
   void todayStr;
 }
+
+// tinggi bagian biru di dashboard HP mengikuti isi (sampai sedikit di bawah atas kartu pertama)
+export function heroFit(hero, anchorSel, extra = 64) {
+  if (!hero) return;
+  const fit = () => { const a = hero.querySelector(anchorSel); if (a) hero.style.setProperty('--hero-h', Math.max(120, a.offsetTop + extra) + 'px'); };
+  fit(); requestAnimationFrame(fit);
+  if (!hero._ro && 'ResizeObserver' in window) { hero._ro = new ResizeObserver(fit); hero._ro.observe(hero); }
+}
