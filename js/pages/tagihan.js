@@ -2,6 +2,7 @@ import { supa, rpc } from '../supa.js';
 import { store } from '../store.js';
 import { esc, rp, fmtDate, toast, toastErr, pageHead, emptyState, skeleton, icon, on, todayStr } from '../ui.js';
 import { billRow, callTagihan, returnUrl } from '../billing.js';
+import { loadModules, stopModule } from '../modules.js';
 
 // Owner: tagihan aplikasi (bulanan & khusus) + bayar lewat Mayar (QRIS, VA bank, e-wallet).
 export default {
@@ -34,7 +35,7 @@ export default {
         <div class="card kpi"><div class="label">Terakhir dibayar</div><div class="value">${last ? rp(last.amount) : '–'}</div><div class="sub">${last ? `${esc(last.title)}${last.paid_at ? ' · ' + fmtDate(last.paid_at, { day: 'numeric', month: 'short', year: 'numeric' }) : ''}` : 'Belum ada pembayaran'}</div></div></div>`;
       el.querySelector('#open').classList.toggle('bill-alert', open.length > 0);
       el.querySelector('#openlist').innerHTML = open.length ? `<div class="list no-page">${open.map((b) => billRow(b,
-        `<button class="btn btn-primary btn-sm" data-pay="${b.id}">${icon('wallet', 16)} Bayar sekarang</button>${b.status === 'menunggu' ? `<button class="btn btn-sm" data-cek="${b.id}">Sudah bayar? Cek</button>` : ''}`)).join('')}</div>`
+        `<button class="btn btn-primary btn-sm" data-pay="${b.id}">${icon('wallet', 16)} Bayar sekarang</button>${b.status === 'menunggu' ? `<button class="btn btn-sm" data-cek="${b.id}">Sudah bayar? Cek</button>` : ''}${b.module_code ? `<button class="btn btn-sm btn-ghost" data-stop="${esc(b.module_code)}">Tidak lanjut</button>` : ''}`)).join('')}</div>`
         : emptyState('Tidak ada tagihan yang perlu dibayar. Terima kasih!', 'check');
       el.querySelector('#histlist').innerHTML = done.length ? `<div class="list no-page">${done.slice(0, 3).map((b) => billRow(b)).join('')}</div>` : emptyState('Belum ada riwayat.', 'receipt');
     };
@@ -59,6 +60,7 @@ export default {
       load();
     };
     on(el, 'click', '[data-cek]', (e, b) => cek(b.dataset.cek));
+    on(el, 'click', '[data-stop]', async (e, b) => { if (!Object.keys(store.modules || {}).length) await loadModules().catch(() => {}); if (await stopModule(b.dataset.stop)) { load(); dispatchEvent(new Event('bills-changed')); } });
     await load();
     // kembali dari halaman Mayar
     if (params.cek) { toast('Mengecek pembayaran…'); setTimeout(() => cek(params.cek, false), 1500); history.replaceState(null, '', '#/tagihan'); }
