@@ -49,20 +49,17 @@ export default {
   }
 };
 
-// pilih menu yang tampil di bar bawah HP (maks 4 + Lainnya), disimpan per orang per jabatan
-async function editTabs(all) {
-  const role = store.role;
-  let sel = [...tabsFor(role, store.profile.tab_prefs)];
+// pilih menu (bar bawah HP / menu pintas Dashboard), disimpan per orang per jabatan di profiles.tab_prefs
+export async function editPicks({ key, max, title, intro, current, all, fixedLast }) {
+  let sel = [...current];
   const draw = (ov) => {
     ov.querySelector('#ts').innerHTML = `${sel.map((k, i) => `<div class="ts-row"><span class="ts-n">${i + 1}</span><span class="ts-ic">${icon(PAGES[k].icon, 18)}</span><b class="grow">${esc(PAGES[k].short || PAGES[k].label)}</b>
         <button class="btn btn-sm btn-ghost" data-up="${i}" ${i ? '' : 'disabled'} aria-label="Naikkan">▲</button><button class="btn btn-sm btn-ghost" data-dn="${i}" ${i < sel.length - 1 ? '' : 'disabled'} aria-label="Turunkan">▼</button><button class="btn btn-sm btn-ghost" data-rm="${i}" aria-label="Hapus">${icon('x', 15)}</button></div>`).join('')}
-      ${Array.from({ length: TAB_MAX - sel.length }, (_, i) => `<div class="ts-row empty"><span class="ts-n">${sel.length + i + 1}</span><span class="muted small">Kosong — pilih menu di bawah</span></div>`).join('')}
-      <div class="ts-row fixed"><span class="ts-n">${icon('lock', 12)}</span><span class="ts-ic">${icon('grid', 18)}</span><b class="grow">Lainnya</b><span class="xs muted">selalu ada</span></div>`;
-    ov.querySelector('#tp').innerHTML = all.map((m) => `<button class="ts-pick ${sel.includes(m.key) ? 'on' : ''}" data-add="${m.key}" ${sel.includes(m.key) || sel.length >= TAB_MAX ? 'disabled' : ''}>${icon(m.icon, 18)}<span>${esc(m.short || m.label)}</span></button>`).join('');
+      ${sel.length < max ? `<div class="ts-row empty"><span class="ts-n">${sel.length + 1}</span><span class="muted small">Kosong — pilih menu di bawah (${max - sel.length} lagi)</span></div>` : ''}
+      ${fixedLast ? `<div class="ts-row fixed"><span class="ts-n">${icon('lock', 12)}</span><span class="ts-ic">${icon('grid', 18)}</span><b class="grow">${esc(fixedLast)}</b><span class="xs muted">selalu ada</span></div>` : ''}`;
+    ov.querySelector('#tp').innerHTML = all.map((m) => `<button class="ts-pick ${sel.includes(m.key) ? 'on' : ''}" data-add="${m.key}" ${sel.includes(m.key) || sel.length >= max ? 'disabled' : ''}>${icon(m.icon, 18)}<span>${esc(m.short || m.label)}</span></button>`).join('');
   };
-  const r = await modal({ title: 'Atur menu bawah', body: `<div class="stack">
-      <div class="small muted">Pilih sampai ${TAB_MAX} menu yang paling sering dipakai. Urutan dari kiri ke kanan. Menu <b>Lainnya</b> selalu ada di ujung kanan.</div>
-      <div class="ts-list" id="ts"></div>
+  const r = await modal({ title, body: `<div class="stack"><div class="small muted">${intro}</div><div class="ts-list" id="ts"></div>
       <div class="sec-h" style="margin:4px 0 0">Pilih menu</div><div class="ts-grid" id="tp"></div></div>`,
     onOpen: (ov) => {
       draw(ov);
@@ -74,14 +71,21 @@ async function editTabs(all) {
         draw(ov);
       });
     },
-    actions: [{ label: 'Bawaan jabatan', cls: 'btn-ghost', value: 'reset' }, { label: 'Batal', value: null }, { label: 'Simpan', cls: 'btn-primary', onClick: () => { if (!sel.length) { toast('Pilih minimal 1 menu', 'err'); return false; } return 'save'; } }] });
+    actions: [{ label: 'Bawaan', cls: 'btn-ghost', value: 'reset' }, { label: 'Batal', value: null }, { label: 'Simpan', cls: 'btn-primary', onClick: () => { if (!sel.length) { toast('Pilih minimal 1 menu', 'err'); return false; } return 'save'; } }] });
   if (!r) return false;
   const prefs = { ...(store.profile.tab_prefs || {}) };
-  if (r === 'reset') delete prefs[role]; else prefs[role] = sel;
+  if (r === 'reset') delete prefs[key]; else prefs[key] = sel;
   store.profile.tab_prefs = prefs;
   try { localStorage.setItem('tab-prefs-' + store.profile.id, JSON.stringify(prefs)); } catch (_) {}
   const { error } = await supa.from('profiles').update({ tab_prefs: prefs }).eq('id', store.profile.id);
-  emit('tabs');
-  toast(error ? 'Tersimpan di HP ini (jalankan update-2.17.sql agar ikut ke HP lain)' : 'Menu bawah diperbarui', error ? '' : 'ok');
+  toast(error ? 'Tersimpan di perangkat ini (jalankan update-2.17.sql agar ikut ke HP lain)' : 'Tersimpan', error ? '' : 'ok');
   return true;
+}
+
+async function editTabs(all) {
+  const ok = await editPicks({ key: store.role, max: TAB_MAX, title: 'Atur menu bawah', fixedLast: 'Lainnya', all,
+    current: tabsFor(store.role, store.profile.tab_prefs),
+    intro: `Pilih sampai ${TAB_MAX} menu yang paling sering dipakai. Urutan dari kiri ke kanan. Menu <b>Lainnya</b> selalu ada di ujung kanan.` });
+  if (ok) emit('tabs');
+  return ok;
 }
