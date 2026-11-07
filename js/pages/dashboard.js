@@ -154,7 +154,7 @@ export default {
         ${data.length ? `<div class="table-wrap"><table class="tbl" style="min-width:760px"><thead><tr><th>Tingkat</th><th>Kejadian</th><th>Bukti dari sistem</th><th>Terkait</th><th class="right">Nilai</th><th></th></tr></thead><tbody>
           ${data.map((a) => `<tr><td><span class="tag ${LV[a.level][1]}">${LV[a.level][0]}</span></td><td><b>${esc(a.title)}</b><div class="xs muted">${ago(a.created_at)}</div></td>
             <td class="small muted">${esc(a.evidence || '')}</td><td class="nowrap small">${esc(store.profilesById[a.related_user]?.full_name || '–')}</td>
-            <td class="num"><b>${rp(a.value)}</b></td><td><a href="#/masalah?id=${a.id}" class="nowrap">Lihat</a></td></tr>`).join('')}
+            <td class="num"><b>${rp(a.value)}</b></td><td class="right"><a href="#/masalah?id=${a.id}" class="btn btn-sm btn-see nowrap">Lihat ${icon('chev', 14, 2.6)}</a></td></tr>`).join('')}
           </tbody></table></div><a href="#/masalah" class="btn btn-ghost btn-block" style="border-top:1px solid var(--line);border-radius:0">Lihat semua</a>`
           : '<div class="empty">Tidak ada masalah yang belum ditangani. 👍</div>'}`;
     };
