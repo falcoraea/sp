@@ -1,6 +1,6 @@
 import { supa } from '../supa.js';
 import { store } from '../store.js';
-import { esc, rp, fmtDateTime, chips, on, modal, toast, toastErr, pageHead, emptyState, skeleton } from '../ui.js';
+import { esc, icon, rp, fmtDateTime, chips, on, modal, toast, toastErr, pageHead, emptyState, skeleton } from '../ui.js';
 
 const LV = { tinggi: ['Tinggi', 'solid-red'], sedang: ['Sedang', 'solid-yellow'], info: ['Info', ''] };
 const KIND = {
@@ -33,7 +33,7 @@ export default {
         <div style="font-weight:700;font-size:16px;margin-top:6px">${esc(a.title)}</div>
         <div class="small muted" style="margin-top:4px">${esc(a.evidence || '')}</div>
         <div class="row between wrap" style="margin-top:10px"><div class="small">Terkait: <b>${esc(store.profilesById[a.related_user]?.full_name || '–')}</b> · Nilai <b>${rp(a.value)}</b></div>
-          ${a.resolved ? `<span class="tag green">Ditangani: ${esc(a.resolved_note || '')}</span>` : `<button class="btn btn-sm" data-resolve="${a.id}">Tandai sudah ditangani</button>`}</div>
+          ${a.resolved ? `<span class="tag green">Ditangani: ${esc(a.resolved_note || '')}</span>` : `<button class="btn btn-sm btn-resolve" data-resolve="${a.id}">${icon('check', 16, 2.6)} Tandai sudah ditangani</button>`}</div>
       </div>`).join('')}</div>`;
     };
     on(el, 'click', '[data-chips] .chip', (e, b) => {
