@@ -2,7 +2,7 @@ import { supa, rpc } from '../supa.js';
 import { store } from '../store.js';
 import { esc, num, rp, todayStr, monthStart, fmtTime, icon, ROLE_LABEL } from '../ui.js';
 import { modOn } from '../modules.js';
-import { renderShortcuts, greet, amtToggle } from '../shortcuts.js';
+import { renderShortcuts, greet, amtToggle, heroFit } from '../shortcuts.js';
 
 // Dashboard untuk setiap jabatan selain owner: angka & tugas yang relevan + menu pintas.
 const T0 = () => todayStr() + 'T00:00:00+07:00';
@@ -92,6 +92,7 @@ export default {
       <section class="card sc-card" id="shortcuts"></section>
     </div>`;
     renderShortcuts(el.querySelector('#shortcuts'));
+    heroFit(el.querySelector('#hero'), '#main', 70);
     // absen hari ini
     (async () => {
       if (!['admin', 'sopir', 'kepala_gudang', 'picker', 'packing', 'keuangan', 'qc', 'cs', 'marketing', 'supervisor'].includes(role)) return;
