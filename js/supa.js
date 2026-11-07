@@ -5,12 +5,24 @@ export const configured = !SUPABASE_URL.includes('ISI-PROJECT') && !SUPABASE_ANO
 
 // Permintaan yang menggantung (sinyal jelek / HP baru bangun dari layar mati) dihentikan otomatis
 // supaya tombol tidak "macet" menunggu selamanya.
+// garis loading di atas layar: hanya muncul kalau ada data yang dimuat lebih dari 300 ms (yang cepat tidak berkedip)
+let busy = 0, busyT = null;
+function netBar(on) {
+  let bar = document.getElementById('netbar');
+  if (on && !bar) { bar = document.createElement('div'); bar.id = 'netbar'; bar.innerHTML = '<i></i>'; document.body.appendChild(bar); }
+  if (bar) bar.classList.toggle('on', on);
+}
+function track(p, url) {
+  if (/\/realtime\/|report_version|activity_|log_event|log_page/.test(String(url))) return p;   // permintaan latar belakang tidak ditampilkan
+  if (busy++ === 0) { clearTimeout(busyT); busyT = setTimeout(() => busy && netBar(true), 300); }
+  return p.finally(() => { if (--busy <= 0) { busy = 0; clearTimeout(busyT); netBar(false); } });
+}
 function fetchTimeout(url, opt = {}) {
   const ms = /\/storage\//.test(String(url)) ? 90000 : 25000;
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), ms);
   if (opt.signal) opt.signal.addEventListener('abort', () => ctl.abort());
-  return fetch(url, { ...opt, signal: ctl.signal }).finally(() => clearTimeout(t));
+  return track(fetch(url, { ...opt, signal: ctl.signal }).finally(() => clearTimeout(t)), url);
 }
 // kunci sesi sederhana di dalam tab (kunci bawaan browser kadang tersangkut setelah tab lama di belakang)
 let lockChain = Promise.resolve();
