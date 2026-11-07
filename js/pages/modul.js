@@ -1,7 +1,7 @@
 import { store } from '../store.js';
 import { PAGES } from '../nav.js';
 import { esc, icon, pageHead, on, todayStr, fmtDate } from '../ui.js';
-import { loadModules, modOn, modStatus, priceTxt, buyModule, MOD_ICON } from '../modules.js';
+import { loadModules, modOn, modStatus, priceTxt, buyModule, stopModule, resumeModule, MOD_ICON } from '../modules.js';
 
 // Owner: daftar menu & jabatan tambahan, statusnya, dan tombol buka / perpanjang.
 const pageOf = (code) => Object.entries(PAGES).find(([, p]) => p.mod === code)?.[0];
@@ -21,7 +21,8 @@ export default {
         ${m.features?.length ? `<ul class="pw-feat sm">${m.features.slice(0, 4).map((f) => `<li>${icon('check', 14, 2.6)}<span>${esc(f)}</span></li>`).join('')}</ul>` : ''}
         <div class="mod-foot"><span class="mod-price">${esc(priceTxt(m))}</span>
           ${on ? (pg ? `<a class="btn btn-sm" href="#/${pg}">Buka menu</a>` : m.kind === 'jabatan' ? '<a class="btn btn-sm" href="#/pegawai">Atur pegawai</a>' : '')
-               + (!m.forever && Number(m.price) > 0 && (m.period === 'bulanan' || !(m.active_until >= todayStr())) ? `<button class="btn btn-sm btn-ghost" data-buy="${esc(m.code)}">${m.active_until >= todayStr() ? 'Perpanjang' : m.period === 'sekali' ? 'Beli permanen' : 'Langganan'}</button>` : '')
+               + (!m.forever && Number(m.price) > 0 && (m.period === 'bulanan' || !(m.active_until >= todayStr())) ? `<button class="btn btn-sm btn-ghost" data-buy="${esc(m.code)}">${m.no_renew ? 'Lanjutkan lagi' : m.active_until >= todayStr() ? 'Perpanjang' : m.period === 'sekali' ? 'Beli permanen' : 'Langganan'}</button>` : '')
+               + (!m.forever && m.period === 'bulanan' && m.active_until >= todayStr() && !m.no_renew ? `<button class="btn btn-sm btn-ghost mod-stop" data-stop="${esc(m.code)}">Tidak lanjut</button>` : '')
              : Number(m.price) > 0 ? `<button class="btn btn-sm btn-primary" data-buy="${esc(m.code)}">${icon('lock', 15)} ${m.active_until ? 'Perpanjang' : 'Buka sekarang'}</button>` : '<span class="xs muted">Hubungi pembuat aplikasi</span>'}
         </div></div>`;
     };
@@ -31,8 +32,9 @@ export default {
         ${!all.length ? '<div class="alert yellow">Menu ini butuh update database. Jalankan <b>supabase/update-2.13.sql</b> di Supabase › SQL Editor.</div>' : ''}
         ${menus.length ? `<h3 class="sec-h">Menu</h3><div class="mod-grid">${menus.map(card).join('')}</div>` : ''}
         ${roles.length ? `<h3 class="sec-h">Jabatan</h3><div class="mod-grid">${roles.map(card).join('')}</div>` : ''}
-        <div class="small muted">Langganan bulanan: tagihan perpanjangan dibuat otomatis 5 hari sebelum masa aktif habis. Kalau tidak diperpanjang, menu terkunci lagi (data tetap aman dan muncul kembali setelah dibuka).</div>
+        <div class="small muted">Langganan bulanan: tagihan perpanjangan dibuat otomatis 5 hari sebelum masa aktif habis. Tekan <b>Tidak lanjut</b> kalau tidak mau memperpanjang: tagihannya dibatalkan dan menu terkunci lagi setelah masa aktif habis (data tetap aman dan muncul kembali setelah dibuka).</div>
       </div>`;
-    on(el, 'click', '[data-buy]', (e, b) => buyModule(b.dataset.buy, b));
+    on(el, 'click', '[data-buy]', async (e, b) => { if (store.modules[b.dataset.buy]?.no_renew && modOn(b.dataset.buy)) { if (await resumeModule(b.dataset.buy)) this.render(el); return; } buyModule(b.dataset.buy, b); });
+    on(el, 'click', '[data-stop]', async (e, b) => { if (await stopModule(b.dataset.stop)) this.render(el); });
   }
 };
