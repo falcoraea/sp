@@ -10,7 +10,7 @@ export default {
     { sel: '#open', title: 'Bayar', body: 'Tekan "Bayar sekarang" untuk membuka halaman pembayaran Mayar (QRIS, transfer bank / VA, e-wallet). Setelah bayar, status berubah Lunas otomatis.' }
   ],
   async render(el, { params = {} } = {}) {
-    el.innerHTML = `${pageHead('Tagihan', 'Biaya aplikasi & layanan. Pembayaran lewat Mayar: QRIS, transfer bank (virtual account), dan e-wallet.')}
+    el.innerHTML = `${pageHead('Tagihan')}
       <div class="stack"><div id="sum">${skeleton(1)}</div>
         <section class="card flush" id="open"><div class="card-h"><h2>Perlu dibayar</h2></div><div id="openlist">${skeleton(2)}</div></section>
         <section class="card flush" id="hist"><div class="card-h"><h2>Riwayat</h2></div><div id="histlist"></div></section>
@@ -23,17 +23,20 @@ export default {
       if (error) { el.querySelector('#sum').innerHTML = `<div class="alert yellow">Menu ini butuh update database. Jalankan <b>supabase/update-2.5.sql</b>. (${esc(error.message)})</div>`; el.querySelector('#openlist').innerHTML = ''; return; }
       el._bills = data;
       const open = data.filter((b) => ['belum', 'menunggu'].includes(b.status));
-      const done = data.filter((b) => !['belum', 'menunggu'].includes(b.status)).reverse();
+      // riwayat: hanya 3 terakhir di sini (riwayat lengkap tetap ada di super admin › Tagihan & Mayar)
+      const done = data.filter((b) => !['belum', 'menunggu'].includes(b.status)).sort((a, b) => String(b.paid_at || b.due_date).localeCompare(String(a.paid_at || a.due_date)));
+      const last = done.find((b) => b.status === 'lunas');
       const total = open.reduce((a, b) => a + Number(b.amount), 0);
       const late = open.filter((b) => b.due_date < todayStr());
       el.querySelector('#sum').innerHTML = `<div class="grid gauto">
-        <div class="card kpi ${open.length ? 'dark' : ''}"><div class="label">Belum dibayar</div><div class="value">${rp(total)}</div><div class="sub" ${open.length ? 'style="color:var(--accent)"' : ''}>${open.length} tagihan${late.length ? ` · ${late.length} terlambat` : ''}</div></div>
+        <div class="card kpi ${open.length ? 'bill-alert' : ''}"><div class="label">Belum dibayar</div><div class="value">${rp(total)}</div><div class="sub">${open.length} tagihan${late.length ? ` · ${late.length} terlambat` : ''}</div></div>
         <div class="card kpi"><div class="label">Jatuh tempo terdekat</div><div class="value" style="font-size:20px">${open.length ? fmtDate(open[0].due_date, { day: 'numeric', month: 'long', year: 'numeric' }) : '–'}</div></div>
-        <div class="card kpi"><div class="label">Sudah dibayar</div><div class="value">${rp(done.filter((b) => b.status === 'lunas').reduce((a, b) => a + Number(b.amount), 0))}</div><div class="sub">${done.filter((b) => b.status === 'lunas').length} tagihan</div></div></div>`;
+        <div class="card kpi"><div class="label">Terakhir dibayar</div><div class="value">${last ? rp(last.amount) : '–'}</div><div class="sub">${last ? `${esc(last.title)}${last.paid_at ? ' · ' + fmtDate(last.paid_at, { day: 'numeric', month: 'short', year: 'numeric' }) : ''}` : 'Belum ada pembayaran'}</div></div></div>`;
+      el.querySelector('#open').classList.toggle('bill-alert', open.length > 0);
       el.querySelector('#openlist').innerHTML = open.length ? `<div class="list no-page">${open.map((b) => billRow(b,
         `<button class="btn btn-primary btn-sm" data-pay="${b.id}">${icon('wallet', 16)} Bayar sekarang</button>${b.status === 'menunggu' ? `<button class="btn btn-sm" data-cek="${b.id}">Sudah bayar? Cek</button>` : ''}`)).join('')}</div>`
         : emptyState('Tidak ada tagihan yang perlu dibayar. Terima kasih!', 'check');
-      el.querySelector('#histlist').innerHTML = done.length ? `<div class="list">${done.map((b) => billRow(b)).join('')}</div>` : emptyState('Belum ada riwayat.', 'receipt');
+      el.querySelector('#histlist').innerHTML = done.length ? `<div class="list no-page">${done.slice(0, 3).map((b) => billRow(b)).join('')}</div>` : emptyState('Belum ada riwayat.', 'receipt');
     };
 
     on(el, 'click', '[data-pay]', async (e, b) => {
