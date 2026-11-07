@@ -1483,3 +1483,55 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .bars .bb i.pv { background: #D7DBEE; }
 /* progress kepatuhan lebih tebal & membulat */
 #flow .progress { height: 10px; background: #EEF0F7; }
+
+/* =====================================================================
+   2.24 — lingkaran dekorasi (seperti kartu Laba bersih) di footer & dashboard,
+   isi putih menu bawah 5x lebih pelan, menu tengah menonjol, pop up lonceng
+   ===================================================================== */
+@media (max-width: 899px) {
+  .dash-hero::before { background:
+      radial-gradient(circle at 96% 62%, rgba(255,255,255,.075) 0 108px, rgba(255,255,255,0) 109px),
+      radial-gradient(circle at 74% 104%, rgba(255,255,255,.05) 0 70px, rgba(255,255,255,0) 71px),
+      radial-gradient(circle at -4% 88%, rgba(255,255,255,.055) 0 86px, rgba(255,255,255,0) 87px),
+      radial-gradient(90% 70% at 100% 100%, rgba(92,112,224,.45), transparent 62%),
+      linear-gradient(180deg, #26348B 0%, #2A3998 48%, #1D2876 100%); }
+  .tabbar { overflow: visible; background:
+      radial-gradient(circle at 93% -10%, rgba(255,255,255,.08) 0 64px, rgba(255,255,255,0) 65px),
+      radial-gradient(circle at 4% 130%, rgba(255,255,255,.065) 0 58px, rgba(255,255,255,0) 59px),
+      radial-gradient(circle at 30% -60%, rgba(255,255,255,.045) 0 44px, rgba(255,255,255,0) 45px),
+      linear-gradient(150deg, #2E3D99 0%, #26348B 45%, #1D2876 100%); }
+
+  /* isi putih 5x lebih pelan */
+  .tab .ic > svg:first-child { transition: opacity 1.6s ease; }
+  .tab .ic-fill { transition: clip-path 1.6s cubic-bezier(.25,.6,.25,1), opacity .2s; }
+  .tab.on .ic-fill { animation: tabPop 1.1s ease-out; }
+
+  /* menu tengah (ke-3) lebih menonjol: lingkaran emas timbul di atas bar */
+  .tabbar > .tab:nth-child(3) { position: relative; }
+  .tabbar > .tab:nth-child(3) .ic { width: 58px; height: 58px; padding: 0; margin-top: -30px; border-radius: 99px; display: grid; place-items: center;
+    background: linear-gradient(145deg, #FFD978 0%, #F5B301 55%, #D98E00 100%); color: #1F2B7C; border: 4px solid #2A3998;
+    box-shadow: 0 10px 20px -6px rgba(10,16,60,.6), inset 0 2px 0 rgba(255,255,255,.55), inset 0 -3px 0 rgba(0,0,0,.12); --solid-in: #F5B301; }
+  .tabbar > .tab:nth-child(3) .ic svg { width: 25px; height: 25px; }
+  .tabbar > .tab:nth-child(3) .ic-fill svg { stroke: #1F2B7C; }
+  .tabbar > .tab:nth-child(3) .ic-fill svg [fill] { fill: #1F2B7C; }
+  .tabbar > .tab:nth-child(3).on .ic { background: linear-gradient(145deg, #FFE7A3 0%, #FFC21A 55%, #E39A08 100%); }
+  .tabbar > .tab:nth-child(3) .lbl { color: #FFE08A; font-weight: 700; }
+  .tabbar > .tab:nth-child(3).on .lbl { color: #fff; }
+  .tabbar > .tab:nth-child(3) .ic .badge-dot { top: -2px; right: -2px; }
+  .tabbar > .tab:nth-child(3).has-masalah .ic::after { border-radius: 99px; }
+}
+
+/* pop up notifikasi dari lonceng (HP & desktop) */
+.bell-panel { position: fixed; top: var(--bp-top, 70px); right: 16px; left: auto; width: 400px; max-width: calc(100vw - 32px); max-height: min(72vh, calc(100vh - var(--bp-top, 70px) - 100px));
+  z-index: 60; border-radius: 18px; overflow: visible; box-shadow: 0 24px 48px -12px rgba(16,24,40,.35), 0 4px 12px rgba(16,24,40,.08);
+  transform-origin: calc(100% - var(--bp-ox, 40px) + 16px) 0; animation: bpIn .22s cubic-bezier(.2,.8,.2,1); }
+.bell-panel::before { content: ''; position: absolute; top: -7px; right: calc(var(--bp-ox, 40px) - 16px - 7px); width: 14px; height: 14px; background: var(--card);
+  border-left: 1px solid var(--line-2); border-top: 1px solid var(--line-2); transform: rotate(45deg); border-radius: 3px 0 0 0; }
+.bell-panel .bp-head { border-radius: 18px 18px 0 0; background: var(--card); position: relative; }
+.bell-panel .bp-body { flex: 1; min-height: 0; }
+.bell-panel > a.btn { border-radius: 0 0 18px 18px !important; }
+@keyframes bpIn { from { opacity: 0; transform: scale(.6) translateY(-6px); } to { opacity: 1; transform: none; } }
+@media (max-width: 899px) { .bell-panel { right: 12px; max-width: calc(100vw - 24px); } }
+.bell-panel .chips { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; }
+.bell-panel .chips::-webkit-scrollbar { display: none; }
+.bell-panel .chips .chip { flex: none !important; }
