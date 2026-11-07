@@ -1,6 +1,6 @@
 import { supa, rpc } from './supa.js';
 import { store } from './store.js';
-import { esc, icon, rp, fmtDate, toast, toastErr, todayStr } from './ui.js';
+import { esc, icon, rp, fmtDate, toast, toastErr, todayStr, confirmBox } from './ui.js';
 import { callTagihan, returnUrl } from './billing.js';
 
 // Menu & jabatan tambahan yang bisa dikunci. Harga & masa aktif diatur super admin,
@@ -33,6 +33,7 @@ export const modName = (code) => store.modules[code]?.name || code;
 export function modStatus(m) {
   if (!m) return ['Belum tersedia', 'red'];
   if (m.forever) return ['Aktif selamanya', 'green'];
+  if (m.no_renew && m.active_until && m.active_until >= todayStr()) return ['Tidak lanjut · aktif s/d ' + fmtDate(m.active_until, { day: 'numeric', month: 'short', year: 'numeric' }), 'yellow'];
   if (m.active_until && m.active_until >= todayStr()) return ['Aktif s/d ' + fmtDate(m.active_until, { day: 'numeric', month: 'short', year: 'numeric' }), 'green'];
   if (m.free_until && m.free_until >= todayStr()) return ['Gratis s/d ' + fmtDate(m.free_until, { day: 'numeric', month: 'short', year: 'numeric' }), 'blue'];
   if (m.active_until) return ['Habis ' + fmtDate(m.active_until, { day: 'numeric', month: 'short' }), 'red'];
@@ -57,6 +58,22 @@ export async function buyModule(code, btn) {
     }
   } catch (e) { toastErr(e); }
   if (btn) { btn.disabled = false; btn.innerHTML = old; }
+}
+
+// owner memilih "Tidak lanjut": tagihan menu ini dibatalkan & tidak dibuat lagi; menu terkunci setelah masa aktif habis
+export async function stopModule(code) {
+  const m = store.modules[code]; if (!m) return false;
+  const until = m.active_until && m.active_until >= todayStr() ? m.active_until : null;
+  const ok = await confirmBox('Tidak lanjut ' + m.name + '?',
+    (until ? `Menu ini masih bisa dipakai sampai <b>${esc(fmtDate(until, { day: 'numeric', month: 'long', year: 'numeric' }))}</b>, setelah itu terkunci lagi.` : 'Tagihan menu ini dibatalkan dan menu tetap terkunci.')
+    + ' Tagihan perpanjangan tidak dibuat lagi. Data menu tetap aman dan muncul kembali kalau dibuka lagi.', 'Ya, tidak lanjut', true);
+  if (!ok) return false;
+  try { await rpc('module_stop', { p_code: code }); m.no_renew = true; toast(until ? 'Tidak dilanjutkan. Menu terkunci setelah masa aktif habis.' : 'Tagihan dibatalkan.', 'ok'); return true; }
+  catch (e) { toastErr(e); return false; }
+}
+export async function resumeModule(code) {
+  try { await rpc('module_resume', { p_code: code }); if (store.modules[code]) store.modules[code].no_renew = false; toast('Langganan dilanjutkan. Tagihan perpanjangan dibuat otomatis 5 hari sebelum habis.', 'ok'); return true; }
+  catch (e) { toastErr(e); return false; }
 }
 
 // tampilan halaman yang masih terkunci
