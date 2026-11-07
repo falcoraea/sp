@@ -36,7 +36,7 @@ export default {
       el.querySelector('#mg').innerHTML = groups.length ? groups.map(({ g, items }) => {
         const [label, c1, c2] = GROUP_STYLE[g] || [g, '#6B706C', '#3A403C'];
         return `<section class="menu-cat"><h3><i style="background:${c1}"></i>${esc(label)}</h3><div class="menu-grid">${items.map((m) => `<a class="menu-tile ${m.locked ? 'locked' : ''}" href="#/${m.key}">
-          <span class="mt-ic" style="--c1:${c1};--c2:${c2}">${icon(m.icon, 24, 2.1)}${m.locked ? `<span class="mt-lock" title="Terkunci">${icon('lock', 11, 2.6)}</span>` : tabs.has(m.key) ? '<span class="mt-pin" title="Ada di menu bawah"></span>' : ''}</span>
+          <span class="mt-ic" style="--c1:${c1};--c2:${c2}">${icon(m.icon, 24, 2.1)}${m.key === 'masalah' ? '<span class="mt-badge hidden" data-cnt="masalah"></span>' : ''}${m.locked ? `<span class="mt-lock" title="Terkunci">${icon('lock', 11, 2.6)}</span>` : tabs.has(m.key) ? '<span class="mt-pin" title="Ada di menu bawah"></span>' : ''}</span>
           <span class="mt-lbl">${esc(m.short || m.label)}</span></a>`).join('')}</div></section>`;
       }).join('') : '<div class="muted small" style="text-align:center;padding:24px">Menu tidak ditemukan.</div>';
     };
