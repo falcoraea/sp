@@ -62,7 +62,7 @@ export default {
 function officeSettings(el) {
   const s = store.settings;
   el.innerHTML = `<div class="stack" style="max-width:760px">
-    <div class="page-head"><div><h2 style="font-size:22px">Lokasi kantor untuk absen</h2><div class="desc">Pegawai hanya bisa absen kalau berada di dalam radius dari titik kantor.</div></div></div>
+    <div class="page-head"><div><h2 style="font-size:22px">Lokasi kantor untuk absen</h2></div></div>
     <section class="card stack" id="loc">
       <div class="grid g2">
         <label class="field">Latitude<input class="input num" id="la" inputmode="decimal" placeholder="-6.200000" value="${s.office_lat ?? ''}"></label>
