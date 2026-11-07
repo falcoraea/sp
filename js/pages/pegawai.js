@@ -40,7 +40,7 @@ export default {
       const staff = data.filter((p) => p.role !== 'pending');
       el.querySelector('#list').innerHTML = staff.length ? `<div class="list">${staff.map((p) => `<button class="list-item" data-edit="${p.id}" ${p.role === 'owner' ? 'disabled style="cursor:default"' : ''}>
         <div class="grow"><b>${esc(p.full_name)}</b> ${p.active ? '' : '<span class="tag red">nonaktif</span>'}<div class="xs muted">${esc(p.email || '')}</div>${verInfo(p)}</div>
-        <span class="tag ${p.role === 'owner' ? 'dark' : ''}">${ROLE_LABEL[p.role]}</span>${p.role !== 'owner' ? `<span class="small muted hide-mobile" style="width:150px;text-align:right">${rp(p.base_salary)} + ${rp(p.meal_allowance)}/hr</span>` : ''}</button>`).join('')}</div>` : emptyState('Belum ada pegawai.', 'users');
+        <span class="tag ${p.role === 'owner' ? 'dark' : ''}">${ROLE_LABEL[p.role]}</span>${p.role !== 'owner' && modOn('gaji') ? `<span class="small muted hide-mobile" style="width:150px;text-align:right">${rp(p.base_salary)} + ${rp(p.meal_allowance)}/hr</span>` : ''}</button>`).join('')}</div>` : emptyState('Belum ada pegawai.', 'users');
       el._staff = data;
       const old = staff.filter((p) => p.role !== 'owner' && p.app_version && isOutdated(p.app_version, latest)).length;
       el.querySelector('#verhead').innerHTML = latest && latest.build !== 'dev' ? `Versi terbaru: <b>v${esc(latest.version)}</b>${old ? ` · <span style="color:var(--red)">${old} pegawai masih memakai versi lama</span> (minta tutup-buka aplikasi atau tekan Perbarui)` : ' · semua pegawai sudah versi terbaru'}` : '';
@@ -51,8 +51,9 @@ export default {
       ${!p.id ? `<label class="field">Email login<input class="input" id="f-e" type="email" autocomplete="off"></label><label class="field">Password awal (min. 6)<input class="input" id="f-p" type="text" autocomplete="off" value="${Math.random().toString(36).slice(2, 8)}"></label>` : ''}
       <label class="field" style="grid-column:1/-1">Jabatan<select class="input" id="f-r">${ROLES.map((r) => `<option value="${r}" ${p.role === r ? 'selected' : ''} ${locked(r) && p.role !== r ? 'disabled' : ''}>${locked(r) ? '🔒 ' : ''}${ROLE_LABEL[r]} — ${DESC[r]}${locked(r) ? ' (terkunci)' : ''}</option>`).join('')}</select>
         ${ROLES.some(locked) ? '<span class="xs muted">Jabatan bergembok bisa dibuka di <a href="#/modul" data-close-modal>Menu tambahan</a>.</span>' : ''}</label>
-      <label class="field">Gaji pokok / bulan<input class="input num" id="f-s" inputmode="numeric" data-money value="${num(p.base_salary || 0)}"></label>
-      <label class="field">Uang makan / hari hadir<input class="input num" id="f-m" inputmode="numeric" data-money value="${num(p.meal_allowance || 0)}"></label>
+      <label class="field">Gaji pokok / bulan<input class="input num" id="f-s" inputmode="numeric" data-money value="${num(p.base_salary || 0)}" ${modOn('gaji') ? '' : 'disabled'}></label>
+      <label class="field">Uang makan / hari hadir<input class="input num" id="f-m" inputmode="numeric" data-money value="${num(p.meal_allowance || 0)}" ${modOn('gaji') ? '' : 'disabled'}></label>
+      ${modOn('gaji') ? '' : `<div class="xs muted" style="grid-column:1/-1">${icon('lock', 12)} Gaji belum bisa diisi — menu <b>Penggajian</b> masih terkunci (<a href="#/modul" data-close-modal>Menu tambahan</a>).</div>`}
       <label class="field" style="grid-column:1/-1">No. HP<input class="input" id="f-h" value="${esc(p.phone || '')}" inputmode="tel"></label>
       ${p.id ? `<label class="check" style="grid-column:1/-1"><input type="checkbox" id="f-a" ${p.active ? 'checked' : ''}> Akun aktif (matikan kalau pegawai berhenti)</label>` : ''}
     </div>`;
