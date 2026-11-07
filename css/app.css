@@ -1357,3 +1357,13 @@ body { touch-action: pan-x pan-y; overscroll-behavior-y: none; }
 a, button, img, svg, .btn, .chip, .tab, .mt, .list-item, nav, .topbar, .tabbar { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; -webkit-user-drag: none; }
 input, textarea, select, [contenteditable="true"], .mono, .allow-menu, .allow-menu * { -webkit-touch-callout: default; -webkit-user-select: text; user-select: text; }
 a, button { -webkit-tap-highlight-color: transparent; }
+
+/* 2.21.2 — tagihan belum dibayar: kartu berkedip merah ↔ kuning */
+@keyframes billBlink { 0%,100% { background: #D92D20; border-color: #D92D20; color: #fff; box-shadow: 0 0 0 0 rgba(217,45,32,.45); } 50% { background: #F5B301; border-color: #F5B301; color: #2B1D00; box-shadow: 0 0 0 6px rgba(245,179,1,.25); } }
+.card.kpi.bill-alert { animation: billBlink 1.2s ease-in-out infinite; }
+.card.kpi.bill-alert .label, .card.kpi.bill-alert .sub, .card.kpi.bill-alert .value { color: inherit; }
+#open.bill-alert { border: 2px solid #D92D20; animation: billBorder 1.2s ease-in-out infinite; }
+#open.bill-alert .card-h { animation: billBlink 1.2s ease-in-out infinite; }
+#open.bill-alert .card-h h2 { color: inherit; }
+@keyframes billBorder { 0%,100% { border-color: #D92D20; } 50% { border-color: #F5B301; } }
+@media (prefers-reduced-motion: reduce) { .card.kpi.bill-alert, #open.bill-alert, #open.bill-alert .card-h { animation-duration: 2.4s; } }
