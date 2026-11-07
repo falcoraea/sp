@@ -75,11 +75,10 @@ async function boot(session) {
       let logged = null; try { logged = sessionStorage.getItem('logged-' + profile.id); } catch (_) {}
       if (!logged) { logEvent('login', 'Masuk aplikasi · ' + versionLabel() + ' · ' + deviceLabel()); try { sessionStorage.setItem('logged-' + profile.id, '1'); } catch (_) {} }
     }
-    const { data: settings } = await supa.from('settings').select('*').eq('id', 1).single();
+    // dimuat bersamaan supaya aplikasi cepat terbuka
+    const [{ data: settings }] = await Promise.all([supa.from('settings').select('*').eq('id', 1).single(), loadModules().catch(() => {}), loadProfiles().catch(() => {})]);
     store.settings = settings || {};
     if (!store.profile.tab_prefs) { try { store.profile.tab_prefs = JSON.parse(localStorage.getItem('tab-prefs-' + store.profile.id) || 'null'); } catch (_) {} }
-    await loadModules().catch(() => {});
-    await loadProfiles().catch(() => {});
     renderShell();
     if (!hashBound) { window.addEventListener('hashchange', route); hashBound = true; }
     await route();
@@ -432,6 +431,7 @@ async function route() {
   document.getElementById('bell-panel')?.remove();
   document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('on', a.dataset.nav === page));
   sideOpenFor(page);
+  document.body.dataset.page = page;
   document.querySelector('[data-bell]')?.classList.toggle('on', page === 'notifikasi');
   const pg = PAGES[page];
   document.getElementById('t-title').textContent = pg.label;
