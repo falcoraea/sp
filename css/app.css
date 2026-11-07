@@ -1564,3 +1564,29 @@ a, button { -webkit-tap-highlight-color: transparent; }
 /* pop up terbuka: halaman belakang tidak ikut bergeser */
 html.no-scroll { overflow: hidden; overscroll-behavior: none; }
 .overlay, .modal, .bell-panel .bp-body, .me-panel { overscroll-behavior: contain; }
+
+/* 2.26 — tombol lebih terlihat, kolom cari rata, tabel PO rapi di HP, tombol Keluar merah */
+.btn.btn-resolve { background: #E8F6EE; border-color: #9FD6B8; color: #17663F; font-weight: 700; gap: 6px; }
+.btn.btn-resolve:hover { background: #D6F0E2; color: #17663F; }
+.btn.btn-see { background: #EEF0FA; border-color: #C9CFEE; color: #26348B; font-weight: 700; gap: 2px; padding: 0 10px 0 12px; }
+.btn.btn-see:hover { background: #E0E4F7; color: #26348B; }
+.btn.btn-logout { background: #FDECEA; border-color: #F4B9B0; color: #B42318; font-weight: 700; }
+.btn.btn-logout:hover { background: #FAD9D4; color: #B42318; }
+.h-search { flex: 1 1 260px; max-width: 320px; }
+.need-q { width: 100%; }
+.po-tbl { table-layout: fixed; width: 100%; }
+.po-tbl col.c-name { width: 40%; } .po-tbl col.c-rp { width: 26%; }
+.po-tbl th, .po-tbl td { white-space: nowrap; }
+.po-tbl td:first-child { white-space: normal; word-break: break-word; }
+@media (max-width: 899px) {
+  .h-search { flex: 1 1 100%; max-width: none; width: 100%; }
+  .row.wrap.between:has(> .h-search) > * { flex: 1 1 100%; }
+  .po-tbl { font-size: 12.5px; }
+  .po-tbl th, .po-tbl td { padding: 9px 6px; }
+  .po-tbl th:first-child, .po-tbl td:first-child { padding-left: 12px; }
+  .po-tbl th:last-child, .po-tbl td:last-child { padding-right: 12px; }
+  .po-tbl col.c-name { width: 36%; } .po-tbl col.c-rp { width: 27%; }
+  .po-tbl .xs { font-size: 10.5px; }
+  .table-wrap:has(> .po-tbl) { overflow-x: visible; }
+}
+@media (max-width: 899px) { td .btn.btn-see { width: 100%; justify-content: center; min-height: 38px; } }
