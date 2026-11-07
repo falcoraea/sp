@@ -1280,3 +1280,28 @@ body { touch-action: pan-x pan-y; overscroll-behavior-y: none; }
   .dash-hero:has(.dh-main) .dh-top { display: flex; }
   .dh-main { max-width: 520px; }
 }
+
+/* =========================================================
+   2.19 — dashboard HP: header & bagian biru menyatu, mata tanpa kotak, nominal disembunyikan dengan titik
+   ========================================================= */
+.amt-hidden .kpi .value, .amt-hidden .dh-val { filter: none !important; font-size: 0 !important; letter-spacing: 0; }
+.amt-hidden .kpi .value::after, .amt-hidden .dh-val::after { content: 'Rp •••••••'; font-size: 18px; letter-spacing: .06em; }
+.amt-hidden .dh-val::after { font-size: 28px; }
+.amt-hidden .dl, .amt-hidden .dl-prev { display: none !important; }
+.dh-eye { background: none !important; border: 0 !important; box-shadow: none !important; width: 36px; height: 36px; border-radius: 99px; }
+@media (max-width: 899px) {
+  /* warna rata di sambungan header ↔ bagian biru, tanpa kilau */
+  body[data-page="dashboard"] .topbar:not(.scrolled) { background: #26348B; }
+  .dash-hero::before { background: linear-gradient(180deg, #26348B 0%, #24318A 55%, #1E2A79 100%); }
+  body[data-page="dashboard"] .bill-bar { background: #26348B; }
+  .dash-hero .dh-eye { color: #fff; opacity: .9; }
+  .dash-hero .dh-hi { font-size: 15px; }
+  .dash-hero .dh-hi b { font-weight: 700; }
+  /* kartu laba bersih: biru navy */
+  .dash-hero .kpi.dark { background: linear-gradient(135deg, #3546A8 0%, #26348B 50%, #1A2461 100%); color: #fff; border: 0; border-left: 0;
+    box-shadow: 0 14px 30px -14px rgba(26,36,97,.75); position: relative; overflow: hidden; }
+  .dash-hero .kpi.dark::after { content: ''; position: absolute; right: -30px; top: -40px; width: 140px; height: 140px; border-radius: 99px; background: rgba(255,255,255,.07); }
+  .dash-hero .kpi.dark .label { color: #C9D0F2 !important; }
+  .dash-hero .kpi.dark .sub { color: #9FD6B8 !important; }
+  .dash-hero .kpi.dark .value { color: #fff; font-size: 24px; }
+}
