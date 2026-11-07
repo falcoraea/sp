@@ -2,7 +2,7 @@ import { store } from './store.js';
 import { modOn } from './modules.js';
 // Daftar halaman, siapa yang boleh membuka, dan susunan menu per jabatan.
 export const PAGES = {
-  dashboard:  { label: 'Dashboard', icon: 'home', roles: ['owner'], group: '' },
+  dashboard:  { label: 'Dashboard', short: 'Beranda', icon: 'home', roles: ['*'], group: '' },
   masalah:    { label: 'Kecurangan & masalah', short: 'Masalah', icon: 'shield', roles: ['owner'], group: '' },
   catat:      { label: 'Catat pesanan', short: 'Catat', icon: 'barcode', roles: ['owner', 'admin', 'kepala_gudang'], group: 'Penjualan' },
   pesanan:    { label: 'Pesanan', icon: 'bag', roles: ['owner', 'admin', 'cs'], group: 'Penjualan' },
@@ -54,21 +54,21 @@ export const PAGES = {
 // menu ikon bawah di HP (maks 4 + "Lainnya")
 export const TABS = {
   owner: ['dashboard', 'masalah', 'rekap', 'harga'],
-  admin: ['pesanan', 'upload', 'beli', 'barang'],
-  sopir: ['tugas', 'absen', 'notifikasi', 'akun'],
-  kepala_gudang: ['catat', 'beli', 'terima', 'stok'],
-  picker: ['ambil', 'absen', 'notifikasi', 'akun'],
-  packing: ['packing', 'absen', 'notifikasi', 'akun'],
-  keuangan: ['kas', 'laporan', 'pajak', 'absen'],
-  supervisor: ['catat', 'stok', 'kinerja', 'gudang'],
-  qc: ['qc', 'cek', 'absen', 'notifikasi'],
-  cs: ['komplain', 'pesanan', 'absen', 'notifikasi'],
-  marketing: ['katalog', 'stok', 'absen', 'notifikasi'],
+  admin: ['dashboard', 'pesanan', 'upload', 'beli'],
+  sopir: ['dashboard', 'tugas', 'absen', 'notifikasi'],
+  kepala_gudang: ['dashboard', 'catat', 'terima', 'stok'],
+  picker: ['dashboard', 'ambil', 'absen', 'notifikasi'],
+  packing: ['dashboard', 'packing', 'absen', 'notifikasi'],
+  keuangan: ['dashboard', 'kas', 'laporan', 'pajak'],
+  supervisor: ['dashboard', 'catat', 'stok', 'kinerja'],
+  qc: ['dashboard', 'qc', 'cek', 'absen'],
+  cs: ['dashboard', 'komplain', 'pesanan', 'absen'],
+  marketing: ['dashboard', 'katalog', 'stok', 'absen'],
   superadmin: ['superadmin', 'sa-jabatan', 'sa-modul', 'sa-tagihan']
 };
 
-export const HOME = { owner: 'dashboard', admin: 'pesanan', sopir: 'tugas', kepala_gudang: 'catat', picker: 'ambil', packing: 'packing',
-  keuangan: 'kas', supervisor: 'catat', qc: 'qc', cs: 'komplain', marketing: 'katalog', superadmin: 'superadmin' };
+export const HOME = { owner: 'dashboard', admin: 'dashboard', sopir: 'dashboard', kepala_gudang: 'dashboard', picker: 'dashboard', packing: 'dashboard',
+  keuangan: 'dashboard', supervisor: 'dashboard', qc: 'dashboard', cs: 'dashboard', marketing: 'dashboard', superadmin: 'superadmin' };
 
 const SA_EXTRA = ['log', 'akun', 'notifikasi', 'panduan', 'menu'];
 export function canOpen(page, role) {
@@ -96,4 +96,13 @@ export const TAB_MAX = 4;
 export function tabsFor(role, prefs) {
   const mine = prefs && Array.isArray(prefs[role]) ? prefs[role].filter((k) => PAGES[k] && !PAGES[k].hidden && k !== 'menu' && canOpen(k, role)).slice(0, TAB_MAX) : null;
   return mine && mine.length ? mine : (TABS[role] || []);
+}
+
+// menu pintas di Dashboard ("Menu utama"): pilihan pengguna atau bawaan (menu jabatan selain Dashboard)
+export const SHORT_MAX = 8;
+export function shortcutsFor(role, prefs) {
+  const ok = (k) => PAGES[k] && !PAGES[k].hidden && k !== 'menu' && k !== 'dashboard' && canOpen(k, role);
+  const mine = prefs && Array.isArray(prefs['dash:' + role]) ? prefs['dash:' + role].filter(ok).slice(0, SHORT_MAX) : null;
+  if (mine && mine.length) return mine;
+  return menuFor(role).map((m) => m.key).filter(ok).slice(0, SHORT_MAX);
 }
