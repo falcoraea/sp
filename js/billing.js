@@ -26,7 +26,7 @@ export async function callTagihan(body) {
 export const returnUrl = (id) => location.origin + location.pathname + '#/tagihan?cek=' + id;
 
 export const billRow = (b, actions = '') => `<div class="list-item bill-item ${['belum', 'menunggu'].includes(b.status) ? 'open' : ''}">
-  <div class="grow" style="min-width:0"><div class="row wrap" style="gap:6px">${billTag(b)}<span class="tag">${b.kind === 'bulanan' ? 'Bulanan' : 'Khusus'}</span></div>
+  <div class="grow" style="min-width:0"><div class="row wrap" style="gap:6px">${billTag(b)}<span class="tag">${b.kind === 'bulanan' ? 'Bulanan' : b.module_code ? 'Menu tambahan' : 'Khusus'}</span></div>
     <b style="display:block;margin-top:6px">${esc(b.title)}</b>
     ${b.description ? `<div class="small muted" style="white-space:pre-line">${esc(b.description)}</div>` : ''}
     <div class="xs muted" style="margin-top:4px">Jatuh tempo ${fmtDate(b.due_date)}${b.paid_at ? ' · dibayar ' + fmtDate(b.paid_at) + (b.paid_note ? ' (' + esc(b.paid_note) + ')' : '') : ''}</div></div>
