@@ -343,6 +343,7 @@ function subscribe() {
 // ---------- router ----------
 // bar pengingat tagihan aplikasi (owner): tampil kalau ada tagihan terlambat / jatuh tempo ≤ 7 hari
 let billBarAt = 0, billUnpaid = 0;
+addEventListener('bills-changed', () => { if (store.role === 'owner') billBar(); });
 async function billBar() {
   billBarAt = Date.now();
   try {
@@ -351,13 +352,14 @@ async function billBar() {
     document.getElementById('bill-bar')?.remove();
     billUnpaid = data?.length || 0;
     document.querySelector('.tb-logo')?.classList.toggle('has-bill', !!billUnpaid);
+    document.querySelector('.tb-bill')?.classList.toggle('has-bill', !!billUnpaid);
     const badge = document.querySelector('[data-bill-badge]');
     if (badge) { badge.classList.toggle('hidden', !data?.length); badge.textContent = data?.length > 1 ? data.length : ''; }
     if (error || !data?.length || data[0].due_date > addDays(todayStr(), 7)) return;
     const late = data[0].due_date < todayStr();
     const bar = document.createElement('a');
     bar.id = 'bill-bar'; bar.href = '#/tagihan'; bar.className = 'bill-bar' + (late ? ' late' : '');
-    bar.innerHTML = `${icon('receipt', 16)}<span><b>Tagihan ${rp(data.reduce((a, b) => a + Number(b.amount), 0))}</b> · ${late ? 'terlambat sejak' : 'jatuh tempo'} ${fmtDate(data[0].due_date, { day: 'numeric', month: 'short' })}</span><span class="bb-btn">Bayar</span>`;
+    bar.innerHTML = `${icon('receipt', 16)}<span><b>Tagihan ${rp(data.reduce((a, b) => a + Number(b.amount), 0))}</b> · ${late ? 'terlambat sejak' : 'jatuh tempo'} ${fmtDate(data[0].due_date, { day: 'numeric', month: 'short' })}</span><span class="bb-btn blink">Bayar</span>`;
     document.querySelector('.topbar')?.after(bar);
     if (location.hash.startsWith('#/tagihan')) bar.classList.add('hidden');
   } catch (_) {}
