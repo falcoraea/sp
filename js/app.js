@@ -234,9 +234,7 @@ async function showVersion() {
       <div class="ver-big ${old ? 'old' : 'ok'}"><span>Dipakai di perangkat ini</span><b>${esc(versionLabel())}</b><small>${old ? 'Ada versi lebih baru' : 'Sudah versi terbaru'}</small></div>
       <div class="line-row"><span>Versi terbaru di server</span><b class="mono">${l ? 'v' + esc(l.version) : '–'}</b></div>
       <div class="line-row"><span>Diterbitkan</span><b>${esc(fmt(l?.date))}</b></div>
-      ${l?.note ? `<div class="line-row"><span>Catatan update</span><b style="text-align:right">${esc(l.note)}</b></div>` : ''}
       <div class="line-row"><span>Perangkat</span><b>${esc(deviceLabel())}</b></div>
-      ${CURRENT.build === 'dev' ? '<div class="alert yellow small">Nomor versi otomatis belum aktif. Ikuti langkah "GitHub Actions" di panduan update 1.7.</div>' : ''}
     </div>`,
     actions: [{ label: 'Tutup', value: null }, { label: old ? 'Perbarui sekarang' : 'Muat ulang', cls: 'btn-primary', value: 'upd' }]
   });
