@@ -25,6 +25,7 @@ export const PAGES = {
   harga:      { label: 'Atur harga', short: 'Harga', icon: 'tag', roles: ['owner'], group: 'Keuangan' },
   laba:       { label: 'Laba per barang', short: 'Laba', icon: 'chart', roles: ['owner'], group: 'Keuangan' },
   gaji:       { label: 'Gaji & operasional', short: 'Gaji', icon: 'wallet', roles: ['owner'], group: 'Keuangan' },
+  'rekap-absen': { label: 'Rekap absensi', short: 'Rekap absen', icon: 'calendar', roles: ['owner', 'supervisor', 'keuangan'], group: 'Keuangan', mod: 'rekap_absen' },
   kas:        { label: 'Keuangan & kas', short: 'Kas', icon: 'wallet', roles: ['owner', 'keuangan'], group: 'Keuangan', mod: 'kas' },
   laporan:    { label: 'Laporan premium', short: 'Laporan', icon: 'chart', roles: ['owner', 'keuangan'], group: 'Keuangan', mod: 'laporan' },
   pajak:      { label: 'Pajak UMKM', short: 'Pajak', icon: 'receipt', roles: ['owner', 'keuangan'], group: 'Keuangan', mod: 'pajak' },
@@ -34,9 +35,10 @@ export const PAGES = {
   log:        { label: 'Log aktivitas', short: 'Log', icon: 'clock', roles: ['owner'], group: 'Pengaturan' },
   pengumuman: { label: 'Pengumuman', short: 'Info', icon: 'bell', roles: ['owner'], group: 'Pengaturan' },
   pengaturan: { label: 'Pengaturan', icon: 'gear', roles: ['owner'], group: 'Pengaturan' },
+  integrasi:  { label: 'Hubungkan Shopee / TikTok', short: 'Integrasi', icon: 'link', roles: ['owner'], group: 'Pengaturan', mod: 'integrasi' },
   modul:      { label: 'Menu tambahan', short: 'Tambahan', icon: 'lock', roles: ['owner'], group: 'Pengaturan' },
   tagihan:    { label: 'Tagihan', icon: 'receipt', roles: ['owner'], group: 'Pengaturan', hidden: true },   // dibuka dari ikon tagihan di bar atas
-  absen:      { label: 'Absen', icon: 'clock', roles: ['owner', 'admin', 'sopir', 'kepala_gudang', 'picker', 'packing', 'keuangan', 'qc', 'cs', 'marketing'], group: 'Saya' },
+  absen:      { label: 'Absen', icon: 'clock', mod: 'absensi', roles: ['owner', 'admin', 'sopir', 'kepala_gudang', 'picker', 'packing', 'keuangan', 'qc', 'cs', 'marketing'], group: 'Saya' },
   notifikasi: { label: 'Notifikasi', icon: 'bell', roles: ['*'], group: 'Saya', hidden: true },
   'pengaturan-scanner': { label: 'Pengaturan scanner', short: 'Scanner', icon: 'bt', roles: ['*'], group: 'Saya' },
   // ----- menu khusus super admin (pembuat aplikasi) -----
